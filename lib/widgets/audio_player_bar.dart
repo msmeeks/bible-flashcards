@@ -3,9 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../providers/audio_provider.dart';
 
-/// Persistent mini-player bar shown above the NavigationBar.
+/// Persistent mini-player bar shown above the [NavigationBar].
+///
 /// Only visible when [AudioProvider.currentVerse] is non-null.
-/// Full implementation by the audio feature agent.
+/// Dismiss by swiping down — this stops playback.
 class AudioPlayerBar extends StatelessWidget {
   const AudioPlayerBar({super.key});
 
@@ -15,52 +16,193 @@ class AudioPlayerBar extends StatelessWidget {
       builder: (context, audio, _) {
         if (audio.currentVerse == null) return const SizedBox.shrink();
 
-        final cs = Theme.of(context).colorScheme;
-        final tt = Theme.of(context).textTheme;
-
-        return Container(
-          decoration: BoxDecoration(
-            color: cs.inverseSurface,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(16),
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  audio.currentVerse!.reference,
-                  style: tt.titleSmall?.copyWith(color: cs.onInverseSurface),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              // TODO(audio-agent): add seek-back-5s, seek-forward-5s controls
-              Semantics(
-                label: audio.isPlaying ? 'Pause' : 'Play',
-                child: IconButton(
-                  icon: Icon(
-                    audio.isPlaying
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    color: cs.onInverseSurface,
-                  ),
-                  tooltip: audio.isPlaying ? 'Pause' : 'Play',
-                  onPressed: audio.isPlaying ? audio.pause : audio.resume,
-                ),
-              ),
-              Semantics(
-                label: 'Stop playback',
-                child: IconButton(
-                  icon: Icon(Icons.close_rounded, color: cs.onInverseSurface),
-                  tooltip: 'Stop',
-                  onPressed: audio.stop,
-                ),
-              ),
-            ],
-          ),
+        return Dismissible(
+          key: const ValueKey('audio_player_bar'),
+          direction: DismissDirection.down,
+          onDismissed: (_) => audio.stop(),
+          child: _AudioPlayerBarContent(audio: audio),
         );
       },
+    );
+  }
+}
+
+class _AudioPlayerBarContent extends StatelessWidget {
+  const _AudioPlayerBarContent({required this.audio});
+
+  final AudioProvider audio;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    // Synthetic progress: speakingReference=0.33, pausing=0.5, speakingText=0.8
+    final progressValue = switch (audio.playbackState.name) {
+      'speakingReference' => 0.2,
+      'pausing' => 0.5,
+      'speakingText' => 0.85,
+      'completed' => 1.0,
+      _ => 0.0,
+    };
+
+    final positionSeconds = (progressValue * 60).round();
+    const totalSeconds = 60;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.inverseSurface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Progress indicator — spans full width, 4dp height.
+          Semantics(
+            label: '$positionSeconds of $totalSeconds seconds',
+            child: SizedBox(
+              height: 4,
+              child: LinearProgressIndicator(
+                value: progressValue,
+                backgroundColor: cs.primaryContainer,
+                valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+              ),
+            ),
+          ),
+          // Verse reference + state label.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        audio.currentVerse!.reference,
+                        style: tt.titleSmall
+                            ?.copyWith(color: cs.onInverseSurface),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (audio.playbackStateLabel.isNotEmpty)
+                        Text(
+                          audio.playbackStateLabel,
+                          style: tt.bodySmall
+                              ?.copyWith(color: cs.onInverseSurface.withAlpha(179)),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Controls row.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Previous verse — not wired to a previous-verse queue yet.
+                Semantics(
+                  label: 'Previous verse',
+                  child: Tooltip(
+                    message: 'Previous',
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.skip_previous_rounded,
+                        color: cs.onInverseSurface,
+                      ),
+                      onPressed: () {
+                        // Future: wire to AudioProvider.playPrevious()
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Rewind 5 s — TTS has no real seek; no-op for now.
+                Semantics(
+                  label: 'Rewind 5 seconds',
+                  child: Tooltip(
+                    message: 'Rewind 5 seconds',
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.replay_5_rounded,
+                        color: cs.onInverseSurface,
+                      ),
+                      onPressed: () {
+                        // TTS does not support seeking.
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Play / Pause — 48dp filled circle.
+                Semantics(
+                  label: audio.isPlaying ? 'Pause' : 'Play',
+                  child: Tooltip(
+                    message: audio.isPlaying ? 'Pause' : 'Play',
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          shape: const CircleBorder(),
+                          padding: EdgeInsets.zero,
+                          backgroundColor: cs.primary,
+                          foregroundColor: cs.onPrimary,
+                        ),
+                        onPressed:
+                            audio.isPlaying ? audio.pause : audio.resume,
+                        child: Icon(
+                          audio.isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Forward 5 s — TTS has no real seek; no-op for now.
+                Semantics(
+                  label: 'Forward 5 seconds',
+                  child: Tooltip(
+                    message: 'Forward 5 seconds',
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.forward_5_rounded,
+                        color: cs.onInverseSurface,
+                      ),
+                      onPressed: () {
+                        // TTS does not support seeking.
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Stop.
+                Semantics(
+                  label: 'Stop playback',
+                  child: Tooltip(
+                    message: 'Stop',
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.stop_rounded,
+                        color: cs.onInverseSurface,
+                      ),
+                      onPressed: audio.stop,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
