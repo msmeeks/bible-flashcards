@@ -258,6 +258,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     max: 1.0,
                     divisions: 10,
                     label: '${(current * 100).round()}%',
+                    semanticFormatterCallback: (v) => '${(v * 100).round()}%',
                     onChanged: (value) {
                       setDialogState(() => current = value);
                     },

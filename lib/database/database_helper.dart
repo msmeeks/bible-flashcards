@@ -3,9 +3,9 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/test_result.dart';
@@ -15,9 +15,11 @@ class DatabaseHelper {
   static const _dbName = 'bible_flashcards.db';
   static const _dbVersion = 1;
 
-  // Preference key for the stored encryption seed.
-  // TODO: Replace with Android Keystore-backed key derivation for production.
-  static const _prefKeyDbSeed = 'db_encryption_seed_v1';
+  // Key stored in Android Keystore / iOS Keychain via flutter_secure_storage.
+  static const _secureKeyDbSeed = 'db_encryption_seed_v1';
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   static DatabaseHelper? _instance;
   static Database? _db;
@@ -57,18 +59,16 @@ class DatabaseHelper {
   }
 
   /// Derives a deterministic encryption key from a per-install random seed.
-  /// TODO: Migrate seed storage to Android Keystore for hardware-backed security.
+  /// The seed is stored in Android Keystore / iOS Keychain via flutter_secure_storage,
+  /// making it hardware-bound and inaccessible to other apps or unencrypted backups.
   Future<String> _encryptionKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    var seed = prefs.getString(_prefKeyDbSeed);
+    var seed = await _secureStorage.read(key: _secureKeyDbSeed);
     if (seed == null) {
-      // Generate a fresh 32-byte random seed on first run.
       final rng = Random.secure();
       final bytes = List<int>.generate(32, (_) => rng.nextInt(256));
       seed = base64Url.encode(bytes);
-      await prefs.setString(_prefKeyDbSeed, seed);
+      await _secureStorage.write(key: _secureKeyDbSeed, value: seed);
     }
-    // Derive the SQLCipher key via SHA-256 to normalise length/encoding.
     final digest = sha256.convert(utf8.encode(seed));
     return digest.toString();
   }

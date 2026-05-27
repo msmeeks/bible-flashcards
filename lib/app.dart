@@ -59,7 +59,8 @@ class BibleFlashcardsApp extends StatelessWidget {
               '/verse-detail': (_) => const VerseDetailScreen(),
               '/verse-add': (_) => const AddVerseScreen(),
               '/test': (_) => const TestScreen(),
-              '/test-result': (_) => const TestScreen(),
+              // TestResultScreen requires a sessionResult argument and is pushed
+              // imperatively from TestSessionScreen; no named route needed.
               '/settings': (_) => const SettingsScreen(),
             },
           );

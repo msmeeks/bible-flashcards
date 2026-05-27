@@ -21,6 +21,7 @@ class Verse {
     required this.addedAt,
   });
 
+  // Use clearMemorizedAt: true to explicitly set memorizedAt back to null.
   Verse copyWith({
     String? id,
     String? reference,
@@ -30,6 +31,7 @@ class Verse {
     bool? isMemorized,
     bool? isVerseOfWeek,
     DateTime? memorizedAt,
+    bool clearMemorizedAt = false,
     DateTime? addedAt,
   }) {
     return Verse(
@@ -40,7 +42,7 @@ class Verse {
       packId: packId ?? this.packId,
       isMemorized: isMemorized ?? this.isMemorized,
       isVerseOfWeek: isVerseOfWeek ?? this.isVerseOfWeek,
-      memorizedAt: memorizedAt ?? this.memorizedAt,
+      memorizedAt: clearMemorizedAt ? null : (memorizedAt ?? this.memorizedAt),
       addedAt: addedAt ?? this.addedAt,
     );
   }

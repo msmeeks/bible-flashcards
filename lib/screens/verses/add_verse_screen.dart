@@ -17,6 +17,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _textController = TextEditingController();
   String _translation = 'ESV';
   bool _isSaving = false;
+  String? _saveError;
 
   @override
   void dispose() {
@@ -53,10 +54,10 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to save verse. Please try again.')),
-        );
+        setState(() {
+          _isSaving = false;
+          _saveError = 'Failed to save verse. Please try again.';
+        });
       }
     }
   }
@@ -78,9 +79,13 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                 labelText: 'Reference e.g. Romans 8:28',
               ),
               textCapitalization: TextCapitalization.words,
+              maxLength: 100,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Reference is required';
+                }
+                if (value.trim().length > 100) {
+                  return 'Reference is too long';
                 }
                 return null;
               },
@@ -124,13 +129,29 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               },
             ),
             const SizedBox(height: 32),
+            if (_saveError != null)
+              Semantics(
+                liveRegion: true,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    _saveError!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                  ),
+                ),
+              ),
             FilledButton(
               onPressed: _isSaving ? null : _saveVerse,
               child: _isSaving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  ? Semantics(
+                      label: 'Saving, please wait',
+                      child: const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     )
                   : const Text('Save Verse'),
             ),

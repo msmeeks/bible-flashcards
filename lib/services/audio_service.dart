@@ -35,10 +35,12 @@ class AudioService {
 
   Stream<AudioPlaybackState> get playbackStateStream => _stateController.stream;
 
-  // Track whether we are in the pause phase to know what to resume.
   _PlayPhase _pausedPhase = _PlayPhase.none;
   Verse? _pausedVerse;
   bool _isStopped = false;
+
+  // Single completer for the current utterance — replaced atomically on each speak call.
+  Completer<void>? _utteranceCompleter;
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -50,6 +52,13 @@ class AudioService {
     await _tts.setSpeechRate(0.85);
     await _tts.setVolume(1.0);
     await _tts.setPitch(1.0);
+    // Register handlers once so they are never replaced mid-utterance.
+    _tts.setCompletionHandler(() => _utteranceCompleter?.complete());
+    _tts.setCancelHandler(() => _utteranceCompleter?.complete());
+    _tts.setErrorHandler((dynamic _) {
+      _emit(AudioPlaybackState.error);
+      _utteranceCompleter?.complete();
+    });
     _initialized = true;
   }
 
@@ -165,23 +174,10 @@ class AudioService {
   // ---------------------------------------------------------------------------
 
   Future<void> _speakAndWait(String text) async {
-    final completer = Completer<void>();
-
-    _tts.setCompletionHandler(() {
-      if (!completer.isCompleted) completer.complete();
-    });
-    _tts.setErrorHandler((dynamic message) {
-      if (!completer.isCompleted) {
-        _emit(AudioPlaybackState.error);
-        completer.complete();
-      }
-    });
-    _tts.setCancelHandler(() {
-      if (!completer.isCompleted) completer.complete();
-    });
-
+    _utteranceCompleter = Completer<void>();
     await _tts.speak(text);
-    await completer.future;
+    await _utteranceCompleter!.future;
+    _utteranceCompleter = null;
   }
 
   void _emit(AudioPlaybackState state) {

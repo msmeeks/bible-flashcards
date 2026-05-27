@@ -27,8 +27,7 @@ dependencies:
   # Icons
   material_symbols_icons: 4.2719.3
 
-  # Audio playback
-  just_audio: 0.9.40
+  # Audio playback (TTS only; just_audio removed as unused)
   flutter_tts: 4.1.0
 
   # Notifications
@@ -42,6 +41,9 @@ dependencies:
 
   # Settings persistence
   shared_preferences: 2.3.2
+
+  # Hardware-backed key storage (Android Keystore / iOS Keychain) for DB key
+  flutter_secure_storage: 9.2.2
 
   # Key derivation (no analytics SDKs)
   crypto: 3.0.3

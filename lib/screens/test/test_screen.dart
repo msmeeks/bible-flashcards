@@ -44,20 +44,12 @@ class _TestScreenState extends State<TestScreen> {
         ? [provider.verseOfWeek!]
         : provider.getRandomMemorizedVerses(5);
 
-    final modeStr =
-        _mode == TestMode.verseOfWeek ? 'verse_of_week' : 'review';
-    final formatStr = switch (_format) {
-      TestFormat.recite => 'recite',
-      TestFormat.type => 'type',
-      TestFormat.fillBlank => 'fill_blank',
-    };
-
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TestSessionScreen(
           verses: verses,
-          testMode: modeStr,
-          testFormat: formatStr,
+          testMode: _mode,
+          testFormat: _format,
           promptDirection: _direction,
         ),
         fullscreenDialog: true,
@@ -196,7 +188,9 @@ class _ErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
+    return Semantics(
+      liveRegion: true,
+      child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cs.errorContainer,
@@ -216,6 +210,7 @@ class _ErrorCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

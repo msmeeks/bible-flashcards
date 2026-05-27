@@ -68,8 +68,8 @@ class TestSessionScreen extends StatefulWidget {
   });
 
   final List<Verse> verses;
-  final String testMode;
-  final String testFormat;
+  final TestMode testMode;
+  final TestFormat testFormat;
   final PromptDirection promptDirection;
 
   @override
@@ -145,8 +145,8 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     final result = VerseTestResult(
       verseId: _currentVerse.id,
       accuracy: accuracy,
-      testMode: widget.testMode,
-      testFormat: widget.testFormat,
+      testMode: widget.testMode.name,
+      testFormat: widget.testFormat.name,
       testedAt: DateTime.now(),
     );
     _results.add(result);
@@ -314,10 +314,9 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
   Widget _buildAnswerArea(ColorScheme cs, TextTheme tt) {
     return switch (widget.testFormat) {
-      'recite' => _buildReciteArea(cs),
-      'type' => _buildTypeArea(cs, tt),
-      'fill_blank' => _buildFillBlankArea(cs, tt),
-      _ => _buildReciteArea(cs),
+      TestFormat.recite => _buildReciteArea(cs),
+      TestFormat.type => _buildTypeArea(cs, tt),
+      TestFormat.fillBlank => _buildFillBlankArea(cs, tt),
     };
   }
 
@@ -397,23 +396,20 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       final blankIdx = _currentBlankIndices.indexOf(i);
       if (blankIdx >= 0) {
         spans.add(
-          Semantics(
-            label:
-                'Word ${blankIdx + 1} of ${_currentBlankIndices.length}',
-            child: SizedBox(
-              width: 80,
-              child: TextField(
-                controller: _blankControllers[blankIdx],
-                focusNode: _blankFocusNodes[blankIdx],
-                decoration: const InputDecoration(
-                  isDense: true,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                ),
-                style: tt.bodyLarge,
-                enabled: !_showingBlankResult,
-                textCapitalization: TextCapitalization.none,
+          SizedBox(
+            width: 80,
+            child: TextField(
+              controller: _blankControllers[blankIdx],
+              focusNode: _blankFocusNodes[blankIdx],
+              decoration: InputDecoration(
+                labelText: 'Blank ${blankIdx + 1} of ${_currentBlankIndices.length}',
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               ),
+              style: tt.bodyLarge,
+              enabled: !_showingBlankResult,
+              textCapitalization: TextCapitalization.none,
             ),
           ),
         );
@@ -466,20 +462,23 @@ class _PromptCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return Container(
-      constraints: const BoxConstraints(minHeight: 180),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.tertiaryContainer,
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
-      ),
-      child: Center(
-        child: Text(
-          text,
-          style: isReference
-              ? tt.titleMedium?.copyWith(color: cs.onTertiaryContainer)
-              : tt.headlineMedium?.copyWith(color: cs.onTertiaryContainer),
-          textAlign: TextAlign.center,
+    return Semantics(
+      label: isReference ? 'Prompt: reference — $text' : 'Prompt: verse text — $text',
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 180),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cs.tertiaryContainer,
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: isReference
+                ? tt.titleMedium?.copyWith(color: cs.onTertiaryContainer)
+                : tt.headlineMedium?.copyWith(color: cs.onTertiaryContainer),
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
     );
@@ -497,15 +496,19 @@ class _ScoreReveal extends StatelessWidget {
     final pct = (score * 100).round();
     final Color bg;
     final Color fg;
+    final IconData icon;
     if (score >= 0.9) {
       bg = cs.successContainer;
       fg = cs.onSuccessContainer;
+      icon = Icons.check_circle_rounded;
     } else if (score >= 0.7) {
       bg = cs.warningContainer;
       fg = cs.onWarningContainer;
+      icon = Icons.warning_amber_rounded;
     } else {
       bg = cs.errorContainer;
       fg = cs.onErrorContainer;
+      icon = Icons.cancel_rounded;
     }
 
     return Semantics(
@@ -517,13 +520,20 @@ class _ScoreReveal extends StatelessWidget {
           color: bg,
           borderRadius: const BorderRadius.all(Radius.circular(8)),
         ),
-        child: Text(
-          '$pct%',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: fg,
-                fontWeight: FontWeight.w600,
-              ),
-          textAlign: TextAlign.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: fg, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              '$pct%',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: fg,
+                    fontWeight: FontWeight.w400,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );

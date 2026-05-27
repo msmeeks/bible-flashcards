@@ -12,10 +12,10 @@ import '../services/notification_service.dart';
 /// [playbackStateLabel] to drive UI.
 class AudioProvider extends ChangeNotifier {
   AudioProvider({
+    required NotificationService notificationService,
     AudioService? audioService,
-    NotificationService? notificationService,
   })  : _audio = audioService ?? AudioService(),
-        _notifications = notificationService ?? NotificationService() {
+        _notifications = notificationService {
     _stateSubscription = _audio.playbackStateStream.listen(_onPlaybackState);
   }
 

@@ -20,13 +20,8 @@ class VerseProvider extends ChangeNotifier {
   List<Verse> get availableVerses =>
       _verses.where((v) => !v.isMemorized).toList();
 
-  Verse? get verseOfWeek {
-    try {
-      return _verses.firstWhere((v) => v.isVerseOfWeek);
-    } catch (_) {
-      return null;
-    }
-  }
+  Verse? get verseOfWeek =>
+      _verses.where((v) => v.isVerseOfWeek).firstOrNull;
 
   bool get isLoading => _isLoading;
   String? get error => _error;

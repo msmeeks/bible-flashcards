@@ -12,7 +12,8 @@ class AudioReviewService {
   final AudioService _audioService;
 
   bool _active = false;
-  StreamSubscription<AudioPlaybackState>? _stateSubscription;
+  // Incremented on each start so stale loop iterations self-terminate.
+  int _generation = 0;
   List<Verse> _verses = [];
   final _rng = Random();
 
@@ -20,8 +21,7 @@ class AudioReviewService {
 
   /// Starts the review loop using [verses].
   ///
-  /// [verseOfWeekId] is reserved for future prioritisation (e.g., ensuring the
-  /// verse-of-week appears first). Currently the pool is randomly shuffled.
+  /// [verseOfWeekId] is reserved for future prioritisation.
   void startReview(
     List<Verse> verses, {
     required String verseOfWeekId,
@@ -30,15 +30,15 @@ class AudioReviewService {
     if (verses.isEmpty) return;
 
     _active = true;
+    _generation++;
     _verses = List<Verse>.from(verses);
-    _runLoop();
+    _runLoop(_generation);
   }
 
   /// Stops the review loop and any current playback.
   Future<void> stopReview() async {
     _active = false;
-    await _stateSubscription?.cancel();
-    _stateSubscription = null;
+    _generation++; // invalidates any in-flight loop iteration
     await _audioService.stop();
   }
 
@@ -46,23 +46,23 @@ class AudioReviewService {
   // Private
   // ---------------------------------------------------------------------------
 
-  Future<void> _runLoop() async {
+  Future<void> _runLoop(int generation) async {
     if (_verses.isEmpty) return;
     final pool = List<Verse>.from(_verses)..shuffle(_rng);
     var index = 0;
 
-    while (_active) {
+    while (_active && _generation == generation) {
       final verse = pool[index % pool.length];
       index++;
 
       await _audioService.playVerse(verse);
 
-      if (!_active) break;
+      if (!_active || _generation != generation) break;
 
       // Brief inter-verse pause.
       await Future<void>.delayed(const Duration(seconds: 3));
 
-      if (!_active) break;
+      if (!_active || _generation != generation) break;
 
       // Reshuffle when we cycle through the full pool.
       if (index % pool.length == 0) pool.shuffle(_rng);

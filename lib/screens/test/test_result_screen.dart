@@ -23,6 +23,7 @@ class _TestResultScreenState extends State<TestResultScreen> {
   Future<void> _persistResults() async {
     final db = DatabaseHelper();
     for (final result in widget.sessionResult.verseResults) {
+      if (!mounted) return;
       await db.insertTestResult(result);
     }
   }
