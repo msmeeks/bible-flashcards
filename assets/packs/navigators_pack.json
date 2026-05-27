@@ -1,0 +1,251 @@
+{
+  "packs": [
+    {
+      "id": "nav_tms_part1",
+      "name": "Topical Memory System — Part 1",
+      "description": "The Navigators Topical Memory System",
+      "verses": [
+        {
+          "id": "esv_john_1_12",
+          "reference": "John 1:12",
+          "text": "But to all who did receive him, who believed in his name, he gave the right to become children of God,",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Living the New Life"
+        },
+        {
+          "id": "esv_2cor_5_17",
+          "reference": "2 Corinthians 5:17",
+          "text": "Therefore, if anyone is in Christ, he is a new creation. The old has passed away; behold, the new has come.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Living the New Life"
+        },
+        {
+          "id": "esv_john_5_24",
+          "reference": "John 5:24",
+          "text": "Truly, truly, I say to you, whoever hears my word and believes him who sent me has eternal life. He does not come into judgment, but has passed from death to life.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Living the New Life"
+        },
+        {
+          "id": "esv_1john_5_11_12",
+          "reference": "1 John 5:11–12",
+          "text": "And this is the testimony, that God gave us eternal life, and this life is in his Son. Whoever has the Son has life; whoever does not have the Son of God does not have life.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Living the New Life"
+        },
+        {
+          "id": "esv_1cor_10_13",
+          "reference": "1 Corinthians 10:13",
+          "text": "No temptation has overtaken you that is not common to man. God is faithful, and he will not let you be tempted beyond your ability, but with the temptation he will also provide the way of escape, that you may be able to endure it.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Living the New Life"
+        },
+        {
+          "id": "esv_phil_4_13",
+          "reference": "Philippians 4:13",
+          "text": "I can do all things through him who strengthens me.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Living the New Life"
+        },
+        {
+          "id": "esv_matt_4_19",
+          "reference": "Matthew 4:19",
+          "text": "And he said to them, "Follow me, and I will make you fishers of men."",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Proclaiming Christ"
+        },
+        {
+          "id": "esv_rom_1_16",
+          "reference": "Romans 1:16",
+          "text": "For I am not ashamed of the gospel, for it is the power of God for salvation to everyone who believes, to the Jew first and also to the Greek.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Proclaiming Christ"
+        },
+        {
+          "id": "esv_1cor_15_3_4",
+          "reference": "1 Corinthians 15:3–4",
+          "text": "For I delivered to you as of first importance what I also received: that Christ died for our sins in accordance with the Scriptures, that he was buried, that he was raised on the third day in accordance with the Scriptures,",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Proclaiming Christ"
+        },
+        {
+          "id": "esv_2tim_2_2",
+          "reference": "2 Timothy 2:2",
+          "text": "and what you have heard from me in the presence of many witnesses entrust to faithful men, who will be able to teach others also.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Proclaiming Christ"
+        },
+        {
+          "id": "esv_2tim_4_2",
+          "reference": "2 Timothy 4:2",
+          "text": "preach the word; be ready in season and out of season; reprove, rebuke, and exhort, with complete patience and teaching.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Proclaiming Christ"
+        },
+        {
+          "id": "esv_rev_3_20",
+          "reference": "Revelation 3:20",
+          "text": "Behold, I stand at the door and knock. If anyone hears my voice and opens the door, I will come in to him and eat with him, and he with me.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Proclaiming Christ"
+        },
+        {
+          "id": "esv_john_15_7",
+          "reference": "John 15:7",
+          "text": "If you abide in me, and my words abide in you, ask whatever you wish, and it will be done for you.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Relying on God's Resources"
+        },
+        {
+          "id": "esv_prov_3_5_6",
+          "reference": "Proverbs 3:5–6",
+          "text": "Trust in the Lord with all your heart, and do not lean on your own understanding. In all your ways acknowledge him, and he will make straight your paths.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Relying on God's Resources"
+        },
+        {
+          "id": "esv_rom_8_28_29",
+          "reference": "Romans 8:28–29",
+          "text": "And we know that for those who love God all things work together for good, for those who are called according to his purpose. For those whom he foreknew he also predestined to be conformed to the image of his Son, in order that he might be the firstborn among many brothers.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Relying on God's Resources"
+        },
+        {
+          "id": "esv_phil_4_6_7",
+          "reference": "Philippians 4:6–7",
+          "text": "do not be anxious about anything, but in everything by prayer and supplication with thanksgiving let your requests be made known to God. And the peace of God, which surpasses all understanding, will guard your hearts and your minds in Christ Jesus.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Relying on God's Resources"
+        },
+        {
+          "id": "esv_1pet_5_7",
+          "reference": "1 Peter 5:7",
+          "text": "casting all your anxieties on him, because he cares for you.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Relying on God's Resources"
+        },
+        {
+          "id": "esv_isa_26_3",
+          "reference": "Isaiah 26:3",
+          "text": "You keep him in perfect peace whose mind is stayed on you, because he trusts in you.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Relying on God's Resources"
+        },
+        {
+          "id": "esv_luke_9_23",
+          "reference": "Luke 9:23",
+          "text": "And he said to all, "If anyone would come after me, let him deny himself and take up his cross daily and follow me."",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Being Christ's Disciple"
+        },
+        {
+          "id": "esv_rom_12_1",
+          "reference": "Romans 12:1",
+          "text": "I appeal to you therefore, brothers, by the mercies of God, to present your bodies as a living sacrifice, holy and acceptable to God, which is your spiritual worship.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Being Christ's Disciple"
+        },
+        {
+          "id": "esv_rom_12_2",
+          "reference": "Romans 12:2",
+          "text": "Do not be conformed to this world, but be transformed by the renewal of your mind, that by testing you may discern what is the will of God, what is good and acceptable and perfect.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Being Christ's Disciple"
+        },
+        {
+          "id": "esv_2cor_5_7",
+          "reference": "2 Corinthians 5:7",
+          "text": "for we walk by faith, not by sight.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Being Christ's Disciple"
+        },
+        {
+          "id": "esv_phil_1_21",
+          "reference": "Philippians 1:21",
+          "text": "For to me to live is Christ, and to die is gain.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Being Christ's Disciple"
+        },
+        {
+          "id": "esv_phil_4_11",
+          "reference": "Philippians 4:11",
+          "text": "Not that I am speaking of being in need, for I have learned, in whatever situation I am, to be content.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Being Christ's Disciple"
+        },
+        {
+          "id": "esv_2tim_3_16",
+          "reference": "2 Timothy 3:16",
+          "text": "All Scripture is breathed out by God and profitable for teaching, for reproof, for correction, and for training in righteousness,",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Growing in Christ"
+        },
+        {
+          "id": "esv_josh_1_8",
+          "reference": "Joshua 1:8",
+          "text": "This Book of the Law shall not depart from your mouth, but you shall meditate on it day and night, so that you may be careful to do according to all that is written in it. For then you will make your way prosperous, and then you will have good success.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Growing in Christ"
+        },
+        {
+          "id": "esv_john_15_5",
+          "reference": "John 15:5",
+          "text": "I am the vine; you are the branches. Whoever abides in me and I in him, he it is that bears much fruit, for apart from me you can do nothing.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Growing in Christ"
+        },
+        {
+          "id": "esv_1pet_2_2",
+          "reference": "1 Peter 2:2",
+          "text": "Like newborn infants, long for the pure spiritual milk, that by it you may grow up into salvation—",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Growing in Christ"
+        },
+        {
+          "id": "esv_2pet_3_18",
+          "reference": "2 Peter 3:18",
+          "text": "But grow in the grace and knowledge of our Lord and Savior Jesus Christ. To him be the glory both now and to the day of eternity. Amen.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Growing in Christ"
+        },
+        {
+          "id": "esv_heb_10_25",
+          "reference": "Hebrews 10:25",
+          "text": "not neglecting to meet together, as is the habit of some, but encouraging one another, and all the more as you see the Day drawing near.",
+          "translation": "ESV",
+          "pack_id": "nav_tms_part1",
+          "category": "Growing in Christ"
+        }
+      ]
+    }
+  ]
+}

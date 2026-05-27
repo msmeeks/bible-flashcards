@@ -1,0 +1,58 @@
+name: bible_flashcards
+description: Bible verse memorization flashcards app for Android.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Database — encrypted SQLite
+  sqflite_sqlcipher: 2.4.0
+
+  # File paths
+  path_provider: 2.1.3
+  path: 1.9.0
+
+  # State management
+  provider: 6.1.2
+
+  # Typography
+  google_fonts: 6.2.1
+
+  # Icons
+  material_symbols_icons: 4.2719.3
+
+  # Audio playback
+  just_audio: 0.9.40
+  flutter_tts: 4.1.0
+
+  # Notifications
+  flutter_local_notifications: 17.2.2
+
+  # Permissions (requested at point-of-use only)
+  permission_handler: 11.3.1
+
+  # Animation
+  flutter_animate: 4.5.0
+
+  # Settings persistence
+  shared_preferences: 2.3.2
+
+  # Key derivation (no analytics SDKs)
+  crypto: 3.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/packs/
