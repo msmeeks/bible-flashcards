@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- Added `scripts/setup-mac.sh`: one-command macOS bootstrap for Flutter/Android toolchain (Homebrew, Java 17, cmdline-tools, Pixel 9 Pro AVD); idempotent, embeds troubleshooting guide, supports `--skip-emulator` and `--verify-only` flags
 
 ## [2026-05-27] — Full App Implementation
 - Home screen: verse-of-week card, quick-action buttons, recent memorized verse chips

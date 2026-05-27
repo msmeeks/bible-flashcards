@@ -1,5 +1,28 @@
 # Developer Guide
 
+## Quick start (macOS)
+
+If you are setting up from scratch on a Mac, run the one-command setup script:
+
+```sh
+cd /path/to/bible-flashcards
+bash scripts/setup-mac.sh
+```
+
+This installs Homebrew, Java 17, Flutter, Android command-line tools (API 35),
+and creates a Pixel 9 Pro emulator. Safe to re-run. Flags:
+
+| Flag | Effect |
+|---|---|
+| `--skip-emulator` | Skip AVD creation (physical device only) |
+| `--verify-only` | Check what is/isn't installed without making changes |
+| `--help` | Print full usage and troubleshooting guide |
+
+After the script finishes, follow its printed instructions to add `JAVA_HOME`,
+`ANDROID_HOME`, and PATH entries to your `~/.zshrc`.
+
+---
+
 ## Prerequisites
 
 | Tool | Version | Install |
