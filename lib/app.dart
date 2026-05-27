@@ -8,7 +8,8 @@ import 'providers/verse_provider.dart';
 import 'screens/main_scaffold.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/test/test_screen.dart';
-import 'screens/verses/verses_screen.dart';
+import 'screens/verses/add_verse_screen.dart';
+import 'screens/verses/verse_detail_screen.dart';
 import 'theme/app_theme.dart';
 
 class BibleFlashcardsApp extends StatelessWidget {
@@ -50,8 +51,8 @@ class BibleFlashcardsApp extends StatelessWidget {
             initialRoute: '/',
             routes: {
               '/': (_) => const MainScaffold(),
-              '/verse-detail': (_) => const VersesScreen(),
-              '/verse-add': (_) => const VersesScreen(),
+              '/verse-detail': (_) => const VerseDetailScreen(),
+              '/verse-add': (_) => const AddVerseScreen(),
               '/test': (_) => const TestScreen(),
               '/test-result': (_) => const TestScreen(),
               '/settings': (_) => const SettingsScreen(),
