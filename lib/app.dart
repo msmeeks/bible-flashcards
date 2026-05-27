@@ -10,16 +10,19 @@ import 'screens/settings/settings_screen.dart';
 import 'screens/test/test_screen.dart';
 import 'screens/verses/add_verse_screen.dart';
 import 'screens/verses/verse_detail_screen.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
 class BibleFlashcardsApp extends StatelessWidget {
   final DatabaseHelper dbHelper;
   final SettingsProvider settingsProvider;
+  final NotificationService notificationService;
 
   const BibleFlashcardsApp({
     super.key,
     required this.dbHelper,
     required this.settingsProvider,
+    required this.notificationService,
   });
 
   @override
@@ -31,7 +34,9 @@ class BibleFlashcardsApp extends StatelessWidget {
           create: (_) => VerseProvider(dbHelper)..loadVerses(),
         ),
         ChangeNotifierProvider<AudioProvider>(
-          create: (_) => AudioProvider(),
+          create: (_) => AudioProvider(
+            notificationService: notificationService,
+          ),
         ),
       ],
       child: Consumer<SettingsProvider>(

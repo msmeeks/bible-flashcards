@@ -1,68 +1,121 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
 
 import '../models/verse.dart';
+import '../services/audio_service.dart';
+import '../services/notification_service.dart';
 
-/// State provider for audio playback.
-/// Full playback implementation is handled by the audio feature agent.
+/// State provider for TTS audio playback.
+///
+/// Consumers observe [isPlaying], [currentVerse], [playbackState], and
+/// [playbackStateLabel] to drive UI.
 class AudioProvider extends ChangeNotifier {
-  final AudioPlayer _player = AudioPlayer();
+  AudioProvider({
+    AudioService? audioService,
+    NotificationService? notificationService,
+  })  : _audio = audioService ?? AudioService(),
+        _notifications = notificationService ?? NotificationService() {
+    _stateSubscription = _audio.playbackStateStream.listen(_onPlaybackState);
+  }
+
+  final AudioService _audio;
+  final NotificationService _notifications;
+  late final StreamSubscription<AudioPlaybackState> _stateSubscription;
 
   bool _isPlaying = false;
   Verse? _currentVerse;
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
+  AudioPlaybackState _playbackState = AudioPlaybackState.idle;
+
+  // Position/duration are retained for widget API compatibility.
+  // TTS does not expose real elapsed time.
+  final Duration _position = Duration.zero;
+  final Duration _duration = Duration.zero;
 
   bool get isPlaying => _isPlaying;
   Verse? get currentVerse => _currentVerse;
   Duration get position => _position;
   Duration get duration => _duration;
+  AudioPlaybackState get playbackState => _playbackState;
+
+  /// Human-readable label for the current playback phase, shown in the player bar.
+  String get playbackStateLabel => switch (_playbackState) {
+        AudioPlaybackState.speakingReference => 'Speaking reference…',
+        AudioPlaybackState.pausing => 'Pausing…',
+        AudioPlaybackState.speakingText => 'Speaking text…',
+        AudioPlaybackState.completed => 'Completed',
+        AudioPlaybackState.error => 'Error',
+        AudioPlaybackState.idle => '',
+      };
 
   // ---------------------------------------------------------------------------
-  // Stubs — audio feature agent implements these
+  // Public API
   // ---------------------------------------------------------------------------
 
-  /// Begins playback of [verse] text-to-speech audio.
+  /// Begins TTS playback of [verse] and shows the persistent playback notification.
   Future<void> playVerse(Verse verse) async {
-    // TODO(audio-agent): implement TTS loading and playback via AudioService
     _currentVerse = verse;
     _isPlaying = true;
     notifyListeners();
+    await _notifications.showPlaybackNotification(verse);
+    // Playback state stream drives subsequent UI updates.
+    unawaited(_audio.playVerse(verse));
   }
 
+  /// Pauses TTS (stops the current utterance; resumes from current phase).
   Future<void> pause() async {
-    // TODO(audio-agent): implement pause
-    await _player.pause();
+    await _audio.pause();
     _isPlaying = false;
     notifyListeners();
   }
 
+  /// Resumes from the paused phase.
   Future<void> resume() async {
-    // TODO(audio-agent): implement resume
-    await _player.play();
     _isPlaying = true;
     notifyListeners();
+    unawaited(_audio.resume());
   }
 
-  Future<void> seek(Duration position) async {
-    // TODO(audio-agent): implement seek
-    await _player.seek(position);
-    _position = position;
+  /// Seek is not supported for TTS — kept for API compatibility.
+  Future<void> seek(Duration position) async {}
+
+  /// Stops all playback and dismisses the persistent notification.
+  Future<void> stop() async {
+    await _audio.stop();
+    await _notifications.cancelNotification();
+    _isPlaying = false;
+    _currentVerse = null;
     notifyListeners();
   }
 
-  Future<void> stop() async {
-    // TODO(audio-agent): implement stop
-    await _player.stop();
-    _isPlaying = false;
-    _currentVerse = null;
-    _position = Duration.zero;
+  // ---------------------------------------------------------------------------
+  // Private
+  // ---------------------------------------------------------------------------
+
+  void _onPlaybackState(AudioPlaybackState state) {
+    _playbackState = state;
+    switch (state) {
+      case AudioPlaybackState.speakingReference:
+      case AudioPlaybackState.pausing:
+      case AudioPlaybackState.speakingText:
+        _isPlaying = true;
+      case AudioPlaybackState.completed:
+        _isPlaying = false;
+        _currentVerse = null;
+        unawaited(_notifications.cancelNotification());
+      case AudioPlaybackState.error:
+        _isPlaying = false;
+        unawaited(_notifications.cancelNotification());
+      case AudioPlaybackState.idle:
+        _isPlaying = false;
+    }
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _player.dispose();
+    _stateSubscription.cancel();
+    _audio.dispose();
     super.dispose();
   }
 }

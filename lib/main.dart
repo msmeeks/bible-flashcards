@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'database/database_helper.dart';
 import 'providers/settings_provider.dart';
+import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,12 +17,17 @@ Future<void> main() async {
   final settingsProvider = SettingsProvider();
   await settingsProvider.load();
 
+  // Initialise notification channels (must run before any notification call).
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+
   // No permissions requested at startup — all requested at point-of-use.
 
   runApp(
     BibleFlashcardsApp(
       dbHelper: dbHelper,
       settingsProvider: settingsProvider,
+      notificationService: notificationService,
     ),
   );
 }

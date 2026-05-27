@@ -1,39 +1,149 @@
+import 'dart:async';
+
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 import '../models/verse.dart';
 
-/// Manages local notifications for verse-of-week reminders and audio interrupts.
-/// Full implementation by the audio feature agent.
+/// Manages local notifications for audio playback state and verse interrupts.
 ///
-/// Notification visibility is set to VISIBILITY_PRIVATE — no PII on lock screen.
+/// Privacy: notification bodies never contain verse text or references.
+/// All notifications use [NotificationVisibility.private].
 class NotificationService {
-  /// Initialises the notification channels. Call once at app startup.
-  Future<void> init() async {
-    // TODO(audio-agent): initialise flutter_local_notifications channels
-    // Channel must use VISIBILITY_PRIVATE and appropriate importance.
-    throw UnimplementedError('NotificationService.init');
+  static const _channelId = 'bible_flashcards_audio';
+  static const _channelName = 'Audio Playback';
+  static const _playbackNotifId = 1;
+  static const _interruptNotifId = 2;
+
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+
+  /// Callback invoked when the user taps a notification action.
+  /// [actionId] values: 'pause', 'stop', 'play', 'dismiss'.
+  void Function(String actionId)? onAction;
+
+  // ---------------------------------------------------------------------------
+  // Initialization
+  // ---------------------------------------------------------------------------
+
+  /// Initializes channels and handlers. Call once at app startup.
+  Future<void> initialize() async {
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const darwinInit = DarwinInitializationSettings();
+
+    const initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: darwinInit,
+    );
+
+    await _plugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: _handleResponse,
+      onDidReceiveBackgroundNotificationResponse: _handleBackgroundResponse,
+    );
+
+    // Create the audio channel.
+    const channel = AndroidNotificationChannel(
+      _channelId,
+      _channelName,
+      importance: Importance.low,
+      playSound: false,
+      enableVibration: false,
+    );
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
   }
 
-  /// Schedules a daily reminder notification for [verse].
-  Future<void> scheduleVerseReminder(Verse verse, DateTime scheduledAt) async {
-    // TODO(audio-agent): schedule via flutter_local_notifications
-    throw UnimplementedError('NotificationService.scheduleVerseReminder');
+  // ---------------------------------------------------------------------------
+  // Notifications
+  // ---------------------------------------------------------------------------
+
+  /// Shows a persistent ongoing notification while a verse is playing.
+  ///
+  /// Body is generic — no verse text or reference exposed.
+  Future<void> showPlaybackNotification(Verse verse) async {
+    final androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: true,
+      autoCancel: false,
+      visibility: NotificationVisibility.private,
+      playSound: false,
+      enableVibration: false,
+      actions: const [
+        AndroidNotificationAction('pause', 'Pause'),
+        AndroidNotificationAction('stop', 'Stop'),
+      ],
+    );
+
+    final notifDetails = NotificationDetails(android: androidDetails);
+
+    await _plugin.show(
+      _playbackNotifId,
+      'Bible Flashcards',
+      'Playing verse',
+      notifDetails,
+    );
   }
 
-  /// Cancels all scheduled verse reminder notifications.
-  Future<void> cancelAllReminders() async {
-    // TODO(audio-agent): cancel all notifications
-    throw UnimplementedError('NotificationService.cancelAllReminders');
+  /// Shows a non-ongoing interrupt notification prompting the user to play a
+  /// memorized verse.
+  ///
+  /// Body is generic — no verse text or reference exposed.
+  Future<void> showVerseInterruptNotification(Verse verse) async {
+    final androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: false,
+      autoCancel: true,
+      visibility: NotificationVisibility.private,
+      playSound: false,
+      enableVibration: false,
+      actions: const [
+        AndroidNotificationAction('play', 'Play'),
+        AndroidNotificationAction('dismiss', 'Dismiss'),
+      ],
+    );
+
+    final notifDetails = NotificationDetails(android: androidDetails);
+
+    await _plugin.show(
+      _interruptNotifId,
+      'Bible Flashcards — Time for a verse',
+      'Tap to hear your verse',
+      notifDetails,
+    );
   }
 
-  /// Shows an in-progress notification while audio review is playing.
-  Future<void> showAudioReviewNotification(Verse verse) async {
-    // TODO(audio-agent): show foreground service notification
-    throw UnimplementedError('NotificationService.showAudioReviewNotification');
+  /// Cancels the persistent playback notification.
+  Future<void> cancelNotification() async {
+    await _plugin.cancel(_playbackNotifId);
   }
 
-  /// Dismisses the audio review notification.
-  Future<void> dismissAudioReviewNotification() async {
-    // TODO(audio-agent): cancel audio review notification
-    throw UnimplementedError(
-        'NotificationService.dismissAudioReviewNotification');
+  /// Cancels all notifications.
+  Future<void> cancelAll() async {
+    await _plugin.cancelAll();
   }
+
+  // ---------------------------------------------------------------------------
+  // Private
+  // ---------------------------------------------------------------------------
+
+  void _handleResponse(NotificationResponse response) {
+    final action = response.actionId;
+    if (action != null) onAction?.call(action);
+  }
+}
+
+// Top-level function required by flutter_local_notifications for background
+// notification action handling.
+@pragma('vm:entry-point')
+void _handleBackgroundResponse(NotificationResponse response) {
+  // Background actions are handled at app resume; no-op here.
 }
