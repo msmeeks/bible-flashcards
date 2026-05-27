@@ -1,0 +1,35 @@
+# Build outputs
+build/
+.dart_tool/
+.pub-cache/
+
+# Generated code
+*.g.dart
+*.freezed.dart
+
+# Platform directories (not needed for Android-only development)
+ios/
+linux/
+macos/
+windows/
+web/
+
+# Android native (generated)
+android/
+
+# Media assets
+assets/**/*.mp4
+assets/**/*.png
+assets/**/*.jpg
+
+# Coverage and test output
+coverage/
+*.lcov
+
+# Lock files
+pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
