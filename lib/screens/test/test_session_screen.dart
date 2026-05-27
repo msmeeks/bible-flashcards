@@ -3,60 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/test_result.dart';
 import '../../models/verse.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/scoring.dart';
 import 'test_enums.dart';
 import 'test_result_screen.dart';
-
-/// Computes a 0.0–1.0 similarity score using word-level LCS.
-/// The typed input is consumed here and not returned or stored.
-double _computeScore(String typed, String correct) {
-  String normalize(String s) => s
-      .toLowerCase()
-      .replaceAll(RegExp(r"[^\w\s']"), '')
-      .trim()
-      .replaceAll(RegExp(r'\s+'), ' ');
-
-  final typedWords =
-      normalize(typed).split(' ').where((w) => w.isNotEmpty).toList();
-  final correctWords =
-      normalize(correct).split(' ').where((w) => w.isNotEmpty).toList();
-
-  if (typedWords.isEmpty && correctWords.isEmpty) return 1.0;
-  if (typedWords.isEmpty || correctWords.isEmpty) return 0.0;
-
-  // LCS dynamic programming
-  final m = typedWords.length;
-  final n = correctWords.length;
-  final dp = List.generate(m + 1, (_) => List<int>.filled(n + 1, 0));
-  for (var i = 1; i <= m; i++) {
-    for (var j = 1; j <= n; j++) {
-      if (typedWords[i - 1] == correctWords[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = dp[i - 1][j] > dp[i][j - 1] ? dp[i - 1][j] : dp[i][j - 1];
-      }
-    }
-  }
-  final lcs = dp[m][n];
-  final maxLen = m > n ? m : n;
-  return lcs / maxLen;
-}
-
-/// Determines which word indices in [words] should be blanks,
-/// selecting approximately every 3rd–5th word.
-List<int> _blankIndices(List<String> words) {
-  final indices = <int>[];
-  var step = 3;
-  var nextBlank = step - 1;
-  for (var i = 0; i < words.length; i++) {
-    if (i == nextBlank) {
-      indices.add(i);
-      // Cycle step through 3, 4, 5
-      step = 3 + (indices.length % 3);
-      nextBlank = i + step;
-    }
-  }
-  return indices;
-}
 
 class TestSessionScreen extends StatefulWidget {
   const TestSessionScreen({
@@ -113,7 +62,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
   void _initBlankState() {
     _currentBlankWords = _answerText.split(' ');
-    _currentBlankIndices = _blankIndices(_currentBlankWords);
+    _currentBlankIndices = blankIndices(_currentBlankWords);
     _blankControllers = List.generate(
       _currentBlankIndices.length,
       (_) => TextEditingController(),
@@ -186,7 +135,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   void _onReciteDidntKnow() => _recordAndAdvance(0.0);
 
   Future<void> _onTypeCheck() async {
-    final score = _computeScore(_typeController.text, _answerText);
+    final score = computeScore(_typeController.text, _answerText);
     _typeController.clear(); // discard typed input immediately
 
     setState(() {

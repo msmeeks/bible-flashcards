@@ -17,12 +17,12 @@ A test session is a sequence of verse cards. The user first configures mode, for
 ## Key Files
 | File | Purpose |
 |---|---|
-| `lib/features/test_modes/test_setup_screen.dart` | Mode, format, and direction pickers |
-| `lib/features/test_modes/test_session_screen.dart` | Active card display, recite/type/fill-blank input |
-| `lib/features/test_modes/test_results_screen.dart` | Per-card scores, session total, save to history |
-| `lib/models/test_session.dart` | Session domain model (mode, cards, scores) |
-| `lib/data/test_dao.dart` | Persist and retrieve test history |
-| `lib/providers/test_provider.dart` | Active session state and scoring logic |
+| `lib/screens/test/test_screen.dart` | Mode, format, and direction pickers |
+| `lib/screens/test/test_session_screen.dart` | Active card display, recite/type/fill-blank input |
+| `lib/screens/test/test_result_screen.dart` | Per-card scores, session total |
+| `lib/screens/test/test_enums.dart` | `TestMode`, `TestFormat`, `PromptDirection` enums |
+| `lib/models/test_result.dart` | `VerseTestResult` and `TestSessionResult` models |
+| `lib/utils/scoring.dart` | `computeScore` (LCS) and `blankIndices` functions |
 
 ## Technical Detail
 
@@ -31,7 +31,7 @@ A test session is a sequence of verse cards. The user first configures mode, for
 ```dart
 enum TestMode { verseOfWeek, review }
 enum TestFormat { recite, type, fillBlank }
-enum PromptDirection { referenceToText, textToReference }
+enum PromptDirection { refToText, textToRef }
 ```
 
 `fillBlank` ignores `PromptDirection` (always reference context → masked text).
@@ -64,12 +64,12 @@ score = lcs_length(typed_words, correct_words) / max(len(typed_words), len(corre
 - Denominator is `max(typed length, correct length)` — penalises both omissions and extra words equally.
 - Result is clamped to 0–100%.
 
-**Recite responses**: user self-rates accuracy after seeing the correct answer. Rating options: 0 / 25 / 50 / 75 / 100.
+**Recite responses**: user self-rates with "I knew it" (1.0) or "Didn't know" (0.0) after seeing the correct answer.
 
 **Session total** = arithmetic mean of all card scores.
 
 ### Fill-in-Blank Word Selection
-Words to mask are selected by pattern: every Nth word is masked (N determined by difficulty setting, default every 5th word). Short function words (≤ 3 characters) are skipped and the next eligible word is masked instead, ensuring content words are always tested.
+Words to mask are selected by `blankIndices()` in `lib/utils/scoring.dart`. The step cycles 3→4→5→3→… using `step = 3 + (blankCount % 3)` after each blank is placed, starting with the word at index 2. There is no difficulty setting and no short-word skipping.
 
 ### Privacy
 Typed test input is held only in ephemeral widget state. It is discarded immediately after the scoring function runs and is never written to the database or logs.
@@ -82,3 +82,4 @@ Each completed session is stored with: timestamp, mode, list of (reference, scor
 |---|---|
 | 2026-05-27 | Initial documentation |
 | 2026-05-27 | Updated with full implementation: enum types, word-level LCS scoring algorithm, fill-blank word selection pattern, setup/session/results screen structure, privacy decision on typed input |
+| 2026-05-27 | Corrected enum identifiers, file paths, fill-blank algorithm description, recite scoring values; extracted scoring logic to lib/utils/scoring.dart; added unit tests |
