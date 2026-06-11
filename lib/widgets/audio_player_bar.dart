@@ -106,7 +106,7 @@ class _AudioPlayerBarContent extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Previous verse — not wired to a previous-verse queue yet.
+                // Previous verse — not implemented; disabled.
                 Semantics(
                   label: 'Previous verse',
                   child: Tooltip(
@@ -116,14 +116,12 @@ class _AudioPlayerBarContent extends StatelessWidget {
                         Icons.skip_previous_rounded,
                         color: cs.onInverseSurface,
                       ),
-                      onPressed: () {
-                        // Future: wire to AudioProvider.playPrevious()
-                      },
+                      onPressed: null,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Rewind 5 s — TTS has no real seek; no-op for now.
+                // Rewind — TTS has no real seek; disabled.
                 Semantics(
                   label: 'Rewind 5 seconds',
                   child: Tooltip(
@@ -133,16 +131,16 @@ class _AudioPlayerBarContent extends StatelessWidget {
                         Icons.replay_5_rounded,
                         color: cs.onInverseSurface,
                       ),
-                      onPressed: () {
-                        // TTS does not support seeking.
-                      },
+                      onPressed: null,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Play / Pause — 48dp filled circle.
+                // Play / Pause — 48dp filled circle; disabled when completed.
                 Semantics(
                   label: audio.isPlaying ? 'Pause' : 'Play',
+                  enabled: !audio.isCompleted,
+                  button: true,
                   child: Tooltip(
                     message: audio.isPlaying ? 'Pause' : 'Play',
                     child: SizedBox(
@@ -154,9 +152,12 @@ class _AudioPlayerBarContent extends StatelessWidget {
                           padding: EdgeInsets.zero,
                           backgroundColor: cs.primary,
                           foregroundColor: cs.onPrimary,
+                          disabledBackgroundColor: cs.onInverseSurface.withAlpha(31),
+                          disabledForegroundColor: cs.onInverseSurface.withAlpha(97),
                         ),
-                        onPressed:
-                            audio.isPlaying ? audio.pause : audio.resume,
+                        onPressed: audio.isCompleted
+                            ? null
+                            : (audio.isPlaying ? audio.pause : audio.resume),
                         child: Icon(
                           audio.isPlaying
                               ? Icons.pause_rounded
@@ -167,7 +168,7 @@ class _AudioPlayerBarContent extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Forward 5 s — TTS has no real seek; no-op for now.
+                // Forward — TTS has no real seek; disabled.
                 Semantics(
                   label: 'Forward 5 seconds',
                   child: Tooltip(
@@ -177,9 +178,7 @@ class _AudioPlayerBarContent extends StatelessWidget {
                         Icons.forward_5_rounded,
                         color: cs.onInverseSurface,
                       ),
-                      onPressed: () {
-                        // TTS does not support seeking.
-                      },
+                      onPressed: null,
                     ),
                   ),
                 ),

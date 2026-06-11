@@ -173,7 +173,7 @@ class DatabaseHelper {
     await db.insert(
       'verses',
       verse.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      conflictAlgorithm: ConflictAlgorithm.ignore,
     );
   }
 
@@ -205,5 +205,11 @@ class DatabaseHelper {
   Future<void> clearTestHistory() async {
     final db = await database;
     await db.delete('test_results');
+  }
+
+  // Erases test history for a single verse — called on unmarkMemorized to satisfy data erasure.
+  Future<void> clearTestResultsForVerse(String verseId) async {
+    final db = await database;
+    await db.delete('test_results', where: 'verse_id = ?', whereArgs: [verseId]);
   }
 }
