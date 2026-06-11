@@ -207,9 +207,21 @@ class DatabaseHelper {
     await db.delete('test_results');
   }
 
-  // Erases test history for a single verse — called on unmarkMemorized to satisfy data erasure.
-  Future<void> clearTestResultsForVerse(String verseId) async {
+  // Atomically clears memorized status and erases test history — satisfies GDPR data erasure on unmark.
+  Future<void> unmarkMemorizedVerse(Verse updatedVerse) async {
     final db = await database;
-    await db.delete('test_results', where: 'verse_id = ?', whereArgs: [verseId]);
+    await db.transaction((txn) async {
+      await txn.update(
+        'verses',
+        updatedVerse.toMap(),
+        where: 'id = ?',
+        whereArgs: [updatedVerse.id],
+      );
+      await txn.delete(
+        'test_results',
+        where: 'verse_id = ?',
+        whereArgs: [updatedVerse.id],
+      );
+    });
   }
 }

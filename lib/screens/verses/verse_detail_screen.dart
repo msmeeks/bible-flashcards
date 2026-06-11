@@ -44,7 +44,6 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
           );
         }
 
-        final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
 
         return Scaffold(
@@ -137,7 +136,7 @@ class _RemoveMemorizedButton extends StatelessWidget {
             builder: (ctx) => AlertDialog(
               title: const Text('Remove from memorized?'),
               content: const Text(
-                  'This verse will move back to the Available list.'),
+                  'This verse will move back to the Available list and all test history for it will be permanently deleted.'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
@@ -158,10 +157,14 @@ class _RemoveMemorizedButton extends StatelessWidget {
                 'Verse removed from memorized',
                 TextDirection.ltr,
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Verse removed from memorized')),
-              );
-              Navigator.of(context).pop();
+              // Delay pop one frame so TalkBack can process the announcement before focus jumps.
+              await Future<void>.delayed(Duration.zero);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Verse removed from memorized')),
+                );
+                Navigator.of(context).pop();
+              }
             }
           }
         },

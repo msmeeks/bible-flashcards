@@ -110,6 +110,7 @@ class AudioProvider extends ChangeNotifier {
         unawaited(_notifications.cancelNotification());
       case AudioPlaybackState.idle:
         _isPlaying = false;
+        _currentVerse = null;
     }
     notifyListeners();
   }

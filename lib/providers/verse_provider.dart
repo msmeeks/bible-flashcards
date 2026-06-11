@@ -78,8 +78,7 @@ class VerseProvider extends ChangeNotifier {
     final index = _verses.indexWhere((v) => v.id == id);
     if (index == -1) return;
     final updated = _verses[index].copyWith(isMemorized: false, clearMemorizedAt: true);
-    await _db.updateVerse(updated);
-    await _db.clearTestResultsForVerse(id);
+    await _db.unmarkMemorizedVerse(updated);
     await loadVerses();
   }
 
