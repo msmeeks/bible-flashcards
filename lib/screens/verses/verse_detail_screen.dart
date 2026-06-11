@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -153,10 +155,11 @@ class _RemoveMemorizedButton extends StatelessWidget {
           if (confirmed == true && context.mounted) {
             await context.read<VerseProvider>().unmarkMemorized(verseId);
             if (context.mounted) {
-              SemanticsService.announce(
+              unawaited(SemanticsService.sendAnnouncement(
+                View.of(context),
                 'Verse removed from memorized',
                 TextDirection.ltr,
-              );
+              ));
               // Delay pop one frame so TalkBack can process the announcement before focus jumps.
               await Future<void>.delayed(Duration.zero);
               if (context.mounted) {
