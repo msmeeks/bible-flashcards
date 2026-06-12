@@ -206,4 +206,19 @@ class DatabaseHelper {
     final db = await database;
     await db.delete('test_results');
   }
+
+  Future<double?> getLatestVerseAccuracy(String verseId) async {
+    final db = await database;
+    final rows = await db.query(
+      'test_results',
+      columns: ['accuracy'],
+      where: 'verse_id = ?',
+      whereArgs: [verseId],
+      orderBy: 'tested_at DESC',
+      limit: 5,
+    );
+    if (rows.isEmpty) return null;
+    final avg = rows.map((r) => r['accuracy'] as double).reduce((a, b) => a + b) / rows.length;
+    return avg;
+  }
 }

@@ -43,7 +43,6 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
           );
         }
 
-        final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
 
         return Scaffold(

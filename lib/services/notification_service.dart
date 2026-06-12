@@ -36,7 +36,7 @@ class NotificationService {
     );
 
     await _plugin.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: _handleResponse,
       onDidReceiveBackgroundNotificationResponse: _handleBackgroundResponse,
     );
@@ -83,10 +83,10 @@ class NotificationService {
     final notifDetails = NotificationDetails(android: androidDetails);
 
     await _plugin.show(
-      _playbackNotifId,
-      'Bible Flashcards',
-      'Playing verse',
-      notifDetails,
+      id: _playbackNotifId,
+      title: 'Bible Flashcards',
+      body: 'Playing verse',
+      notificationDetails: notifDetails,
     );
   }
 
@@ -114,16 +114,16 @@ class NotificationService {
     final notifDetails = NotificationDetails(android: androidDetails);
 
     await _plugin.show(
-      _interruptNotifId,
-      'Bible Flashcards — Time for a verse',
-      'Tap to hear your verse',
-      notifDetails,
+      id: _interruptNotifId,
+      title: 'Bible Flashcards — Time for a verse',
+      body: 'Tap to hear your verse',
+      notificationDetails: notifDetails,
     );
   }
 
   /// Cancels the persistent playback notification.
   Future<void> cancelNotification() async {
-    await _plugin.cancel(_playbackNotifId);
+    await _plugin.cancel(id: _playbackNotifId);
   }
 
   /// Cancels all notifications.
