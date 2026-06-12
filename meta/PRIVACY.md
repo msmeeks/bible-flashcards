@@ -1,7 +1,7 @@
 # Privacy Policy — Bible Flashcards
 
 ## Summary
-Bible Flashcards collects no personal data, uses no network, and stores all data exclusively on the user's device. There is nothing to transmit, share, or delete remotely.
+Bible Flashcards collects no personal data and stores all data exclusively on the user's device. Optional verse lookup and pack import features make outbound HTTPS requests to bible.helloao.org; these are user-initiated and require explicit consent before the first network call.
 
 ## Data Collected
 
@@ -18,7 +18,7 @@ Bible Flashcards collects no personal data, uses no network, and stores all data
 - No usage analytics or crash reporting
 - No location data
 - No audio recordings (the user's voice is never captured; recite mode is self-scored)
-- No network requests of any kind
+- No automatic network requests; all network calls are user-initiated and require prior consent
 
 ## PII Assessment
 No PII is collected or processed. Verse text and references are not personal information.
@@ -30,8 +30,20 @@ No PII is collected or processed. Verse text and references are not personal inf
 | `FOREGROUND_SERVICE` | Background audio playback |
 | `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Audio classification for Android media session |
 | `POST_NOTIFICATIONS` (Android 13+) | Dismissible interruption notification |
+| `INTERNET` | Optional verse lookup and pack import; user-initiated only; requires explicit consent on first use |
 
-No internet, camera, microphone, contacts, or storage permissions are requested.
+No camera, microphone, contacts, or storage permissions are requested.
+
+## Network Requests
+
+Verse lookup sends HTTPS requests to `bible.helloao.org` (a free public Bible API). No other external hosts are contacted.
+
+- Requests are user-initiated (tap Search); the app never auto-fetches.
+- The user's IP address is visible to `bible.helloao.org` as the remote host for each request.
+- The verse reference typed by the user is included as a path component in the lookup URL.
+- No account, device identifier, or PII is sent.
+- All traffic is HTTPS-only; cleartext is blocked at the OS level via `network_security_config.xml`.
+- On first use, the app displays a consent dialog naming `bible.helloao.org` as the data recipient before any request fires. Consent is stored locally in `SharedPreferences`.
 
 ## Third-Party SDKs
 - `just_audio` — local asset playback only, no analytics
