@@ -4,8 +4,10 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/test_result.dart';
@@ -13,13 +15,18 @@ import '../models/verse.dart';
 
 class DatabaseHelper {
   static const _dbName = 'bible_flashcards.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
-  // Key stored in Android Keystore / iOS Keychain via flutter_secure_storage.
   static const _secureKeyDbSeed = 'db_encryption_seed_v1';
   static const _secureStorage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(),
   );
+
+  static const _validEventTypes = {'flashcard_tap', 'test_complete'};
+  static bool? _trackingEnabled;
+
+  /// Call after the user changes their activity-tracking consent preference.
+  static void invalidateTrackingCache() => _trackingEnabled = null;
 
   static DatabaseHelper? _instance;
   static Database? _db;
@@ -79,8 +86,9 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Future migrations: add ALTER TABLE / CREATE TABLE statements here,
-    // gated by version comparisons, e.g. if (oldVersion < 2) { ... }
+    if (oldVersion < 2) {
+      await _createEngagementLogTable(db);
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -109,6 +117,20 @@ class DatabaseHelper {
         FOREIGN KEY (verse_id) REFERENCES verses (id)
       )
     ''');
+
+    await _createEngagementLogTable(db);
+  }
+
+  Future<void> _createEngagementLogTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS engagement_log (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        date       TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        count      INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(date, event_type)
+      )
+    ''');
   }
 
   // ---------------------------------------------------------------------------
@@ -123,9 +145,9 @@ class DatabaseHelper {
     final now = DateTime.now().toIso8601String();
 
     final batch = db.batch();
-    for (final pack in packs) {
+    for (final pack in packs.cast<Map<String, dynamic>>()) {
       final verses = pack['verses'] as List<dynamic>;
-      for (final v in verses) {
+      for (final v in verses.cast<Map<String, dynamic>>()) {
         batch.insert(
           'verses',
           {
@@ -205,5 +227,44 @@ class DatabaseHelper {
   Future<void> clearTestHistory() async {
     final db = await database;
     await db.delete('test_results');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Engagement log
+  // ---------------------------------------------------------------------------
+
+  Future<void> logEngagement(String eventType) async {
+    if (!_validEventTypes.contains(eventType)) return;
+    // Cache the preference; reset via invalidateTrackingCache() on consent change.
+    _trackingEnabled ??= (await SharedPreferences.getInstance())
+        .getBool('engagement_tracking_enabled') ?? true;
+    if (!_trackingEnabled!) return;
+
+    final db = await database;
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    await db.rawInsert(
+      'INSERT INTO engagement_log (date, event_type, count) VALUES (?, ?, 1) '
+      'ON CONFLICT(date, event_type) DO UPDATE SET count = count + 1',
+      [today, eventType],
+    );
+    // Keep table bounded; 90-day window is sufficient for streak/chart features.
+    final cutoff = DateFormat('yyyy-MM-dd')
+        .format(DateTime.now().subtract(const Duration(days: 90)));
+    await db.delete('engagement_log', where: 'date < ?', whereArgs: [cutoff]);
+  }
+
+  Future<void> clearEngagementLog() async {
+    final db = await database;
+    await db.delete('engagement_log');
+  }
+
+  Future<List<Map<String, Object?>>> getEngagementLog() async {
+    final db = await database;
+    return db.query('engagement_log', orderBy: 'date ASC');
+  }
+
+  Future<List<Map<String, Object?>>> getTestResultsRaw() async {
+    final db = await database;
+    return db.query('test_results', orderBy: 'tested_at DESC');
   }
 }

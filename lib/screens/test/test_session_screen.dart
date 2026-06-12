@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../database/database_helper.dart';
 import '../../models/test_result.dart';
 import '../../models/verse.dart';
 import '../../theme/app_colors.dart';
@@ -117,6 +118,8 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   }
 
   Future<void> _finishSession() async {
+    await DatabaseHelper().logEngagement('test_complete');
+
     final sessionResult = TestSessionResult(
       verseResults: List.unmodifiable(_results),
       sessionAt: DateTime.now(),
