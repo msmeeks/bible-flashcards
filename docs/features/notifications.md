@@ -34,11 +34,17 @@ The notifications feature lets users schedule a daily reminder to review their v
 | `bible_flashcards_daily` | Daily Reminder | Default | Scheduled daily reminder |
 
 ### Scheduling Flow
-1. User taps "Daily reminder" → `showTimePicker` → `NotificationService.scheduleDailyNotification(time, showOnLockScreen:)`.
-2. Service calls `androidImpl?.requestExactAlarmsPermission()`. If denied, scheduling is silently skipped — no crash, no reminder.
-3. `TZDateTime` is computed for today at the picked hour/minute. If already past, add 1 day.
+1. User taps "Daily reminder" → `showTimePicker` → `_applyNotificationSettings` → `NotificationService.scheduleDailyNotification(time, showOnLockScreen:, notificationType:)`.
+2. Service calls `androidImpl?.requestExactAlarmsPermission()`. Returns `false` if denied; caller (`_applyNotificationSettings`) surfaces a `SnackBar` telling the user to allow exact alarms in system settings.
+3. `TZDateTime` is computed for today at the picked hour/minute. If already past, adds 1 day so first fire is tomorrow at that time.
 4. `zonedSchedule` with `AndroidScheduleMode.exactAllowWhileIdle` and `matchDateTimeComponents: DateTimeComponents.time` fires daily.
-5. Cancellation: `cancelDailyNotification()` calls `_plugin.cancel(id: 42)`.
+5. Cancellation: `cancelDailyNotification()` calls `_plugin.cancel(id: 42)`. Also called when lock-screen toggle changes and `dailyNotificationTime` is null.
+
+### Notification Bodies
+| `notificationType` | Body text |
+|---|---|
+| `verseOfWeek` | "Time to review your verse of the week" |
+| `reviewVerse` | "Time to practice a memorized verse" |
 
 ### Notification IDs
 | ID | Notification |
@@ -50,7 +56,7 @@ The notifications feature lets users schedule a daily reminder to review their v
 ### Settings Model
 Three fields on `AppSettings` (all persisted via `settings` SQLite table):
 - `dailyNotificationTime` (`TimeOfDay?`) — null means disabled; serialised as two integer columns `daily_notification_hour` / `daily_notification_minute`.
-- `notificationType` (`String`) — `'verseOfWeek'` or `'reviewVerse'`; default `'verseOfWeek'`. Used by the caller (not yet wired to notification body content — body is always generic: "Time to review your verse").
+- `notificationType` (`String`) — `'verseOfWeek'` or `'reviewVerse'`; default `'verseOfWeek'`. Controls the notification body text (see Notification Bodies below).
 - `showOnLockScreen` (`bool`) — default `false` per privacy policy. When toggled, the existing scheduled notification is rescheduled immediately with the new visibility.
 
 ### Privacy
@@ -71,9 +77,10 @@ Three fields on `AppSettings` (all persisted via `settings` SQLite table):
 | Notification | Title | Body | Actions |
 |---|---|---|---|
 | Playback (ongoing) | "Bible Flashcards" | "Playing verse" | Pause, Stop |
-| Interrupt | "Bible Flashcards — Time for a verse" | "Tap to hear your verse" | Play, Dismiss |
+| Interrupt | "Bible Flashcards" | "Tap to hear your verse" | Play, Dismiss |
 
 ## Changelog
 | Date | Change |
 |---|---|
 | 2026-06-12 | Initial documentation — daily reminder scheduling, timezone init, lock-screen toggle, notification channels, settings model fields |
+| 2026-06-12 | Corrected notification body text per-type, snackbar-on-false behavior, interrupt notification title, notificationType wiring |
