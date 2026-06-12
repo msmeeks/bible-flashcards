@@ -17,16 +17,14 @@ On first launch, the app seeds the SQLite database from bundled JSON pack assets
 ## Key Files
 | File | Purpose |
 |---|---|
-| `assets/packs/*.json` | Navigator TMS pack definitions (reference, ESV/CSB/NLT text, topic) |
-| `lib/data/database_helper.dart` | Singleton; opens encrypted DB, runs migrations |
-| `lib/data/verse_dao.dart` | CRUD operations for verses |
-| `lib/data/seed.dart` | One-time DB seed from asset JSON on first run |
-| `lib/features/verse_management/home_screen.dart` | Verse-of-week card, quick-action buttons, recent memorized chips |
-| `lib/features/verse_management/verses_screen.dart` | TabBar: Memorized tab + Available tab, search bar |
-| `lib/features/verse_management/add_verse_screen.dart` | Manual reference + text entry, version picker |
-| `lib/features/verse_management/verse_detail_screen.dart` | Full verse display, mark-memorized action |
+| `assets/packs/navigators_pack.json` | Navigator TMS pack definitions (id, name, verses with reference/text/translation) |
+| `lib/database/database_helper.dart` | Singleton; opens encrypted DB, runs migrations, exposes `getPackNames()` |
 | `lib/models/verse.dart` | Verse domain model |
-| `lib/providers/verse_provider.dart` | Provider; exposes lists, current verse, mutation methods |
+| `lib/models/verse_pack.dart` | VersePack model; `toMap`/`fromMap` serialize `verseIds` as JSON array |
+| `lib/widgets/verse_card.dart` | `VerseCard` StatefulWidget + `FlashcardState` enum |
+| `lib/screens/home/home_screen.dart` | Verse-of-week card, quick-action buttons, recent memorized chips |
+| `lib/screens/verses/verse_detail_screen.dart` | Full verse display; renders VerseCard in `FlashcardState.both`; shows pack name |
+| `lib/providers/verse_provider.dart` | Provider; exposes lists, current verse, `packNames` map, mutation methods |
 
 ## Technical Detail
 
@@ -39,32 +37,43 @@ On first launch, the app seeds the SQLite database from bundled JSON pack assets
 | `/` | `HomeScreen` | Verse-of-week card, quick actions, recent memorized chips |
 | `/verses` | `VersesScreen` | TabBar: Memorized \| Available, search field |
 | `/verses/add` | `AddVerseScreen` | Form to add a custom verse |
-| `/verses/detail` | `VerseDetailScreen` | Full verse; mark memorized action |
+| `/verses/detail` | `VerseDetailScreen` | VerseCard (expanded) + translation picker + metadata + actions |
 
-### Pack Structure (JSON)
-```json
-{
-  "pack": "TMS Series 1",
-  "verses": [
-    {
-      "reference": "2 Timothy 3:16",
-      "esv": "All Scripture is breathed out by God...",
-      "csb": "All Scripture is inspired by God...",
-      "nlt": "All Scripture is inspired by God..."
-    }
-  ]
-}
-```
+### VerseCard and FlashcardState
+`VerseCard` (`lib/widgets/verse_card.dart`) is a `StatefulWidget`. It holds a `FlashcardState` and cycles through three states on each tap:
+
+| State | Shows |
+|---|---|
+| `referenceOnly` | Reference + status chip only |
+| `textOnly` | Verse text + translation label only |
+| `both` | Reference, status chip, text, and translation label |
+
+Cycle order: `referenceOnly` → `textOnly` → `both` → `referenceOnly`. An `expand_more` icon button (excluded from semantics) jumps directly to `both` from any partial state. `AnimatedSize` wraps the content; disabled when `MediaQuery.disableAnimations` is true to avoid a layout assertion in test mode.
+
+`initialState` defaults to `referenceOnly`. `VerseDetailScreen` passes `FlashcardState.both` so the card opens fully expanded.
+
+Accessibility: the card carries `Semantics(button: true)` with a human-readable label describing current state and what tapping will do. A `Semantics(liveRegion: true)` sibling node announces state changes to TalkBack separately from the button role.
+
+### Pack Names (DB version 2)
+The `packs` table (added in DB version 2) stores `id`, `name`, `description`, and `verse_ids` (JSON-encoded array). `DatabaseHelper.getPackNames()` returns `Map<String, String>` (id → name). `VerseProvider.loadVerses()` populates `packNames` from this call. `VerseDetailScreen._MetadataCard` reads `provider.packNames[verse.packId]` to display a human-readable pack name.
+
+`_onUpgrade` (old < 2): creates the `packs` table inside a transaction, then seeds it from `assets/packs/navigators_pack.json` using `ConflictAlgorithm.ignore`.
+
+### VersePack.toMap / fromMap
+`verse_ids` column is stored as a JSON array string (`jsonEncode`/`jsonDecode`). Prior to DB version 2 this was CSV — any migration path must account for the format change.
+
+### Accessibility — "Verse of the Week" heading
+Both branches of `_VerseOfWeekSection` (verse present and verse absent) wrap the "Verse of the Week" heading `Text` in `Semantics(header: true)` so screen readers treat it as a section heading.
 
 ### Lists
 - **Available verses**: all pack verses not yet memorized, grouped by pack/topic.
 - **Memorized verses**: verses marked memorized, sorted by memorized date descending.
 
 ### Verse of the Week
-Exactly one verse is flagged `is_current = true` at any time. Setting a new verse of the week clears the previous flag. The current verse is surfaced prominently on the home screen.
+Exactly one verse is flagged `is_verse_of_week = 1` at any time. Setting a new verse of the week clears the previous flag. The current verse is surfaced prominently on the home screen.
 
 ### Adding Custom Verses
-Users can enter a reference and text manually. Custom verses are stored in the same table with `is_custom = true` and no pack membership. Bible version must be specified at entry.
+Users can enter a reference and text manually. Custom verses are stored in the same table with no pack membership. Bible version must be specified at entry.
 
 ### Selecting Next Verse
 From the available list, tapping a verse and confirming sets it as the verse of the week. It does not automatically mark the previous one as memorized — the user does that explicitly.
@@ -74,3 +83,4 @@ From the available list, tapping a verse and confirming sets it as the verse of 
 |---|---|
 | 2026-05-27 | Initial documentation |
 | 2026-05-27 | Updated with full implementation: encryption details, DatabaseHelper singleton, screen/route table, Provider integration |
+| 2026-06-12 | FlashcardState enum + VerseCard 3-state tap cycle; pack names via DB v2 packs table + getPackNames(); VersePack verseIds now JSON (was CSV); Semantics(header: true) on heading; VerseDetailScreen uses FlashcardState.both; corrected key file paths |

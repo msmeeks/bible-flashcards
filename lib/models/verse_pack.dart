@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class VersePack {
   final String id;
   final String name; // e.g. "Topical Memory System - Part 1"
@@ -30,17 +32,17 @@ class VersePack {
       'id': id,
       'name': name,
       'description': description,
-      'verse_ids': verseIds.join(','),
+      'verse_ids': jsonEncode(verseIds),
     };
   }
 
   factory VersePack.fromMap(Map<String, dynamic> map) {
-    final rawIds = map['verse_ids'] as String? ?? '';
+    final raw = map['verse_ids'] as String? ?? '[]';
     return VersePack(
       id: map['id'] as String,
       name: map['name'] as String,
       description: map['description'] as String,
-      verseIds: rawIds.isEmpty ? [] : rawIds.split(','),
+      verseIds: List<String>.from(jsonDecode(raw) as List),
     );
   }
 

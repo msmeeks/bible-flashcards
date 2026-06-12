@@ -13,16 +13,17 @@ import '../models/verse.dart';
 
 class DatabaseHelper {
   static const _dbName = 'bible_flashcards.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
   // Key stored in Android Keystore / iOS Keychain via flutter_secure_storage.
   static const _secureKeyDbSeed = 'db_encryption_seed_v1';
   static const _secureStorage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(),
   );
 
   static DatabaseHelper? _instance;
-  static Database? _db;
+  // Stores the open Future so concurrent callers share one initialization.
+  static Future<Database>? _dbFuture;
 
   DatabaseHelper._();
 
@@ -31,10 +32,7 @@ class DatabaseHelper {
     return _instance!;
   }
 
-  Future<Database> get database async {
-    _db ??= await _openDatabase();
-    return _db!;
-  }
+  Future<Database> get database => _dbFuture ??= _openDatabase();
 
   // ---------------------------------------------------------------------------
   // Initialisation
@@ -79,11 +77,49 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Future migrations: add ALTER TABLE / CREATE TABLE statements here,
-    // gated by version comparisons, e.g. if (oldVersion < 2) { ... }
+    if (oldVersion < 2) {
+      await db.transaction((txn) async {
+        await txn.execute('''
+          CREATE TABLE packs (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL CHECK(length(name) <= 200),
+            description TEXT NOT NULL DEFAULT '',
+            verse_ids   TEXT NOT NULL DEFAULT '[]'
+          )
+        ''');
+        final jsonStr =
+            await rootBundle.loadString('assets/packs/navigators_pack.json');
+        final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+        for (final packRaw in data['packs'] as List<dynamic>) {
+          final pack = packRaw as Map<String, dynamic>;
+          final verseIds = (pack['verses'] as List<dynamic>)
+              .map((v) => (v as Map<String, dynamic>)['id'] as String)
+              .toList();
+          await txn.insert(
+            'packs',
+            {
+              'id': pack['id'] as String,
+              'name': pack['name'] as String,
+              'description': (pack['description'] as String?) ?? '',
+              'verse_ids': jsonEncode(verseIds),
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      });
+    }
   }
 
   Future<void> _createTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE packs (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL CHECK(length(name) <= 200),
+        description TEXT NOT NULL DEFAULT '',
+        verse_ids   TEXT NOT NULL DEFAULT '[]'
+      )
+    ''');
+
     await db.execute('''
       CREATE TABLE verses (
         id                TEXT PRIMARY KEY,
@@ -123,9 +159,23 @@ class DatabaseHelper {
     final now = DateTime.now().toIso8601String();
 
     final batch = db.batch();
-    for (final pack in packs) {
+    for (final packRaw in packs) {
+      final pack = packRaw as Map<String, dynamic>;
       final verses = pack['verses'] as List<dynamic>;
-      for (final v in verses) {
+      batch.insert(
+        'packs',
+        {
+          'id': pack['id'] as String,
+          'name': pack['name'] as String,
+          'description': (pack['description'] as String?) ?? '',
+          'verse_ids': jsonEncode(verses
+              .map((v) => (v as Map<String, dynamic>)['id'] as String)
+              .toList()),
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      for (final vRaw in verses) {
+        final v = vRaw as Map<String, dynamic>;
         batch.insert(
           'verses',
           {
@@ -144,6 +194,16 @@ class DatabaseHelper {
       }
     }
     await batch.commit(noResult: true);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pack name lookup
+  // ---------------------------------------------------------------------------
+
+  Future<Map<String, String>> getPackNames() async {
+    final db = await database;
+    final rows = await db.query('packs', columns: ['id', 'name']);
+    return {for (final r in rows) r['id'] as String: r['name'] as String};
   }
 
   // ---------------------------------------------------------------------------
