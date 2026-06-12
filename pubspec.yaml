@@ -12,46 +12,50 @@ dependencies:
     sdk: flutter
 
   # Database — encrypted SQLite
-  sqflite_sqlcipher: 2.4.0
+  sqflite_sqlcipher: ^3.4.0
 
   # File paths
-  path_provider: 2.1.3
-  path: 1.9.0
+  path_provider: ^2.1.5
+  path: ^1.9.1
 
   # State management
-  provider: 6.1.2
+  provider: ^6.1.5+1
 
   # Typography
-  google_fonts: 6.2.1
+  google_fonts: ^8.1.0
 
   # Icons
-  material_symbols_icons: 4.2719.3
+  material_symbols_icons: ^4.2928.1
 
   # Audio playback (TTS only; just_audio removed as unused)
-  flutter_tts: 4.1.0
+  flutter_tts: ^4.2.5
 
   # Notifications
-  flutter_local_notifications: 17.2.2
+  flutter_local_notifications: ^21.0.0
+
+  # Timezone resolution for scheduled notifications
+  flutter_timezone: ^3.0.0
+  timezone: ^0.11.0
 
   # Permissions (requested at point-of-use only)
-  permission_handler: 11.3.1
+  permission_handler: ^12.0.1
 
   # Animation
-  flutter_animate: 4.5.0
+  flutter_animate: ^4.5.2
 
   # Settings persistence
-  shared_preferences: 2.3.2
+  shared_preferences: ^2.5.5
 
   # Hardware-backed key storage (Android Keystore / iOS Keychain) for DB key
-  flutter_secure_storage: 9.2.2
+  flutter_secure_storage: ^10.3.1
 
   # Key derivation (no analytics SDKs)
-  crypto: 3.0.3
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: 4.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

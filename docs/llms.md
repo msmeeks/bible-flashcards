@@ -6,7 +6,8 @@ Load this file first. Then load only the specific doc files relevant to your tas
 - [overview.md](overview.md) — project purpose, users, roles, architecture, tech stack
 - [features/verse-management.md](features/verse-management.md) — encrypted SQLite, Navigator packs, memorized list, home/verses/add/detail screens
 - [features/test-modes.md](features/test-modes.md) — test setup/session/results flow, LCS scoring, fill-blank algorithm, privacy decision on typed input
-- [features/audio.md](features/audio.md) — flutter_tts state machine, AudioReviewService generation counter, AudioInterruptService timer, notification privacy
+- [features/audio.md](features/audio.md) — flutter_tts state machine, AudioReviewService generation counter, AudioInterruptService timer, audio notification bodies
+- [features/notifications.md](features/notifications.md) — daily reminder scheduling, timezone init, lock-screen toggle, notification channels, SCHEDULE_EXACT_ALARM
 
 ## Setup & tooling
 - [../scripts/setup-mac.sh](../scripts/setup-mac.sh) — one-command macOS bootstrap script (Flutter, Java 17, Android SDK, emulator)

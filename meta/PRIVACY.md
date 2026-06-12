@@ -7,10 +7,11 @@ Bible Flashcards collects no personal data, uses no network, and stores all data
 
 | Data | Storage | Purpose | Retention |
 |---|---|---|---|
-| Selected verses and memorization status | Local SQLite | Core app function | Until user deletes app |
-| Test session history (scores, timestamps) | Local SQLite | Progress review | Until user deletes app or clears data |
-| Verse of the week selection | Local SQLite | Core app function | Until changed or app deleted |
-| Custom verses entered by user | Local SQLite | Core app function | Until user deletes them or app |
+| Selected verses and memorization status | Local SQLite (encrypted) | Core app function | Until user deletes app |
+| Test session history (scores, timestamps) | Local SQLite (encrypted) | Progress review | Until user deletes app or clears data |
+| Verse of the week selection | Local SQLite (encrypted) | Core app function | Until changed or app deleted |
+| Custom verses entered by user | Local SQLite (encrypted) | Core app function | Until user deletes them or app |
+| User preferences (audio, theme, translation, notification time, notification type, lock-screen toggle) | SharedPreferences (local) | App configuration | Until user changes or uninstalls |
 
 ## Data NOT Collected
 - No names, email addresses, or accounts
@@ -21,7 +22,13 @@ Bible Flashcards collects no personal data, uses no network, and stores all data
 - No network requests of any kind
 
 ## PII Assessment
-No PII is collected or processed. Verse text and references are not personal information.
+No PII is collected or processed. Verse text and references are not personal information. Notification time preference is a local setting with no identifying value.
+
+## Notification Settings
+
+Users may configure a daily reminder notification (off by default). The notification body is always generic — no verse text or reference is included.
+
+**Lock screen visibility** (`showOnLockScreen`) defaults to `false` (`NotificationVisibility.private`). The user may opt in to show notification content on the lock screen. This is opt-in because religious practice is GDPR Art. 9 adjacent — enabling this reveals to lock-screen bystanders that the user uses a Bible memorization app. An explicit bystander warning is shown in the settings UI.
 
 ## Permissions Used
 
@@ -29,14 +36,18 @@ No PII is collected or processed. Verse text and references are not personal inf
 |---|---|
 | `FOREGROUND_SERVICE` | Background audio playback |
 | `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Audio classification for Android media session |
-| `POST_NOTIFICATIONS` (Android 13+) | Dismissible interruption notification |
+| `POST_NOTIFICATIONS` (Android 13+) | Dismissible interruption notification and daily reminder |
+| `SCHEDULE_EXACT_ALARM` | Daily reminder fires at the configured time (requires user consent via system Settings on API 31+; auto-granted below API 31) |
+
+`SCHEDULE_EXACT_ALARM` is only used for the daily reminder. Permission is requested at point-of-use; if denied, the user is shown a message directing them to system settings — the app does not degrade otherwise.
 
 No internet, camera, microphone, contacts, or storage permissions are requested.
 
 ## Third-Party SDKs
-- `just_audio` — local asset playback only, no analytics
-- `sqflite` — local SQLite only, no network
+- `sqflite_sqlcipher` — local SQLite only, no network
 - `flutter_local_notifications` — local notifications only, no remote push
+- `flutter_timezone` — reads device timezone for accurate notification scheduling; data stays on-device
+- `google_fonts` — runtime font fetching is disabled (`allowRuntimeFetching = false`); fonts must be bundled
 
 None of these packages transmit data off-device in this configuration.
 

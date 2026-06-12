@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Required for daily reminder; user must grant via system settings on API 31+ -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:label="Bible Flashcards"
@@ -31,18 +33,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Lock-screen notification visibility: private (no PII on lock screen) -->
-        <meta-data
-            android:name="com.dexterous.flutterlocalnotifications.default_notification_channel_id"
-            android:value="bible_flashcards_channel" />
-        <meta-data
-            android:name="com.dexterous.flutterlocalnotifications.default_notification_channel_importance"
-            android:value="3" />
-        <meta-data
-            android:name="com.dexterous.flutterlocalnotifications.notification_visibility"
-            android:value="0" />
-
-        <!-- Flutter deferred components metadata (no deferred components used) -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
