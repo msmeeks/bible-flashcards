@@ -100,9 +100,12 @@ class _VerseOfWeekSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Verse of the Week',
-                style: tt.titleMedium?.copyWith(color: cs.onTertiaryContainer),
+              Semantics(
+                header: true,
+                child: Text(
+                  'Verse of the Week',
+                  style: tt.titleMedium?.copyWith(color: cs.onTertiaryContainer),
+                ),
               ),
               const SizedBox(height: 12),
               Semantics(
@@ -128,16 +131,15 @@ class _VerseOfWeekSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Verse of the Week',
-          style: theme.textTheme.titleMedium,
+        Semantics(
+          header: true,
+          child: Text(
+            'Verse of the Week',
+            style: theme.textTheme.titleMedium,
+          ),
         ),
         const SizedBox(height: 8),
-        VerseCard(
-          verse: verseOfWeek!,
-          onTap: () => Navigator.of(context)
-              .pushNamed('/verse-detail', arguments: verseOfWeek!.id),
-        ),
+        VerseCard(verse: verseOfWeek!),
       ],
     );
   }

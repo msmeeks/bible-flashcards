@@ -9,6 +9,7 @@ import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/verse_provider.dart';
+import '../../widgets/verse_card.dart';
 
 class VerseDetailScreen extends StatefulWidget {
   const VerseDetailScreen({super.key});
@@ -53,19 +54,17 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
           );
         }
 
-        final tt = Theme.of(context).textTheme;
-
         return Scaffold(
           appBar: AppBar(
             title: Text(verse.reference),
           ),
           body: ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             children: [
-              // Verse text — headlineLarge Lora
-              Text(
-                verse.text,
-                style: tt.headlineLarge,
+              // Flashcard in expanded state
+              VerseCard(
+                verse: verse,
+                initialState: FlashcardState.both,
               ),
               const SizedBox(height: 20),
 
@@ -77,7 +76,7 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
               const SizedBox(height: 20),
 
               // Metadata card
-              _MetadataCard(verse: verse),
+              _MetadataCard(verse: verse, provider: provider),
               const SizedBox(height: 32),
 
               // Primary action
@@ -86,12 +85,6 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
                   await context
                       .read<VerseProvider>()
                       .setVerseOfWeek(verse!.id);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Set as Verse of the Week')),
-                    );
-                  }
                 },
                 child: const Text('Set as Verse of Week'),
               ),
@@ -225,14 +218,6 @@ class _TranslationSelector extends StatelessWidget {
             if (values.isNotEmpty) onChanged(values.first);
           },
         ),
-        if (selected != 'ESV')
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'TODO: CSB/NLT text not yet loaded',
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-            ),
-          ),
       ],
     );
   }
@@ -244,12 +229,14 @@ class _TranslationSelector extends StatelessWidget {
 
 class _MetadataCard extends StatelessWidget {
   final Verse verse;
+  final VerseProvider provider;
 
-  const _MetadataCard({required this.verse});
+  const _MetadataCard({required this.verse, required this.provider});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final packName = provider.packNames[verse.packId] ?? 'Unknown Pack';
 
     return Card(
       color: cs.surfaceContainerLowest,
@@ -259,7 +246,7 @@ class _MetadataCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _MetaRow(label: 'Pack', value: verse.packId),
+            _MetaRow(label: 'Pack', value: packName),
             const SizedBox(height: 8),
             _MetaRow(label: 'Translation', value: verse.translation),
             if (verse.memorizedAt != null) ...[

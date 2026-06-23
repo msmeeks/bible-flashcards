@@ -407,13 +407,17 @@ class _PackHeaderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final packNames = context.watch<VerseProvider>().packNames;
+    final displayName = packNames[packId] ?? 'Unknown Pack';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Text(
-        packId,
+        displayName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: Theme.of(context)
             .textTheme
-            .labelMedium
+            .titleSmall
             ?.copyWith(color: cs.secondary),
       ),
     );
@@ -429,7 +433,7 @@ class _AvailableListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       title: Text(verse.reference),
-      subtitle: Text(verse.packId),
+      subtitle: Text(verse.translation),
       trailing: _MemorizeButton(verse: verse),
     );
   }

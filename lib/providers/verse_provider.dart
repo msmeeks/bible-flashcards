@@ -11,6 +11,7 @@ class VerseProvider extends ChangeNotifier {
   VerseProvider(this._db);
 
   List<Verse> _verses = [];
+  Map<String, String> _packNames = {};
   bool _isLoading = false;
   String? _error;
 
@@ -23,6 +24,8 @@ class VerseProvider extends ChangeNotifier {
   Verse? get verseOfWeek =>
       _verses.where((v) => v.isVerseOfWeek).firstOrNull;
 
+  Map<String, String> get packNames => _packNames;
+
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -33,6 +36,7 @@ class VerseProvider extends ChangeNotifier {
 
     try {
       _verses = await _db.getVerses();
+      _packNames = await _db.getPackNames();
     } catch (e) {
       _error = 'Failed to load verses: $e';
     } finally {
