@@ -78,6 +78,11 @@ class AppTheme {
           borderSide: BorderSide(color: base.primary, width: 2),
         ),
       ),
+      chipTheme: const ChipThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(4)),
+        ),
+      ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: base.surface,
         indicatorColor: base.primaryContainer,
@@ -132,6 +137,11 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: const BorderRadius.all(Radius.circular(8)),
           borderSide: BorderSide(color: base.primary, width: 2),
+        ),
+      ),
+      chipTheme: const ChipThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(4)),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
