@@ -193,7 +193,7 @@ class NotificationService {
 
     await _plugin.show(
       id: _interruptNotifId,
-      title: 'Bible Flashcards',
+      title: 'Bible Flashcards — Time for a verse',
       body: 'Tap to hear your verse',
       notificationDetails: const NotificationDetails(android: androidDetails),
     );

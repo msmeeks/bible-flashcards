@@ -11,29 +11,26 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final hour = prefs.getInt('daily_notification_hour');
-    final minute = prefs.getInt('daily_notification_minute');
-    final time = (hour != null && minute != null)
-        ? TimeOfDay(hour: hour, minute: minute)
-        : null;
-
-    _settings = AppSettings(
-      audioReviewEnabled:
-          prefs.getBool('audio_review_enabled') ?? false,
-      audioInterruptEnabled:
-          prefs.getBool('audio_interrupt_enabled') ?? false,
-      audioInterruptProbability:
-          prefs.getDouble('audio_interrupt_probability') ?? 0.5,
-      audioInterruptAfterMinutes:
-          prefs.getInt('audio_interrupt_after_minutes') ?? 60,
-      defaultTranslation:
-          prefs.getString('default_translation') ?? 'ESV',
-      themeMode: prefs.getString('theme_mode') ?? 'system',
-      dailyNotificationTime: time,
-      notificationType:
-          prefs.getString('notification_type') ?? 'verseOfWeek',
-      showOnLockScreen: prefs.getBool('show_on_lock_screen') ?? false,
-    );
+    // Delegate validation logic to AppSettings.fromMap to avoid duplication
+    _settings = AppSettings.fromMap({
+      'audio_review_enabled': prefs.getBool('audio_review_enabled'),
+      'audio_interrupt_enabled': prefs.getBool('audio_interrupt_enabled'),
+      'audio_interrupt_probability':
+          prefs.getDouble('audio_interrupt_probability'),
+      'audio_interrupt_after_minutes':
+          prefs.getInt('audio_interrupt_after_minutes'),
+      'default_translation': prefs.getString('default_translation'),
+      'theme_mode': prefs.getString('theme_mode'),
+      'daily_notification_hour': prefs.getInt('daily_notification_hour'),
+      'daily_notification_minute': prefs.getInt('daily_notification_minute'),
+      'notification_type': prefs.getString('notification_type'),
+      'show_on_lock_screen': prefs.getBool('show_on_lock_screen'),
+      'drive_backup_enabled': prefs.getBool('drive_backup_enabled'),
+      'backup_cadence': prefs.getString('backup_cadence'),
+      'last_backup_at': prefs.getString('last_backup_at'),
+      'drive_consent_at': prefs.getString('drive_consent_at'),
+      'drive_consent_version': prefs.getInt('drive_consent_version'),
+    });
     notifyListeners();
   }
 
@@ -70,5 +67,18 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.remove('daily_notification_hour');
       await prefs.remove('daily_notification_minute');
     }
+
+    await prefs.setBool('drive_backup_enabled', appSettings.driveBackupEnabled);
+    await prefs.setString('backup_cadence', appSettings.backupCadence);
+    if (appSettings.lastBackupAt != null) {
+      await prefs.setString(
+          'last_backup_at', appSettings.lastBackupAt!.toIso8601String());
+    } else {
+      await prefs.remove('last_backup_at');
+    }
+    if (appSettings.driveConsentAt != null) {
+      await prefs.setString('drive_consent_at', appSettings.driveConsentAt!);
+    }
+    await prefs.setInt('drive_consent_version', appSettings.driveConsentVersion);
   }
 }

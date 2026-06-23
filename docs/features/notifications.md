@@ -77,7 +77,7 @@ Three fields on `AppSettings` (all persisted via `settings` SQLite table):
 | Notification | Title | Body | Actions |
 |---|---|---|---|
 | Playback (ongoing) | "Bible Flashcards" | "Playing verse" | Pause, Stop |
-| Interrupt | "Bible Flashcards" | "Tap to hear your verse" | Play, Dismiss |
+| Interrupt | "Bible Flashcards — Time for a verse" | "Tap to hear your verse" | Play, Dismiss |
 
 ## Changelog
 | Date | Change |

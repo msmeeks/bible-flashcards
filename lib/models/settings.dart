@@ -7,13 +7,19 @@ class AppSettings {
 
   final bool audioReviewEnabled;
   final bool audioInterruptEnabled;
-  final double audioInterruptProbability;
-  final int audioInterruptAfterMinutes;
-  final String defaultTranslation;
-  final String themeMode;
+  final double audioInterruptProbability; // default 0.5
+  final int audioInterruptAfterMinutes; // default 60
+  final String defaultTranslation; // "ESV"
+  final String themeMode; // "system" | "light" | "dark"
   final TimeOfDay? dailyNotificationTime;
   final String notificationType; // 'verseOfWeek' | 'reviewVerse'
   final bool showOnLockScreen;
+  final bool driveBackupEnabled; // opt-in only, default false
+  final String backupCadence; // "daily" | "weekly" | "monthly"
+  final DateTime? lastBackupAt;
+  // Consent record persisted for audit; null = not yet consented
+  final String? driveConsentAt; // ISO-8601
+  final int driveConsentVersion; // disclosure version shown at consent time
 
   const AppSettings({
     this.audioReviewEnabled = false,
@@ -25,6 +31,11 @@ class AppSettings {
     this.dailyNotificationTime,
     this.notificationType = 'verseOfWeek',
     this.showOnLockScreen = false,
+    this.driveBackupEnabled = false,
+    this.backupCadence = 'weekly',
+    this.lastBackupAt,
+    this.driveConsentAt,
+    this.driveConsentVersion = 0,
   });
 
   AppSettings copyWith({
@@ -37,6 +48,12 @@ class AppSettings {
     Object? dailyNotificationTime = _sentinel,
     String? notificationType,
     bool? showOnLockScreen,
+    bool? driveBackupEnabled,
+    String? backupCadence,
+    DateTime? lastBackupAt,
+    bool clearLastBackupAt = false,
+    String? driveConsentAt,
+    int? driveConsentVersion,
   }) {
     return AppSettings(
       audioReviewEnabled: audioReviewEnabled ?? this.audioReviewEnabled,
@@ -53,6 +70,12 @@ class AppSettings {
           : dailyNotificationTime as TimeOfDay?,
       notificationType: notificationType ?? this.notificationType,
       showOnLockScreen: showOnLockScreen ?? this.showOnLockScreen,
+      driveBackupEnabled: driveBackupEnabled ?? this.driveBackupEnabled,
+      backupCadence: backupCadence ?? this.backupCadence,
+      lastBackupAt:
+          clearLastBackupAt ? null : (lastBackupAt ?? this.lastBackupAt),
+      driveConsentAt: driveConsentAt ?? this.driveConsentAt,
+      driveConsentVersion: driveConsentVersion ?? this.driveConsentVersion,
     );
   }
 
@@ -68,6 +91,11 @@ class AppSettings {
       'daily_notification_minute': dailyNotificationTime?.minute,
       'notification_type': notificationType,
       'show_on_lock_screen': showOnLockScreen,
+      'drive_backup_enabled': driveBackupEnabled,
+      'backup_cadence': backupCadence,
+      'last_backup_at': lastBackupAt?.toIso8601String(),
+      'drive_consent_at': driveConsentAt,
+      'drive_consent_version': driveConsentVersion,
     };
   }
 
@@ -77,6 +105,22 @@ class AppSettings {
     final time = (hour != null && minute != null)
         ? TimeOfDay(hour: hour, minute: minute)
         : null;
+
+    final lastBackupRaw = map['last_backup_at'] as String?;
+    DateTime? lastBackupAt;
+    if (lastBackupRaw != null) {
+      final parsed = DateTime.tryParse(lastBackupRaw);
+      // Reject far-future timestamps (tampered preference guard per security review)
+      if (parsed != null &&
+          parsed.isBefore(DateTime.now().add(const Duration(days: 365)))) {
+        lastBackupAt = parsed;
+      }
+    }
+
+    final cadenceRaw = map['backup_cadence'] as String? ?? 'weekly';
+    const validCadences = {'daily', 'weekly', 'monthly'};
+    final backupCadence =
+        validCadences.contains(cadenceRaw) ? cadenceRaw : 'weekly';
 
     return AppSettings(
       audioReviewEnabled: map['audio_review_enabled'] as bool? ?? false,
@@ -91,6 +135,11 @@ class AppSettings {
       notificationType:
           map['notification_type'] as String? ?? 'verseOfWeek',
       showOnLockScreen: map['show_on_lock_screen'] as bool? ?? false,
+      driveBackupEnabled: map['drive_backup_enabled'] as bool? ?? false,
+      backupCadence: backupCadence,
+      lastBackupAt: lastBackupAt,
+      driveConsentAt: map['drive_consent_at'] as String?,
+      driveConsentVersion: map['drive_consent_version'] as int? ?? 0,
     );
   }
 }

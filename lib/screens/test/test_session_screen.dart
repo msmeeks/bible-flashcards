@@ -1,5 +1,8 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
+import '../../database/database_helper.dart';
 import '../../models/test_result.dart';
 import '../../models/verse.dart';
 import '../../theme/app_colors.dart';
@@ -12,14 +15,14 @@ class TestSessionScreen extends StatefulWidget {
     super.key,
     required this.verses,
     required this.testMode,
-    required this.testFormat,
-    required this.promptDirection,
+    required this.selectedFormats,
+    required this.selectedDirections,
   });
 
   final List<Verse> verses;
   final TestMode testMode;
-  final TestFormat testFormat;
-  final PromptDirection promptDirection;
+  final Set<TestFormat> selectedFormats;
+  final Set<PromptDirection> selectedDirections;
 
   @override
   State<TestSessionScreen> createState() => _TestSessionScreenState();
@@ -28,6 +31,9 @@ class TestSessionScreen extends StatefulWidget {
 class _TestSessionScreenState extends State<TestSessionScreen> {
   int _currentIndex = 0;
   final List<VerseTestResult> _results = [];
+
+  late final List<TestFormat> _verseFormats;
+  late final List<PromptDirection> _verseDirections;
 
   // Type mode state
   final TextEditingController _typeController = TextEditingController();
@@ -38,15 +44,19 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   // Fill-blank mode state
   List<TextEditingController> _blankControllers = [];
   List<FocusNode> _blankFocusNodes = [];
+  final FocusNode _retryFocusNode = FocusNode();
   bool _showingBlankResult = false;
   double? _lastBlankScore;
   List<String> _currentBlankWords = [];
   List<int> _currentBlankIndices = [];
+  List<bool> _blankCorrectness = [];
 
-  Verse get _currentVerse => widget.verses[_currentIndex];
+  TestFormat get _currentFormat => _verseFormats[_currentIndex];
 
   bool get _promptIsReference =>
-      widget.promptDirection == PromptDirection.refToText;
+      _verseDirections[_currentIndex] == PromptDirection.refToText;
+
+  Verse get _currentVerse => widget.verses[_currentIndex];
 
   String get _promptText =>
       _promptIsReference ? _currentVerse.reference : _currentVerse.text;
@@ -57,12 +67,24 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   @override
   void initState() {
     super.initState();
+    final rng = Random();
+    final formats = widget.selectedFormats.toList();
+    final directions = widget.selectedDirections.toList();
+    _verseFormats = List.generate(
+      widget.verses.length,
+      (_) => formats[rng.nextInt(formats.length)],
+    );
+    _verseDirections = List.generate(
+      widget.verses.length,
+      (_) => directions[rng.nextInt(directions.length)],
+    );
     _initBlankState();
   }
 
   void _initBlankState() {
     _currentBlankWords = _answerText.split(' ');
     _currentBlankIndices = blankIndices(_currentBlankWords);
+    _blankCorrectness = [];
     _blankControllers = List.generate(
       _currentBlankIndices.length,
       (_) => TextEditingController(),
@@ -86,6 +108,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   void dispose() {
     _typeController.dispose();
     _checkFocusNode.dispose();
+    _retryFocusNode.dispose();
     _disposeBlankControllers();
     super.dispose();
   }
@@ -95,7 +118,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       verseId: _currentVerse.id,
       accuracy: accuracy,
       testMode: widget.testMode.name,
-      testFormat: widget.testFormat.name,
+      testFormat: _currentFormat.name,
       testedAt: DateTime.now(),
     );
     _results.add(result);
@@ -117,6 +140,8 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   }
 
   Future<void> _finishSession() async {
+    await DatabaseHelper().logEngagement('test_complete');
+
     final sessionResult = TestSessionResult(
       verseResults: List.unmodifiable(_results),
       sessionAt: DateTime.now(),
@@ -150,18 +175,21 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     }
   }
 
-  Future<void> _onBlankCheck() async {
+  void _onBlankCheck() {
+    final correctness = <bool>[];
     var correctCount = 0;
     for (var i = 0; i < _currentBlankIndices.length; i++) {
       final wordIndex = _currentBlankIndices[i];
       final correct = _currentBlankWords[wordIndex]
           .toLowerCase()
-          .replaceAll(RegExp(r'[^\w]'), '');
+          .replaceAll(RegExp(r"[^\w\s']"), '');
       final given = _blankControllers[i]
           .text
           .toLowerCase()
-          .replaceAll(RegExp(r'[^\w]'), '');
-      if (given == correct) correctCount++;
+          .replaceAll(RegExp(r"[^\w\s']"), '');
+      final isCorrect = given.trim() == correct.trim();
+      correctness.add(isCorrect);
+      if (isCorrect) correctCount++;
       _blankControllers[i].clear(); // discard typed input immediately
     }
 
@@ -169,16 +197,30 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     final score = total > 0 ? correctCount / total : 1.0;
 
     setState(() {
+      _blankCorrectness = correctness;
       _showingBlankResult = true;
       _lastBlankScore = score;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 1000));
-    if (mounted) {
-      _checkFocusNode.requestFocus();
-      _recordAndAdvance(score);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _retryFocusNode.requestFocus();
+    });
   }
+
+  void _onBlankRetry() {
+    setState(() {
+      _blankCorrectness = [];
+      _showingBlankResult = false;
+      _lastBlankScore = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _blankFocusNodes.isNotEmpty) {
+        _blankFocusNodes.first.requestFocus();
+      }
+    });
+  }
+
+  void _onBlankContinue(double score) => _recordAndAdvance(score);
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +304,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   }
 
   Widget _buildAnswerArea(ColorScheme cs, TextTheme tt) {
-    return switch (widget.testFormat) {
+    return switch (_currentFormat) {
       TestFormat.recite => _buildReciteArea(cs),
       TestFormat.type => _buildTypeArea(cs, tt),
       TestFormat.fillBlank => _buildFillBlankArea(cs, tt),
@@ -307,8 +349,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
   Widget _buildTypeArea(ColorScheme cs, TextTheme tt) {
     final isVerseInput = _promptIsReference;
-    final labelText =
-        isVerseInput ? 'Type the verse' : 'Type the reference';
+    final labelText = isVerseInput ? 'Type the verse' : 'Type the reference';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -344,21 +385,42 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     for (var i = 0; i < _currentBlankWords.length; i++) {
       final blankIdx = _currentBlankIndices.indexOf(i);
       if (blankIdx >= 0) {
+        final isCorrect = _blankCorrectness.length > blankIdx
+            ? _blankCorrectness[blankIdx]
+            : null;
         spans.add(
           SizedBox(
-            width: 80,
-            child: TextField(
-              controller: _blankControllers[blankIdx],
-              focusNode: _blankFocusNodes[blankIdx],
-              decoration: InputDecoration(
-                labelText: 'Blank ${blankIdx + 1} of ${_currentBlankIndices.length}',
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            width: 90,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                color: isCorrect == null
+                    ? Colors.transparent
+                    : isCorrect
+                        ? cs.successContainer
+                        : cs.errorContainer,
+                borderRadius: BorderRadius.circular(8),
               ),
-              style: tt.bodyLarge,
-              enabled: !_showingBlankResult,
-              textCapitalization: TextCapitalization.none,
+              child: TextField(
+                controller: _blankControllers[blankIdx],
+                focusNode: _blankFocusNodes[blankIdx],
+                decoration: InputDecoration(
+                  labelText: 'Blank ${blankIdx + 1}',
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  errorText: (isCorrect == false) ? 'Incorrect' : null,
+                  suffixIcon: isCorrect == false
+                      ? Icon(Icons.close, color: cs.onErrorContainer, size: 16)
+                      : isCorrect == true
+                          ? Icon(Icons.check,
+                              color: cs.onSuccessContainer, size: 16)
+                          : null,
+                ),
+                style: tt.bodyLarge,
+                enabled: !_showingBlankResult,
+                textCapitalization: TextCapitalization.none,
+              ),
             ),
           ),
         );
@@ -384,8 +446,34 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
           children: spans,
         ),
         const SizedBox(height: 20),
-        if (_showingBlankResult && _lastBlankScore != null)
+        if (_showingBlankResult && _lastBlankScore != null) ...[
           _ScoreReveal(score: _lastBlankScore!, cs: cs),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    focusNode: _retryFocusNode,
+                    onPressed: _onBlankRetry,
+                    child: const Text('Try Again'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: () => _onBlankContinue(_lastBlankScore!),
+                    child: const Text('Continue'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
         if (!_showingBlankResult)
           SizedBox(
             height: 48,
@@ -412,7 +500,9 @@ class _PromptCard extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
 
     return Semantics(
-      label: isReference ? 'Prompt: reference — $text' : 'Prompt: verse text — $text',
+      label: isReference
+          ? 'Prompt: reference — $text'
+          : 'Prompt: verse text — $text',
       child: Container(
         constraints: const BoxConstraints(minHeight: 180),
         padding: const EdgeInsets.all(16),
@@ -461,6 +551,7 @@ class _ScoreReveal extends StatelessWidget {
     }
 
     return Semantics(
+      liveRegion: true,
       label: 'Score: $pct%',
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),

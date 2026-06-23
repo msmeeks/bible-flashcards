@@ -52,6 +52,20 @@ dependencies:
   # Key derivation (no analytics SDKs)
   crypto: ^3.0.7
 
+  # Charts — pure-Dart, no native code, MIT license
+  fl_chart: ^0.68.0
+
+  # Date formatting for engagement log
+  intl: ^0.19.0
+
+  # Export / Import / Google Drive backup
+  google_sign_in: ^7.0.0
+  googleapis: ^13.1.0
+  share_plus: ^10.0.0
+
+  # HTTP client for verse lookup and pack import
+  http: ^1.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
