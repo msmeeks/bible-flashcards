@@ -33,6 +33,10 @@ dependencies:
   # Notifications
   flutter_local_notifications: ^21.0.0
 
+  # Timezone resolution for scheduled notifications
+  flutter_timezone: ^3.0.0
+  timezone: ^0.11.0
+
   # Permissions (requested at point-of-use only)
   permission_handler: ^12.0.1
 

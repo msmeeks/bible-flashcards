@@ -58,7 +58,7 @@ class AudioProvider extends ChangeNotifier {
     _currentVerse = verse;
     _isPlaying = true;
     notifyListeners();
-    await _notifications.showPlaybackNotification(verse);
+    await _notifications.showPlaybackNotification();
     // Playback state stream drives subsequent UI updates.
     unawaited(_audio.playVerse(verse));
   }

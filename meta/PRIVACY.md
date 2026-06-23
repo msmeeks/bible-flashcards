@@ -7,10 +7,11 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 
 | Data | Storage | Purpose | Retention |
 |---|---|---|---|
-| Selected verses and memorization status | Local SQLite | Core app function | Until user deletes app |
-| Test session history (scores, timestamps) | Local SQLite | Progress review | Until user deletes app or clears data |
-| Verse of the week selection | Local SQLite | Core app function | Until changed or app deleted |
-| Custom verses entered by user | Local SQLite | Core app function | Until user deletes them or app |
+| Selected verses and memorization status | Local SQLite (encrypted) | Core app function | Until user deletes app |
+| Test session history (scores, timestamps) | Local SQLite (encrypted) | Progress review | Until user deletes app or clears data |
+| Verse of the week selection | Local SQLite (encrypted) | Core app function | Until changed or app deleted |
+| Custom verses entered by user | Local SQLite (encrypted) | Core app function | Until user deletes them or app |
+| User preferences (audio, theme, translation, notification time, notification type, lock-screen toggle) | SharedPreferences (local) | App configuration | Until user changes or uninstalls |
 | Engagement log (date, event type, aggregate count) | Local SQLite (`engagement_log`) | Streak & activity history display | 90 days auto-purge; user-clearable via Settings → Activity History |
 | Export file (JSON snapshot of above) | App internal storage (temporary) | User-initiated data transfer | Deleted immediately after share |
 | Drive backup (same JSON, encrypted in transit) | Google Drive `appdata` folder | Optional cloud backup | Until user deletes backup from app or removes app access in Google account settings |
@@ -34,7 +35,13 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 Test history (which verses were studied, when, accuracy) combined with verse content constitutes a profile of religious practice. This data is stored locally by default. If Drive backup is enabled, this data is transmitted to Google's servers. A DPIA assessment is required before enabling this feature for any user other than the app author. See Cloud Backup section below.
 
 ## PII Assessment
-No PII is collected or processed in normal operation. Verse text and references are not personal information. The Google account email used for Drive OAuth is held in memory only and cleared on sign-out.
+No PII is collected or processed in normal operation. Verse text and references are not personal information. Notification time preference is a local setting with no identifying value. The Google account email used for Drive OAuth is held in memory only and cleared on sign-out.
+
+## Notification Settings
+
+Users may configure a daily reminder notification (off by default). The notification body is always generic — no verse text or reference is included.
+
+**Lock screen visibility** (`showOnLockScreen`) defaults to `false` (`NotificationVisibility.private`). The user may opt in to show notification content on the lock screen. This is opt-in because religious practice is GDPR Art. 9 adjacent — enabling this reveals to lock-screen bystanders that the user uses a Bible memorization app. An explicit bystander warning is shown in the settings UI.
 
 ## Cloud Backup (Optional)
 
@@ -55,8 +62,11 @@ This feature is **off by default**. Enabling it requires explicit consent.
 |---|---|
 | `FOREGROUND_SERVICE` | Background audio playback |
 | `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Audio classification for Android media session |
-| `POST_NOTIFICATIONS` (Android 13+) | Dismissible interruption notification |
+| `POST_NOTIFICATIONS` (Android 13+) | Dismissible interruption notification and daily reminder |
+| `SCHEDULE_EXACT_ALARM` | Daily reminder fires at the configured time (requires user consent via system Settings on API 31+; auto-granted below API 31) |
 | `INTERNET` | Optional verse lookup/pack import and optional Google Drive backup; both user-initiated, neither runs without explicit consent |
+
+`SCHEDULE_EXACT_ALARM` is only used for the daily reminder. Permission is requested at point-of-use; if denied, the user is shown a message directing them to system settings — the app does not degrade otherwise.
 
 No camera, microphone, contacts, or storage permissions are requested.
 
@@ -74,10 +84,14 @@ Verse lookup sends HTTPS requests to `bible.helloao.org` (a free public Bible AP
 ## Third-Party SDKs
 - `sqflite_sqlcipher` — local encrypted SQLite only, no network
 - `flutter_local_notifications` — local notifications only, no remote push
+- `flutter_timezone` — reads device timezone for accurate notification scheduling; data stays on-device
+- `google_fonts` — runtime font fetching is disabled (`allowRuntimeFetching = false`); fonts must be bundled
 - `flutter_tts` — on-device text-to-speech only
 - `google_sign_in` — OAuth 2.0 for Drive backup (optional); Google may collect SDK usage data per their terms
 - `googleapis` — Drive API client for backup upload/download (optional)
 - `share_plus` — Android share sheet for export file; no data sent to the package author
+
+None of these packages transmit data off-device in this configuration, except `google_sign_in`/`googleapis` when Drive backup is explicitly enabled by the user.
 
 ## Children
 This app does not collect PII in its core functionality. The optional Drive backup feature requires a Google account, which is subject to Google's age requirements. This app is not directed at children under 13.

@@ -107,7 +107,7 @@ class AudioInterruptService {
 
   void _triggerInterrupt(Verse verse) {
     unawaited(_audio.stop());
-    unawaited(_notifications.showVerseInterruptNotification(verse));
+    unawaited(_notifications.showVerseInterruptNotification());
     unawaited(_audio.playVerse(verse));
   }
 

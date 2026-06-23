@@ -6,7 +6,8 @@ Load this file first. Then load only the specific doc files relevant to your tas
 - [overview.md](overview.md) — project purpose, users, roles, architecture, tech stack
 - [features/verse-management.md](features/verse-management.md) — encrypted SQLite, Navigator packs, memorized list, home/verses/add/detail screens
 - [features/test-modes.md](features/test-modes.md) — test setup/session/results flow, LCS scoring, fill-blank algorithm, privacy decision on typed input
-- [features/audio.md](features/audio.md) — flutter_tts state machine, AudioReviewService generation counter, AudioInterruptService timer, notification privacy
+- [features/audio.md](features/audio.md) — flutter_tts state machine, AudioReviewService generation counter, AudioInterruptService timer, audio notification bodies
+- [features/notifications.md](features/notifications.md) — daily reminder scheduling, timezone init, lock-screen toggle, notification channels, SCHEDULE_EXACT_ALARM
 - [features/web-lookup.md](features/web-lookup.md) — BibleLookupService HTTP fetch, reference parsing, consent dialog, preview card, importPackFromJson batch import
 - [features/tracking.md](features/tracking.md) — engagement_log schema, TrackingProvider streak/chart computations, HistoryScreen charts + table toggle, first-launch consent, Settings clear
 
