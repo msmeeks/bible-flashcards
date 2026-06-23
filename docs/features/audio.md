@@ -35,10 +35,24 @@ idle
       → pausing        (reference TTS completes; timer set for pause duration)
           → speakingText  (pause timer fires)
               → completed (text TTS completes)
-                  → idle
+                  → idle  (only on explicit stop())
 ```
 
 Pause duration is calculated from the character count of the verse text (approximation: characters ÷ average TTS character rate). `pause()` and `resume()` are simulated by cancelling/restarting the TTS call at the current state rather than by a native pause API.
+
+### AudioProvider — Completed State Behaviour
+When the state machine reaches `completed`:
+- `isPlaying` → false; `isCompleted` getter → true.
+- `_currentVerse` is **kept non-null** so the player bar remains visible.
+- Notification is dismissed automatically.
+- `resume()` is guarded: it returns immediately when `isCompleted` is true, preventing a no-op TTS restart.
+- `_currentVerse` is only nulled on `idle` (explicit `stop()`).
+
+### AudioPlayerBar — Accessibility and Icon Fixes
+- Icons use `material_symbols_icons` (`Symbols.*`) exclusively — legacy `Icons.*` references removed.
+- Play/Pause button: `onPressed: null` and `Semantics(enabled: false)` when `isCompleted`; shows a dimmed state via `disabledBackgroundColor`/`disabledForegroundColor`.
+- Disabled navigation buttons (prev, rewind, forward) carry explicit `Semantics(enabled: false, button: true)`.
+- `Dismissible` wrapped in `Semantics` with a `CustomSemanticsAction(label: 'Dismiss player')` so screen readers can invoke stop.
 
 ### AudioReviewService — Generation Counter
 Each call to `start()` increments an integer `_generation`. Every async callback (TTS completion, loop-advance) captures the generation value at dispatch time and checks it against the current value before proceeding. A stale callback (generation mismatch) is silently dropped. This prevents a stopped loop from inadvertently starting a new verse after the service has been torn down.
@@ -78,3 +92,4 @@ Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the
 |---|---|
 | 2026-05-27 | Initial documentation |
 | 2026-05-27 | Updated with full implementation: replaced just_audio/asset clips with flutter_tts state machine, documented AudioReviewService generation counter, AudioInterruptService timer logic, notification VISIBILITY_PRIVATE decision, settings screen inventory |
+| 2026-06-10 | Bug fixes: isCompleted getter; resume() guard; _currentVerse kept on completed/nulled on idle; player bar play button disabled + accessible; Symbols.* icons; Dismissible semantics |

@@ -173,7 +173,7 @@ class DatabaseHelper {
     await db.insert(
       'verses',
       verse.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      conflictAlgorithm: ConflictAlgorithm.ignore,
     );
   }
 
@@ -205,5 +205,38 @@ class DatabaseHelper {
   Future<void> clearTestHistory() async {
     final db = await database;
     await db.delete('test_results');
+  }
+
+  Future<double?> getLatestVerseAccuracy(String verseId) async {
+    final db = await database;
+    final rows = await db.query(
+      'test_results',
+      columns: ['accuracy'],
+      where: 'verse_id = ?',
+      whereArgs: [verseId],
+      orderBy: 'tested_at DESC',
+      limit: 5,
+    );
+    if (rows.isEmpty) return null;
+    final avg = rows.map((r) => r['accuracy'] as double).reduce((a, b) => a + b) / rows.length;
+    return avg;
+  }
+
+  // Atomically clears memorized status and erases test history — satisfies GDPR data erasure on unmark.
+  Future<void> unmarkMemorizedVerse(Verse updatedVerse) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update(
+        'verses',
+        updatedVerse.toMap(),
+        where: 'id = ?',
+        whereArgs: [updatedVerse.id],
+      );
+      await txn.delete(
+        'test_results',
+        where: 'verse_id = ?',
+        whereArgs: [updatedVerse.id],
+      );
+    });
   }
 }

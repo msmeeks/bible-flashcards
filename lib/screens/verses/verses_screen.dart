@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../providers/verse_provider.dart';
 import '../../theme/app_colors.dart';
@@ -195,7 +196,13 @@ class _MemorizedListTile extends StatelessWidget {
       ),
       title: Text(verse.reference),
       subtitle: Text(preview),
-      trailing: const _MemorizedChip(),
+      trailing: FutureBuilder<double?>(
+        future: DatabaseHelper().getLatestVerseAccuracy(verse.id),
+        builder: (context, snapshot) => _ConfidenceBadge(
+          accuracy: snapshot.data,
+          verseRef: verse.reference,
+        ),
+      ),
       onTap: () =>
           Navigator.of(context).pushNamed('/verse-detail', arguments: verse.id),
       onLongPress: () =>
@@ -204,24 +211,55 @@ class _MemorizedListTile extends StatelessWidget {
   }
 }
 
-class _MemorizedChip extends StatelessWidget {
-  const _MemorizedChip();
+class _ConfidenceBadge extends StatelessWidget {
+  final double? accuracy;
+  final String verseRef;
+
+  const _ConfidenceBadge({required this.accuracy, required this.verseRef});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Chip(
-      backgroundColor: cs.successContainer,
-      label: Text(
-        'Memorized',
-        style: Theme.of(context)
-            .textTheme
-            .labelSmall
-            ?.copyWith(color: cs.onSuccessContainer),
+    final tt = Theme.of(context).textTheme;
+
+    final String tier;
+    final Color bg;
+    final Color fg;
+    final IconData icon;
+
+    if (accuracy == null) {
+      tier = 'Memorized';
+      bg = cs.successContainer;
+      fg = cs.onSuccessContainer;
+      icon = Symbols.check_circle_rounded;
+    } else if (accuracy! < 0.7) {
+      tier = 'Weak';
+      bg = cs.errorContainer;
+      fg = cs.onErrorContainer;
+      icon = Symbols.cancel_rounded;
+    } else if (accuracy! < 0.9) {
+      tier = 'Learning';
+      bg = cs.warningContainer;
+      fg = cs.onWarningContainer;
+      icon = Symbols.warning_rounded;
+    } else {
+      tier = 'Strong';
+      bg = cs.successContainer;
+      fg = cs.onSuccessContainer;
+      icon = Symbols.check_circle_rounded;
+    }
+
+    return Semantics(
+      label: 'Confidence: $tier — $verseRef',
+      excludeSemantics: true,
+      child: Chip(
+        avatar: Icon(icon, color: fg, size: 16),
+        backgroundColor: bg,
+        label: Text(tier, style: tt.labelSmall?.copyWith(color: fg)),
+        padding: EdgeInsets.zero,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+        visualDensity: VisualDensity.compact,
       ),
-      padding: EdgeInsets.zero,
-      labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-      visualDensity: VisualDensity.compact,
     );
   }
 }
