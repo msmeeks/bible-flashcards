@@ -48,6 +48,12 @@ dependencies:
   # Key derivation (no analytics SDKs)
   crypto: ^3.0.7
 
+  # Export / Import / Google Drive backup
+  google_sign_in: ^7.0.0
+  googleapis: ^13.1.0
+  share_plus: ^10.0.0
+  http: ^1.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
