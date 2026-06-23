@@ -243,8 +243,8 @@ ok "Running from repo root: $(pwd)"
 
 # Internet connectivity check
 log "Checking internet connectivity..."
-if ! curl -fsS --max-time 10 https://storage.googleapis.com >/dev/null 2>&1; then
-  err "No internet connection (or googleapis.com is blocked)."
+if ! curl -fsS --max-time 10 https://google.com >/dev/null 2>&1; then
+  err "No internet connection (or google.com is blocked)."
   err "An internet connection is required to download Flutter, Java, and Android SDK."
   exit 1
 fi
@@ -554,6 +554,9 @@ step "Step 7: Configure Flutter, accept Android licenses, flutter pub get"
 # the Dart package dependencies listed in pubspec.yaml.
 #
 if ! $VERIFY_ONLY; then
+  log "Upgrading flutter"
+  flutter pub upgrade --major-versions
+
   if [[ -n "$ANDROID_HOME" ]]; then
     log "Configuring Flutter Android SDK path..."
     flutter config --android-sdk "$ANDROID_HOME" --no-analytics

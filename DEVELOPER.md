@@ -74,22 +74,26 @@ There are no integration tests or widget tests at present. The database layer (`
 
 ## Running on an emulator
 
-1. Open **Android Studio → Device Manager** (or use `avdmanager`).
-2. Create a virtual device — recommended: **Pixel 9 Pro**, API 35 (Android 15) or API 36 (Android 16), with the **Google Play** system image.
-3. Start the emulator from Device Manager or:
-   ```sh
-   emulator -avd <avd_name>
-   ```
-4. Confirm it is visible to Flutter:
-   ```sh
-   flutter devices
-   ```
-5. Run the app:
-   ```sh
-   flutter run
-   ```
+Use the emulator helper script for all start/stop/restart operations:
+
+```sh
+bash scripts/emulator.sh start    # boot AVD + flutter run (default)
+bash scripts/emulator.sh stop     # kill running emulator
+bash scripts/emulator.sh restart  # stop then start
+```
+
+Flags:
+
+| Flag | Effect |
+|---|---|
+| `--wipe` | Cold-boot with full data wipe — fixes "Activity class not found" corruption |
+| `--no-app` | Boot the emulator only; skip `flutter run` |
+
+The AVD (`bible_flashcards_pixel9`) is created by `scripts/setup-mac.sh`. The script uses the Homebrew-installed emulator at `/opt/homebrew/share/android-commandlinetools/emulator/emulator`.
 
 The first build compiles native Gradle dependencies and takes several minutes. Subsequent hot-reloads (`r` in the terminal) are fast.
+
+> **Laptop keyboard in the emulator:** `hw.keyboard=yes` is set in the AVD config (`~/.android/avd/bible_flashcards_pixel9.avd/config.ini`). Keyboard input works automatically after a cold boot (no snapshot load).
 
 ### Emulator notes
 
@@ -213,6 +217,7 @@ Full dependency list: `pubspec.yaml`.
 |---|---|---|
 | App crashes on first launch | Keystore unavailable (no device lock screen) | Set a PIN/pattern in device security settings |
 | TTS produces no audio | No TTS engine installed | Install Google TTS from Play Store; check Settings → Accessibility → TTS |
+| "Activity class does not exist" on launch | Emulator state corruption | Run `bash scripts/emulator.sh restart --wipe` |
 | `flutter run` says "No devices" | ADB not detecting device | Confirm USB debugging is on; try `adb devices`; re-plug cable |
 | Notification permission denied | Android 13+ requires explicit grant | Grant in Settings → Apps → Bible Flashcards → Notifications |
 | Gradle build fails | Java version mismatch | Ensure `JAVA_HOME` points to Java 17; run `flutter doctor` |
