@@ -44,3 +44,15 @@ Default label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `read
 ### Domain docs
 
 Single-context layout: one `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
+
+### Issue workflow
+
+These skills form a pipeline — pick the entry point that matches where the work starts:
+
+1. `/qa` (conversational) — user reports bugs/issues in conversation → files GitHub issues
+2. `/to-prd` → `/to-issues` — alternative entry point when starting from a design discussion instead of a live bug report
+3. `/triage` — evaluates *one* issue/PR, categorizes it, writes an agent brief, marks `ready-for-agent`
+4. `/triage-issues` — picks up `ready-for-agent` issues in bulk and groups them into `meta/plans/` workstreams
+5. `/triage-pr-comments` — same as step 4, but for review comments on open PRs
+
+Do not confuse `/triage` (single-issue evaluation) with `/triage-issues` (bulk grouping into plans) — they are sequential steps, not alternatives.
