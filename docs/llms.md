@@ -7,6 +7,7 @@ Load this file first. Then load only the specific doc files relevant to your tas
 - [features/verse-management.md](features/verse-management.md) — encrypted SQLite, Navigator packs, memorized list, home/verses/add/detail screens
 - [features/test-modes.md](features/test-modes.md) — test setup/session/results flow, LCS scoring, fill-blank algorithm, privacy decision on typed input
 - [features/audio.md](features/audio.md) — flutter_tts state machine, AudioReviewService generation counter, AudioInterruptService timer, notification privacy
+- [features/web-lookup.md](features/web-lookup.md) — BibleLookupService HTTP fetch, reference parsing, consent dialog, preview card, importPackFromJson batch import
 - [features/tracking.md](features/tracking.md) — engagement_log schema, TrackingProvider streak/chart computations, HistoryScreen charts + table toggle, first-launch consent, Settings clear
 
 ## Setup & tooling

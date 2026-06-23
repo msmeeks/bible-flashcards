@@ -210,6 +210,62 @@ class DatabaseHelper {
   }
 
   // ---------------------------------------------------------------------------
+  // Pack import
+  // ---------------------------------------------------------------------------
+
+  /// Imports verses from a JSON pack map in a single transaction.
+  ///
+  /// Expected shape: `{ "verses": [ { "id", "reference", "text", "translation",
+  /// "pack_id" }, ... ] }`. Rows that fail validation or conflict are skipped.
+  Future<int> importPackFromJson(Map<String, dynamic> packJson) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    int imported = 0;
+
+    await db.transaction((txn) async {
+      final verses = packJson['verses'];
+      if (verses is! List) return;
+
+      for (final v in verses) {
+        if (v is! Map<String, dynamic>) continue;
+
+        final id = v['id'] as String?;
+        final reference = v['reference'] as String?;
+        final text = v['text'] as String?;
+        final translation = v['translation'] as String?;
+        final packId = v['pack_id'] as String?;
+
+        if (id == null || reference == null || text == null ||
+            translation == null || packId == null) {
+          continue;
+        }
+        if (reference.length > 100 || text.length > 2000) continue;
+        if (id.length > 100 || translation.length > 20 || packId.length > 100) continue;
+        if (id.isEmpty || translation.isEmpty || packId.isEmpty) continue;
+
+        final rows = await txn.insert(
+          'verses',
+          {
+            'id': id,
+            'reference': reference,
+            'text': text,
+            'translation': translation,
+            'pack_id': packId,
+            'is_memorized': 0,
+            'is_verse_of_week': 0,
+            'memorized_at': null,
+            'added_at': now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+        if (rows > 0) imported++;
+      }
+    });
+
+    return imported;
+  }
+
+  // ---------------------------------------------------------------------------
   // Test results
   // ---------------------------------------------------------------------------
 

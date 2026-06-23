@@ -1,7 +1,7 @@
 # Privacy Policy — Bible Flashcards
 
 ## Summary
-Bible Flashcards stores all core data exclusively on the user's device in encrypted SQLite. An optional Google Drive backup feature transmits verse data and test history to the user's own Google Drive `appdata` folder — this is opt-in only, requires explicit consent, and can be deleted from within the app.
+Bible Flashcards stores all core data exclusively on the user's device in encrypted SQLite. Two optional features make outbound network requests, both user-initiated and gated by explicit consent: verse lookup/pack import (HTTPS requests to bible.helloao.org) and Google Drive backup (transmits verse data and test history to the user's own Google Drive `appdata` folder, deletable from within the app).
 
 ## Data Collected
 
@@ -28,8 +28,7 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 - No usage analytics or crash reporting
 - No location data
 - No audio recordings (the user's voice is never captured; recite mode is self-scored)
-
-Network requests are made only when the user explicitly enables Google Drive backup. All other app functions remain fully offline.
+- No automatic network requests; all network calls (verse lookup, pack import, Drive backup) are user-initiated and require prior consent
 
 ## Special Category Data (GDPR Art. 9)
 Test history (which verses were studied, when, accuracy) combined with verse content constitutes a profile of religious practice. This data is stored locally by default. If Drive backup is enabled, this data is transmitted to Google's servers. A DPIA assessment is required before enabling this feature for any user other than the app author. See Cloud Backup section below.
@@ -57,7 +56,20 @@ This feature is **off by default**. Enabling it requires explicit consent.
 | `FOREGROUND_SERVICE` | Background audio playback |
 | `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Audio classification for Android media session |
 | `POST_NOTIFICATIONS` (Android 13+) | Dismissible interruption notification |
-| `INTERNET` | Google Drive backup only (optional feature; no requests made without user opt-in) |
+| `INTERNET` | Optional verse lookup/pack import and optional Google Drive backup; both user-initiated, neither runs without explicit consent |
+
+No camera, microphone, contacts, or storage permissions are requested.
+
+## Network Requests
+
+Verse lookup sends HTTPS requests to `bible.helloao.org` (a free public Bible API). Drive backup, when enabled, sends requests to Google's servers. No other external hosts are contacted.
+
+- Requests are user-initiated (tap Search, or explicitly enable Drive backup); the app never auto-fetches.
+- The user's IP address is visible to the remote host (`bible.helloao.org` or Google) for each request.
+- The verse reference typed by the user is included as a path component in the lookup URL.
+- No account, device identifier, or PII is sent to `bible.helloao.org`.
+- All traffic is HTTPS-only; cleartext is blocked at the OS level via `network_security_config.xml`.
+- On first use, the app displays a consent dialog naming `bible.helloao.org` as the data recipient before any lookup request fires. Consent is stored locally in `SharedPreferences`.
 
 ## Third-Party SDKs
 - `sqflite_sqlcipher` — local encrypted SQLite only, no network
