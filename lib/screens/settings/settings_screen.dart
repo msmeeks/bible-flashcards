@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/database_helper.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/tracking_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../services/audio_interrupt_service.dart';
 import '../../services/audio_review_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/notification_service.dart';
+import 'data_management_screen.dart';
 import 'test_history_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -122,6 +125,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Clear Test History'),
             leading: Icon(Icons.delete_outline_rounded, color: cs.error),
             onTap: () => _confirmClearHistory(context),
+          ),
+          ListTile(
+            leading: Icon(Symbols.bar_chart_rounded, color: cs.primary),
+            title: const Text('Activity History'),
+            subtitle: const Text('Streaks and verse review counts'),
+            trailing: Icon(Icons.chevron_right_rounded, color: cs.outline),
+            onTap: () => Navigator.of(context).pushNamed('/history'),
+          ),
+          ListTile(
+            title: const Text('Clear Activity History'),
+            leading: Icon(Icons.delete_outline_rounded, color: cs.error),
+            onTap: () => _confirmClearActivityHistory(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.backup_rounded),
+            title: const Text('Data & Backup'),
+            subtitle: const Text('Export, import, and Google Drive backup'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const DataManagementScreen(),
+              ),
+            ),
           ),
           // ----------------------------------------------------------------
           // About
@@ -325,6 +351,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SnackBar(content: Text('Test history cleared')),
         );
       }
+    }
+  }
+
+  Future<void> _confirmClearActivityHistory(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Clear Activity History'),
+        content: const Text(
+          'This will permanently delete all streak and activity data. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await DatabaseHelper().clearEngagementLog();
+      if (!context.mounted) return;
+      // ignore: unawaited_futures — load() notifies listeners; no need to await UI rebuild
+      context.read<TrackingProvider>().load();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Activity history cleared')),
+      );
     }
   }
 

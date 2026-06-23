@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/audio_provider.dart';
+import '../services/audio_service.dart';
 
 /// Persistent mini-player bar shown above the [NavigationBar].
 ///
@@ -16,11 +19,16 @@ class AudioPlayerBar extends StatelessWidget {
       builder: (context, audio, _) {
         if (audio.currentVerse == null) return const SizedBox.shrink();
 
-        return Dismissible(
-          key: const ValueKey('audio_player_bar'),
-          direction: DismissDirection.down,
-          onDismissed: (_) => audio.stop(),
-          child: _AudioPlayerBarContent(audio: audio),
+        return Semantics(
+          customSemanticsActions: {
+            const CustomSemanticsAction(label: 'Dismiss player'): audio.stop,
+          },
+          child: Dismissible(
+            key: const ValueKey('audio_player_bar'),
+            direction: DismissDirection.down,
+            onDismissed: (_) => audio.stop(),
+            child: _AudioPlayerBarContent(audio: audio),
+          ),
         );
       },
     );
@@ -37,17 +45,13 @@ class _AudioPlayerBarContent extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    // Synthetic progress: speakingReference=0.33, pausing=0.5, speakingText=0.8
-    final progressValue = switch (audio.playbackState.name) {
-      'speakingReference' => 0.2,
-      'pausing' => 0.5,
-      'speakingText' => 0.85,
-      'completed' => 1.0,
+    final progressValue = switch (audio.playbackState) {
+      AudioPlaybackState.speakingReference => 0.2,
+      AudioPlaybackState.pausing => 0.5,
+      AudioPlaybackState.speakingText => 0.85,
+      AudioPlaybackState.completed => 1.0,
       _ => 0.0,
     };
-
-    final positionSeconds = (progressValue * 60).round();
-    const totalSeconds = 60;
 
     return Container(
       decoration: BoxDecoration(
@@ -59,7 +63,9 @@ class _AudioPlayerBarContent extends StatelessWidget {
         children: [
           // Progress indicator — spans full width, 4dp height.
           Semantics(
-            label: '$positionSeconds of $totalSeconds seconds',
+            label: audio.playbackStateLabel.isNotEmpty
+                ? audio.playbackStateLabel
+                : 'Playback progress',
             child: SizedBox(
               height: 4,
               child: LinearProgressIndicator(
@@ -106,45 +112,45 @@ class _AudioPlayerBarContent extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Previous verse — not wired to a previous-verse queue yet.
+                // Previous verse — not implemented; disabled.
                 Semantics(
                   label: 'Previous verse',
+                  enabled: false,
+                  button: true,
                   child: Tooltip(
                     message: 'Previous',
                     child: IconButton(
-                      icon: Icon(
-                        Icons.skip_previous_rounded,
-                        color: cs.onInverseSurface,
-                      ),
-                      onPressed: () {
-                        // Future: wire to AudioProvider.playPrevious()
-                      },
+                      icon: const Icon(Symbols.skip_previous_rounded),
+                      onPressed: null,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Rewind 5 s — TTS has no real seek; no-op for now.
+                // Rewind — TTS has no real seek; disabled.
                 Semantics(
                   label: 'Rewind 5 seconds',
+                  enabled: false,
+                  button: true,
                   child: Tooltip(
                     message: 'Rewind 5 seconds',
                     child: IconButton(
-                      icon: Icon(
-                        Icons.replay_5_rounded,
-                        color: cs.onInverseSurface,
-                      ),
-                      onPressed: () {
-                        // TTS does not support seeking.
-                      },
+                      icon: const Icon(Symbols.replay_5_rounded),
+                      onPressed: null,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Play / Pause — 48dp filled circle.
+                // Play / Pause — 48dp filled circle; disabled when completed.
                 Semantics(
-                  label: audio.isPlaying ? 'Pause' : 'Play',
+                  label: audio.isCompleted
+                      ? 'Playback completed'
+                      : (audio.isPlaying ? 'Pause' : 'Play'),
+                  enabled: !audio.isCompleted,
+                  button: true,
                   child: Tooltip(
-                    message: audio.isPlaying ? 'Pause' : 'Play',
+                    message: audio.isCompleted
+                        ? 'Playback completed'
+                        : (audio.isPlaying ? 'Pause' : 'Play'),
                     child: SizedBox(
                       width: 48,
                       height: 48,
@@ -154,32 +160,32 @@ class _AudioPlayerBarContent extends StatelessWidget {
                           padding: EdgeInsets.zero,
                           backgroundColor: cs.primary,
                           foregroundColor: cs.onPrimary,
+                          disabledBackgroundColor: cs.onInverseSurface.withAlpha(31),
+                          disabledForegroundColor: cs.onInverseSurface.withAlpha(97),
                         ),
-                        onPressed:
-                            audio.isPlaying ? audio.pause : audio.resume,
+                        onPressed: audio.isCompleted
+                            ? null
+                            : (audio.isPlaying ? audio.pause : audio.resume),
                         child: Icon(
                           audio.isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
+                              ? Symbols.pause_rounded
+                              : Symbols.play_arrow_rounded,
                         ),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Forward 5 s — TTS has no real seek; no-op for now.
+                // Forward — TTS has no real seek; disabled.
                 Semantics(
                   label: 'Forward 5 seconds',
+                  enabled: false,
+                  button: true,
                   child: Tooltip(
                     message: 'Forward 5 seconds',
                     child: IconButton(
-                      icon: Icon(
-                        Icons.forward_5_rounded,
-                        color: cs.onInverseSurface,
-                      ),
-                      onPressed: () {
-                        // TTS does not support seeking.
-                      },
+                      icon: const Icon(Symbols.forward_5_rounded),
+                      onPressed: null,
                     ),
                   ),
                 ),
@@ -188,10 +194,10 @@ class _AudioPlayerBarContent extends StatelessWidget {
                 Semantics(
                   label: 'Stop playback',
                   child: Tooltip(
-                    message: 'Stop',
+                    message: 'Stop playback',
                     child: IconButton(
                       icon: Icon(
-                        Icons.stop_rounded,
+                        Symbols.stop_rounded,
                         color: cs.onInverseSurface,
                       ),
                       onPressed: audio.stop,
