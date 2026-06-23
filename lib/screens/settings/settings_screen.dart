@@ -10,6 +10,7 @@ import '../../services/audio_interrupt_service.dart';
 import '../../services/audio_review_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/notification_service.dart';
+import 'data_management_screen.dart';
 import 'test_history_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -136,6 +137,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Clear Activity History'),
             leading: Icon(Icons.delete_outline_rounded, color: cs.error),
             onTap: () => _confirmClearActivityHistory(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.backup_rounded),
+            title: const Text('Data & Backup'),
+            subtitle: const Text('Export, import, and Google Drive backup'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const DataManagementScreen(),
+              ),
+            ),
           ),
           // ----------------------------------------------------------------
           // About

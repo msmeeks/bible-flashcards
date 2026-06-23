@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
@@ -133,36 +136,54 @@ class _RemoveMemorizedButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return OutlinedButton(
-      onPressed: () async {
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Remove from memorized?'),
-            content: const Text(
-                'This verse will move back to the Available list.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Remove'),
-              ),
-            ],
-          ),
-        );
-        if (confirmed == true && context.mounted) {
-          // TODO(verse-detail): wire to provider.unmarkMemorized() when added
-          Navigator.of(context).pop();
-        }
-      },
-      style: OutlinedButton.styleFrom(
-        foregroundColor: cs.error,
-        side: BorderSide(color: cs.error),
+    return Semantics(
+      hint: 'Verse will move back to the available list',
+      child: OutlinedButton(
+        onPressed: () async {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Remove from memorized?'),
+              content: const Text(
+                  'This verse will move back to the Available list and all test history for it will be permanently deleted.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  style: TextButton.styleFrom(foregroundColor: cs.error),
+                  child: const Text('Remove'),
+                ),
+              ],
+            ),
+          );
+          if (confirmed == true && context.mounted) {
+            await context.read<VerseProvider>().unmarkMemorized(verseId);
+            if (context.mounted) {
+              unawaited(SemanticsService.sendAnnouncement(
+                View.of(context),
+                'Verse removed from memorized',
+                TextDirection.ltr,
+              ));
+              // Delay pop one frame so TalkBack can process the announcement before focus jumps.
+              await Future<void>.delayed(Duration.zero);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Verse removed from memorized')),
+                );
+                Navigator.of(context).pop();
+              }
+            }
+          }
+        },
+        style: OutlinedButton.styleFrom(
+          foregroundColor: cs.error,
+          side: BorderSide(color: cs.error),
+        ),
+        child: const Text('Remove from Memorized'),
       ),
-      child: const Text('Remove from Memorized'),
     );
   }
 }
