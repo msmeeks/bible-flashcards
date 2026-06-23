@@ -78,6 +78,14 @@ class VerseProvider extends ChangeNotifier {
     await loadVerses();
   }
 
+  Future<void> unmarkMemorized(String id) async {
+    final index = _verses.indexWhere((v) => v.id == id);
+    if (index == -1) return;
+    final updated = _verses[index].copyWith(isMemorized: false, clearMemorizedAt: true);
+    await _db.unmarkMemorizedVerse(updated);
+    await loadVerses();
+  }
+
   /// Returns up to [count] randomly chosen memorized verses.
   List<Verse> getRandomMemorizedVerses(int count) {
     final pool = memorizedVerses.toList();

@@ -33,6 +33,7 @@ class AudioProvider extends ChangeNotifier {
   final Duration _duration = Duration.zero;
 
   bool get isPlaying => _isPlaying;
+  bool get isCompleted => _playbackState == AudioPlaybackState.completed;
   Verse? get currentVerse => _currentVerse;
   Duration get position => _position;
   Duration get duration => _duration;
@@ -57,7 +58,7 @@ class AudioProvider extends ChangeNotifier {
     _currentVerse = verse;
     _isPlaying = true;
     notifyListeners();
-    await _notifications.showPlaybackNotification(verse);
+    await _notifications.showPlaybackNotification();
     // Playback state stream drives subsequent UI updates.
     unawaited(_audio.playVerse(verse));
   }
@@ -71,6 +72,7 @@ class AudioProvider extends ChangeNotifier {
 
   /// Resumes from the paused phase.
   Future<void> resume() async {
+    if (_currentVerse == null || isCompleted) return;
     _isPlaying = true;
     notifyListeners();
     unawaited(_audio.resume());
@@ -101,13 +103,14 @@ class AudioProvider extends ChangeNotifier {
         _isPlaying = true;
       case AudioPlaybackState.completed:
         _isPlaying = false;
-        _currentVerse = null;
+        // Keep _currentVerse so bar stays visible with disabled play button.
         unawaited(_notifications.cancelNotification());
       case AudioPlaybackState.error:
         _isPlaying = false;
         unawaited(_notifications.cancelNotification());
       case AudioPlaybackState.idle:
         _isPlaying = false;
+        _currentVerse = null;
     }
     notifyListeners();
   }

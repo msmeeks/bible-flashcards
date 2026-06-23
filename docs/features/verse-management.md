@@ -73,7 +73,14 @@ Both branches of `_VerseOfWeekSection` (verse present and verse absent) wrap the
 Exactly one verse is flagged `is_verse_of_week = 1` at any time. Setting a new verse of the week clears the previous flag. The current verse is surfaced prominently on the home screen.
 
 ### Adding Custom Verses
-Users can enter a reference and text manually. Custom verses are stored in the same table with no pack membership. Bible version must be specified at entry.
+Users can enter a reference and text manually. Custom verses are stored in the same table with no pack membership. Bible version must be specified at entry. `insertVerse` uses `ConflictAlgorithm.ignore` so duplicate inserts are silently dropped (same behaviour as seed inserts).
+
+### Unmarking a Memorized Verse
+`VerseProvider.unmarkMemorized(id)` sets `isMemorized: false` and clears `memorizedAt`, then delegates to `DatabaseHelper.unmarkMemorizedVerse()`. That method runs a single SQLite transaction that:
+1. Updates the verse row (clears memorized flag and date).
+2. Deletes all `test_results` rows for that verse.
+
+The atomic transaction satisfies GDPR data-erasure semantics — partial updates cannot leave orphaned test history. `VerseDetailScreen` wires the "Remove from Memorized" button to this call; previously the button existed in the UI but had no effect.
 
 ### Selecting Next Verse
 From the available list, tapping a verse and confirming sets it as the verse of the week. It does not automatically mark the previous one as memorized — the user does that explicitly.
@@ -83,4 +90,5 @@ From the available list, tapping a verse and confirming sets it as the verse of 
 |---|---|
 | 2026-05-27 | Initial documentation |
 | 2026-05-27 | Updated with full implementation: encryption details, DatabaseHelper singleton, screen/route table, Provider integration |
+| 2026-06-10 | Bug fixes: unmarkMemorized() wired end-to-end (VerseDetailScreen → VerseProvider → DatabaseHelper atomic txn + test-history purge); insertVerse ConflictAlgorithm.ignore |
 | 2026-06-12 | FlashcardState enum + VerseCard 3-state tap cycle; pack names via DB v2 packs table + getPackNames(); VersePack verseIds now JSON (was CSV); Semantics(header: true) on heading; VerseDetailScreen uses FlashcardState.both; corrected key file paths |

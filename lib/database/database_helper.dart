@@ -4,8 +4,10 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/test_result.dart';
@@ -15,11 +17,16 @@ class DatabaseHelper {
   static const _dbName = 'bible_flashcards.db';
   static const _dbVersion = 2;
 
-  // Key stored in Android Keystore / iOS Keychain via flutter_secure_storage.
   static const _secureKeyDbSeed = 'db_encryption_seed_v1';
   static const _secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(),
   );
+
+  static const _validEventTypes = {'flashcard_tap', 'test_complete'};
+  static bool? _trackingEnabled;
+
+  /// Call after the user changes their activity-tracking consent preference.
+  static void invalidateTrackingCache() => _trackingEnabled = null;
 
   static DatabaseHelper? _instance;
   // Stores the open Future so concurrent callers share one initialization.
@@ -107,6 +114,7 @@ class DatabaseHelper {
           );
         }
       });
+      await _createEngagementLogTable(db);
     }
   }
 
@@ -145,6 +153,20 @@ class DatabaseHelper {
         FOREIGN KEY (verse_id) REFERENCES verses (id)
       )
     ''');
+
+    await _createEngagementLogTable(db);
+  }
+
+  Future<void> _createEngagementLogTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS engagement_log (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        date       TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        count      INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(date, event_type)
+      )
+    ''');
   }
 
   // ---------------------------------------------------------------------------
@@ -159,8 +181,7 @@ class DatabaseHelper {
     final now = DateTime.now().toIso8601String();
 
     final batch = db.batch();
-    for (final packRaw in packs) {
-      final pack = packRaw as Map<String, dynamic>;
+    for (final pack in packs.cast<Map<String, dynamic>>()) {
       final verses = pack['verses'] as List<dynamic>;
       batch.insert(
         'packs',
@@ -174,8 +195,7 @@ class DatabaseHelper {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
-      for (final vRaw in verses) {
-        final v = vRaw as Map<String, dynamic>;
+      for (final v in verses.cast<Map<String, dynamic>>()) {
         batch.insert(
           'verses',
           {
@@ -233,7 +253,7 @@ class DatabaseHelper {
     await db.insert(
       'verses',
       verse.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      conflictAlgorithm: ConflictAlgorithm.ignore,
     );
   }
 
@@ -245,6 +265,62 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [verse.id],
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pack import
+  // ---------------------------------------------------------------------------
+
+  /// Imports verses from a JSON pack map in a single transaction.
+  ///
+  /// Expected shape: `{ "verses": [ { "id", "reference", "text", "translation",
+  /// "pack_id" }, ... ] }`. Rows that fail validation or conflict are skipped.
+  Future<int> importPackFromJson(Map<String, dynamic> packJson) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    int imported = 0;
+
+    await db.transaction((txn) async {
+      final verses = packJson['verses'];
+      if (verses is! List) return;
+
+      for (final v in verses) {
+        if (v is! Map<String, dynamic>) continue;
+
+        final id = v['id'] as String?;
+        final reference = v['reference'] as String?;
+        final text = v['text'] as String?;
+        final translation = v['translation'] as String?;
+        final packId = v['pack_id'] as String?;
+
+        if (id == null || reference == null || text == null ||
+            translation == null || packId == null) {
+          continue;
+        }
+        if (reference.length > 100 || text.length > 2000) continue;
+        if (id.length > 100 || translation.length > 20 || packId.length > 100) continue;
+        if (id.isEmpty || translation.isEmpty || packId.isEmpty) continue;
+
+        final rows = await txn.insert(
+          'verses',
+          {
+            'id': id,
+            'reference': reference,
+            'text': text,
+            'translation': translation,
+            'pack_id': packId,
+            'is_memorized': 0,
+            'is_verse_of_week': 0,
+            'memorized_at': null,
+            'added_at': now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+        if (rows > 0) imported++;
+      }
+    });
+
+    return imported;
   }
 
   // ---------------------------------------------------------------------------
@@ -265,5 +341,77 @@ class DatabaseHelper {
   Future<void> clearTestHistory() async {
     final db = await database;
     await db.delete('test_results');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Engagement log
+  // ---------------------------------------------------------------------------
+
+  Future<void> logEngagement(String eventType) async {
+    if (!_validEventTypes.contains(eventType)) return;
+    // Cache the preference; reset via invalidateTrackingCache() on consent change.
+    _trackingEnabled ??= (await SharedPreferences.getInstance())
+        .getBool('engagement_tracking_enabled') ?? true;
+    if (!_trackingEnabled!) return;
+
+    final db = await database;
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    await db.rawInsert(
+      'INSERT INTO engagement_log (date, event_type, count) VALUES (?, ?, 1) '
+      'ON CONFLICT(date, event_type) DO UPDATE SET count = count + 1',
+      [today, eventType],
+    );
+    // Keep table bounded; 90-day window is sufficient for streak/chart features.
+    final cutoff = DateFormat('yyyy-MM-dd')
+        .format(DateTime.now().subtract(const Duration(days: 90)));
+    await db.delete('engagement_log', where: 'date < ?', whereArgs: [cutoff]);
+  }
+
+  Future<void> clearEngagementLog() async {
+    final db = await database;
+    await db.delete('engagement_log');
+  }
+
+  Future<List<Map<String, Object?>>> getEngagementLog() async {
+    final db = await database;
+    return db.query('engagement_log', orderBy: 'date ASC');
+  }
+
+  Future<List<Map<String, Object?>>> getTestResultsRaw() async {
+    final db = await database;
+    return db.query('test_results', orderBy: 'tested_at DESC');
+  }
+
+  Future<double?> getLatestVerseAccuracy(String verseId) async {
+    final db = await database;
+    final rows = await db.query(
+      'test_results',
+      columns: ['accuracy'],
+      where: 'verse_id = ?',
+      whereArgs: [verseId],
+      orderBy: 'tested_at DESC',
+      limit: 5,
+    );
+    if (rows.isEmpty) return null;
+    final avg = rows.map((r) => r['accuracy'] as double).reduce((a, b) => a + b) / rows.length;
+    return avg;
+  }
+
+  // Atomically clears memorized status and erases test history — satisfies GDPR data erasure on unmark.
+  Future<void> unmarkMemorizedVerse(Verse updatedVerse) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update(
+        'verses',
+        updatedVerse.toMap(),
+        where: 'id = ?',
+        whereArgs: [updatedVerse.id],
+      );
+      await txn.delete(
+        'test_results',
+        where: 'verse_id = ?',
+        whereArgs: [updatedVerse.id],
+      );
+    });
   }
 }

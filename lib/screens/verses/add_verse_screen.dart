@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/verse.dart';
 import '../../providers/verse_provider.dart';
+import '../../services/bible_lookup_service.dart';
 
 class AddVerseScreen extends StatefulWidget {
   const AddVerseScreen({super.key});
@@ -15,15 +17,124 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _formKey = GlobalKey<FormState>();
   final _referenceController = TextEditingController();
   final _textController = TextEditingController();
-  String _translation = 'ESV';
+  final _searchFocusNode = FocusNode();
+  final _previewFocusNode = FocusNode();
+  String _translation = 'BSB';
   bool _isSaving = false;
+  bool _isLookingUp = false;
   String? _saveError;
+  String? _lookupError;
+  VerseLookupResult? _preview;
+
+  final _lookupService = BibleLookupService();
+
+  static const _consentPrefKey = 'bible_lookup_consent_v1';
 
   @override
   void dispose() {
     _referenceController.dispose();
     _textController.dispose();
+    _searchFocusNode.dispose();
+    _previewFocusNode.dispose();
+    _lookupService.dispose();
     super.dispose();
+  }
+
+  Future<bool> _ensureConsent() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_consentPrefKey) == true) return true;
+
+    if (!mounted) return false;
+    final agreed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Online Verse Lookup'),
+        content: const Text(
+          'Tapping Search will send the verse reference to bible.helloao.org '
+          'over HTTPS to retrieve the text. Your IP address will be visible '
+          'to that server. No other data is sent.\n\n'
+          'Do you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    // Restore focus to Search button after dialog closes.
+    _searchFocusNode.requestFocus();
+    if (agreed == true) {
+      await prefs.setBool(_consentPrefKey, true);
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _lookupVerse() async {
+    final reference = _referenceController.text.trim();
+    if (reference.isEmpty) {
+      setState(() => _lookupError = 'Enter a reference first.');
+      return;
+    }
+
+    final consented = await _ensureConsent();
+    if (!consented || !mounted) return;
+
+    setState(() {
+      _isLookingUp = true;
+      _lookupError = null;
+      _preview = null;
+    });
+
+    try {
+      final result = await _lookupService.lookup(reference, _translation);
+      if (mounted) {
+        setState(() {
+          _preview = result;
+          _isLookingUp = false;
+        });
+        _previewFocusNode.requestFocus();
+      }
+    } on ArgumentError {
+      if (mounted) {
+        setState(() {
+          _isLookingUp = false;
+          _lookupError = 'Invalid reference format. Try e.g. "Romans 8:28".';
+        });
+      }
+    } on LookupException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLookingUp = false;
+          _lookupError = e.message;
+        });
+      }
+    }
+  }
+
+  void _acceptPreview() {
+    if (_preview == null) return;
+    _referenceController.text = _preview!.reference;
+    _textController.text = _preview!.text;
+    setState(() {
+      _translation = _preview!.translation;
+      _preview = null;
+      _lookupError = null;
+    });
+  }
+
+  void _dismissPreview() {
+    setState(() {
+      _preview = null;
+      _lookupError = null;
+    });
   }
 
   Future<void> _saveVerse() async {
@@ -34,7 +145,6 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     final reference = _referenceController.text.trim();
     final text = _textController.text.trim();
 
-    // Build a stable ID from the reference — lowercase, replace spaces/colons.
     final id =
         '${_translation.toLowerCase()}_${reference.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
 
@@ -50,7 +160,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     try {
       await context.read<VerseProvider>().addCustomVerse(verse);
       if (mounted) {
-        Navigator.of(context).pop(true); // pop with success result
+        Navigator.of(context).pop(true);
       }
     } catch (_) {
       if (mounted) {
@@ -64,6 +174,8 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Verse'),
@@ -73,24 +185,109 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            TextFormField(
-              controller: _referenceController,
-              decoration: const InputDecoration(
-                labelText: 'Reference e.g. Romans 8:28',
-              ),
-              textCapitalization: TextCapitalization.words,
-              maxLength: 100,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Reference is required';
-                }
-                if (value.trim().length > 100) {
-                  return 'Reference is too long';
-                }
-                return null;
-              },
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _referenceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Reference e.g. Romans 8:28',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    maxLength: 100,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Reference is required';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.tonal(
+                  focusNode: _searchFocusNode,
+                  onPressed: (_isLookingUp || _isSaving) ? null : _lookupVerse,
+                  child: _isLookingUp
+                      ? Semantics(
+                          liveRegion: true,
+                          label: 'Looking up verse, please wait',
+                          child: SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: cs.onSecondaryContainer,
+                            ),
+                          ),
+                        )
+                      : const Text('Search'),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
+            // Semantics node always in tree so liveRegion fires on label change.
+            Semantics(
+              liveRegion: true,
+              label: _lookupError ?? '',
+              child: _lookupError != null
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      child: Text(
+                        _lookupError!,
+                        style: tt.bodyMedium?.copyWith(color: cs.error),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            if (_preview != null) ...[
+              const SizedBox(height: 12),
+              Semantics(
+                label: 'Verse preview: ${_preview!.reference} ${_preview!.translation}. '
+                    '${_preview!.text}. Use Accept or Dismiss buttons below.',
+                focusable: true,
+                child: Focus(
+                  focusNode: _previewFocusNode,
+                  child: Card(
+                    color: cs.secondaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_preview!.reference} (${_preview!.translation})',
+                            style: tt.labelLarge
+                                ?.copyWith(color: cs.onSecondaryContainer),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _preview!.text,
+                            style: tt.bodyLarge
+                                ?.copyWith(color: cs.onSecondaryContainer),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              FilledButton.tonal(
+                                onPressed: _acceptPreview,
+                                child: const Text('Accept'),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: _dismissPreview,
+                                child: const Text('Dismiss'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            const SizedBox(height: 4),
             TextFormField(
               controller: _textController,
               decoration: const InputDecoration(
@@ -107,50 +304,62 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               },
             ),
             const SizedBox(height: 20),
-            Text(
-              'Translation',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color:
-                        Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+            ExcludeSemantics(
+              child: Text(
+                'Translation',
+                style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
             ),
             const SizedBox(height: 8),
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'ESV', label: Text('ESV')),
-                ButtonSegment(value: 'CSB', label: Text('CSB')),
-                ButtonSegment(value: 'NLT', label: Text('NLT')),
-              ],
-              selected: {_translation},
-              onSelectionChanged: (values) {
-                if (values.isNotEmpty) {
-                  setState(() => _translation = values.first);
-                }
-              },
+            Semantics(
+              label: 'Translation',
+              container: true,
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'BSB', label: Text('BSB')),
+                  ButtonSegment(value: 'KJV', label: Text('KJV')),
+                  ButtonSegment(value: 'WEB', label: Text('WEB')),
+                ],
+                selected: {_translation},
+                onSelectionChanged: (values) {
+                  if (values.isNotEmpty) {
+                    setState(() => _translation = values.first);
+                  }
+                },
+              ),
             ),
             const SizedBox(height: 32),
-            if (_saveError != null)
-              Semantics(
-                liveRegion: true,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    _saveError!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.error,
+            // Semantics node always in tree so liveRegion fires on label change.
+            Semantics(
+              liveRegion: true,
+              label: _saveError ?? '',
+              child: _saveError != null
+                  ? Card(
+                      color: cs.errorContainer,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          _saveError!,
+                          style: tt.bodyMedium?.copyWith(color: cs.onErrorContainer),
                         ),
-                  ),
-                ),
-              ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             FilledButton(
               onPressed: _isSaving ? null : _saveVerse,
               child: _isSaving
                   ? Semantics(
+                      liveRegion: true,
                       label: 'Saving, please wait',
-                      child: const SizedBox(
+                      child: SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: cs.onPrimary,
+                        ),
                       ),
                     )
                   : const Text('Save Verse'),

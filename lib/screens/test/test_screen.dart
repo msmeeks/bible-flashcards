@@ -14,11 +14,24 @@ class TestScreen extends StatefulWidget {
 
 class _TestScreenState extends State<TestScreen> {
   TestMode _mode = TestMode.verseOfWeek;
-  TestFormat _format = TestFormat.recite;
-  PromptDirection _direction = PromptDirection.refToText;
+  final Set<TestFormat> _selectedFormats = TestFormat.values.toSet();
+  final Set<PromptDirection> _selectedDirections = PromptDirection.values.toSet();
   String? _prerequisiteError;
 
   void _startTest(VerseProvider provider) {
+    if (_selectedFormats.isEmpty) {
+      setState(() {
+        _prerequisiteError = 'Select at least one format.';
+      });
+      return;
+    }
+    if (_selectedDirections.isEmpty) {
+      setState(() {
+        _prerequisiteError = 'Select at least one prompt direction.';
+      });
+      return;
+    }
+
     if (_mode == TestMode.verseOfWeek) {
       if (provider.verseOfWeek == null) {
         setState(() {
@@ -49,8 +62,8 @@ class _TestScreenState extends State<TestScreen> {
         builder: (_) => TestSessionScreen(
           verses: verses,
           testMode: _mode,
-          testFormat: _format,
-          promptDirection: _direction,
+          selectedFormats: _selectedFormats,
+          selectedDirections: _selectedDirections,
         ),
         fullscreenDialog: true,
       ),
@@ -68,7 +81,7 @@ class _TestScreenState extends State<TestScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _SectionLabel(label: 'Mode'),
+                const _SectionLabel(label: 'Mode'),
                 const SizedBox(height: 8),
                 SegmentedButton<TestMode>(
                   segments: const [
@@ -92,55 +105,88 @@ class _TestScreenState extends State<TestScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
-                _SectionLabel(label: 'Format'),
+                const _SectionLabel(label: 'Format'),
                 const SizedBox(height: 8),
-                SegmentedButton<TestFormat>(
-                  segments: const [
-                    ButtonSegment(
-                      value: TestFormat.recite,
-                      label: Text('Recite'),
-                      icon: Icon(Icons.record_voice_over_outlined),
-                    ),
-                    ButtonSegment(
-                      value: TestFormat.type,
-                      label: Text('Type'),
-                      icon: Icon(Icons.keyboard_outlined),
-                    ),
-                    ButtonSegment(
-                      value: TestFormat.fillBlank,
-                      label: Text('Fill Blanks'),
-                      icon: Icon(Icons.text_fields_outlined),
-                    ),
-                  ],
-                  selected: {_format},
-                  onSelectionChanged: (value) {
-                    setState(() {
-                      _format = value.first;
-                      _prerequisiteError = null;
-                    });
-                  },
+                Semantics(
+                  label: 'Format — select one or more',
+                  explicitChildNodes: true,
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text('Recite'),
+                        avatar: const Icon(Icons.record_voice_over_outlined),
+                        selected: _selectedFormats.contains(TestFormat.recite),
+                        onSelected: (on) => setState(() {
+                          on
+                              ? _selectedFormats.add(TestFormat.recite)
+                              : _selectedFormats.remove(TestFormat.recite);
+                          _prerequisiteError = null;
+                        }),
+                      ),
+                      FilterChip(
+                        label: const Text('Type'),
+                        avatar: const Icon(Icons.keyboard_outlined),
+                        selected: _selectedFormats.contains(TestFormat.type),
+                        onSelected: (on) => setState(() {
+                          on
+                              ? _selectedFormats.add(TestFormat.type)
+                              : _selectedFormats.remove(TestFormat.type);
+                          _prerequisiteError = null;
+                        }),
+                      ),
+                      FilterChip(
+                        label: const Text('Fill Blanks'),
+                        avatar: const Icon(Icons.text_fields_outlined),
+                        selected:
+                            _selectedFormats.contains(TestFormat.fillBlank),
+                        onSelected: (on) => setState(() {
+                          on
+                              ? _selectedFormats.add(TestFormat.fillBlank)
+                              : _selectedFormats.remove(TestFormat.fillBlank);
+                          _prerequisiteError = null;
+                        }),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
-                _SectionLabel(label: 'Prompt direction'),
+                const _SectionLabel(label: 'Prompt direction'),
                 const SizedBox(height: 8),
-                SegmentedButton<PromptDirection>(
-                  segments: const [
-                    ButtonSegment(
-                      value: PromptDirection.refToText,
-                      label: Text('Reference → Text'),
-                    ),
-                    ButtonSegment(
-                      value: PromptDirection.textToRef,
-                      label: Text('Text → Reference'),
-                    ),
-                  ],
-                  selected: {_direction},
-                  onSelectionChanged: (value) {
-                    setState(() {
-                      _direction = value.first;
-                      _prerequisiteError = null;
-                    });
-                  },
+                Semantics(
+                  label: 'Prompt direction — select one or more',
+                  explicitChildNodes: true,
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text('Reference → Text'),
+                        selected: _selectedDirections
+                            .contains(PromptDirection.refToText),
+                        onSelected: (on) => setState(() {
+                          on
+                              ? _selectedDirections
+                                  .add(PromptDirection.refToText)
+                              : _selectedDirections
+                                  .remove(PromptDirection.refToText);
+                          _prerequisiteError = null;
+                        }),
+                      ),
+                      FilterChip(
+                        label: const Text('Text → Reference'),
+                        selected: _selectedDirections
+                            .contains(PromptDirection.textToRef),
+                        onSelected: (on) => setState(() {
+                          on
+                              ? _selectedDirections
+                                  .add(PromptDirection.textToRef)
+                              : _selectedDirections
+                                  .remove(PromptDirection.textToRef);
+                          _prerequisiteError = null;
+                        }),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 32),
                 if (_prerequisiteError != null) ...[
@@ -191,26 +237,26 @@ class _ErrorCard extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.errorContainer,
-        borderRadius: const BorderRadius.all(Radius.circular(8)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, color: cs.onErrorContainer, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onErrorContainer,
-                  ),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.errorContainer,
+          borderRadius: const BorderRadius.all(Radius.circular(8)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: cs.onErrorContainer, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: cs.onErrorContainer,
+                    ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }
