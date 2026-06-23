@@ -11,8 +11,16 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 | Test session history (scores, timestamps) | Local SQLite | Progress review | Until user deletes app or clears data |
 | Verse of the week selection | Local SQLite | Core app function | Until changed or app deleted |
 | Custom verses entered by user | Local SQLite | Core app function | Until user deletes them or app |
+| Engagement log (date, event type, aggregate count) | Local SQLite (`engagement_log`) | Streak & activity history display | 90 days auto-purge; user-clearable via Settings → Activity History |
 | Export file (JSON snapshot of above) | App internal storage (temporary) | User-initiated data transfer | Deleted immediately after share |
 | Drive backup (same JSON, encrypted in transit) | Google Drive `appdata` folder | Optional cloud backup | Until user deletes backup from app or removes app access in Google account settings |
+
+### engagement_log schema
+- `date` — calendar date only (`YYYY-MM-DD`), no time component
+- `event_type` — `'flashcard_tap'` or `'test_complete'`
+- `count` — aggregate count per day per event type (no per-verse sequences)
+
+**First-launch notice:** When `engagement_log` is introduced (DB migration to version 2), a one-time in-app dialog explains what is tracked and how to clear it. The flag `engagement_notice_shown` in `SharedPreferences` gates this dialog.
 
 ## Data NOT Collected
 - No names, email addresses, or persistent account identifiers (Google account email used in-memory only for display; never stored on disk)

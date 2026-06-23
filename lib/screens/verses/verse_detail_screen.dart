@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/verse_provider.dart';
@@ -19,6 +20,12 @@ class VerseDetailScreen extends StatefulWidget {
 class _VerseDetailScreenState extends State<VerseDetailScreen> {
   /// Currently displayed translation segment — UI-only for now.
   String _selectedTranslation = 'ESV';
+
+  @override
+  void initState() {
+    super.initState();
+    DatabaseHelper().logEngagement('flashcard_tap');
+  }
 
   @override
   Widget build(BuildContext context) {
