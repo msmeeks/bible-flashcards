@@ -187,7 +187,13 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   Future<void> _onMicPressed() async {
     if (_isListening) {
       await _speechService.stopListening();
-      if (mounted) setState(() => _isListening = false);
+      if (mounted) {
+        setState(() {
+          _isListening = false;
+          _listeningVerseIndex = null;
+          _micAnnouncement = '';
+        });
+      }
       return;
     }
 
@@ -234,6 +240,10 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
         setState(() {
           _isListening = false;
           _listeningVerseIndex = null;
+          if (!_showingReciteScore) {
+            _micAnnouncement =
+                'No speech recognized. Try again, or self-rate below.';
+          }
         });
       },
     );
