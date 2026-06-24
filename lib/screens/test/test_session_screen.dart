@@ -1,10 +1,13 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../database/database_helper.dart';
 import '../../models/test_result.dart';
 import '../../models/verse.dart';
+import '../../services/speech_recognition_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/scoring.dart';
 import 'test_enums.dart';
@@ -50,6 +53,15 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   List<String> _currentBlankWords = [];
   List<int> _currentBlankIndices = [];
   List<bool> _blankCorrectness = [];
+
+  // Recite mode voice state
+  final SpeechRecognitionService _speechService = SpeechRecognitionService();
+  bool _isListening = false;
+  bool _micBusy = false;
+  int? _listeningVerseIndex;
+  bool _showingReciteScore = false;
+  double? _lastReciteScore;
+  String _micAnnouncement = '';
 
   TestFormat get _currentFormat => _verseFormats[_currentIndex];
 
@@ -110,10 +122,18 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     _checkFocusNode.dispose();
     _retryFocusNode.dispose();
     _disposeBlankControllers();
+    _speechService.dispose();
     super.dispose();
   }
 
-  void _recordAndAdvance(double accuracy) {
+  Future<void> _recordAndAdvance(double accuracy) async {
+    if (_isListening) {
+      _isListening = false;
+      _listeningVerseIndex = null;
+      await _speechService.cancel();
+      if (!mounted) return;
+    }
+
     final result = VerseTestResult(
       verseId: _currentVerse.id,
       accuracy: accuracy,
@@ -135,6 +155,11 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
         _typeController.clear();
         _disposeBlankControllers();
         _initBlankState();
+        _isListening = false;
+        _listeningVerseIndex = null;
+        _showingReciteScore = false;
+        _lastReciteScore = null;
+        _micAnnouncement = '';
       });
     }
   }
@@ -158,6 +183,123 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
   void _onReciteKnew() => _recordAndAdvance(1.0);
   void _onReciteDidntKnow() => _recordAndAdvance(0.0);
+
+  Future<void> _onMicPressed() async {
+    if (_isListening) {
+      await _speechService.stopListening();
+      if (mounted) {
+        setState(() {
+          _isListening = false;
+          _listeningVerseIndex = null;
+          _micAnnouncement = '';
+        });
+      }
+      return;
+    }
+
+    if (_micBusy) return;
+    _micBusy = true;
+
+    final permission = await _speechService.requestPermission();
+    if (!mounted) {
+      _micBusy = false;
+      return;
+    }
+    if (permission == MicPermissionResult.permanentlyDenied) {
+      setState(() => _micAnnouncement =
+          'Microphone permission denied. You can still self-rate below.');
+      await _showMicSettingsDialog();
+      _micBusy = false;
+      return;
+    }
+    if (permission != MicPermissionResult.granted) {
+      setState(() => _micAnnouncement =
+          'Microphone permission denied. You can still self-rate below.');
+      _micBusy = false;
+      return;
+    }
+
+    final verseIndex = _currentIndex;
+    setState(() {
+      _isListening = true;
+      _listeningVerseIndex = verseIndex;
+      _showingReciteScore = false;
+      _lastReciteScore = null;
+      _micAnnouncement = 'Listening';
+    });
+
+    final started = await _speechService.listen(
+      onTranscript: (transcript, isFinal) {
+        if (!mounted || !isFinal || _listeningVerseIndex != verseIndex) {
+          return;
+        }
+        _onReciteTranscriptFinal(transcript, verseIndex);
+      },
+      onStopped: () {
+        if (!mounted || _listeningVerseIndex != verseIndex) return;
+        setState(() {
+          _isListening = false;
+          _listeningVerseIndex = null;
+          if (!_showingReciteScore) {
+            _micAnnouncement =
+                'No speech recognized. Try again, or self-rate below.';
+          }
+        });
+      },
+    );
+
+    _micBusy = false;
+    if (!started && mounted) {
+      setState(() {
+        _isListening = false;
+        _listeningVerseIndex = null;
+        _micAnnouncement = 'On-device speech recognition is unavailable';
+      });
+    }
+  }
+
+  Future<void> _showMicSettingsDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Microphone access needed'),
+        content: const Text(
+          'To recite aloud, allow microphone access in system settings. '
+          'You can still self-rate with "I knew it" / "Didn\'t know" instead.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onReciteTranscriptFinal(String transcript, int verseIndex) {
+    // _answerText reflects the verse at verseIndex since the caller already
+    // confirmed _listeningVerseIndex == verseIndex == _currentIndex.
+    final score = computeScore(transcript, _answerText);
+    // Transcript is discarded immediately after scoring; never persisted.
+    setState(() {
+      _isListening = false;
+      _listeningVerseIndex = null;
+      _showingReciteScore = true;
+      _lastReciteScore = score;
+      // No separate "Done listening" announcement here — _ScoreReveal's own
+      // liveRegion announces the result, avoiding a double SR announcement.
+      _micAnnouncement = '';
+    });
+  }
 
   Future<void> _onTypeCheck() async {
     final score = computeScore(_typeController.text, _answerText);
@@ -312,36 +454,85 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   }
 
   Widget _buildReciteArea(ColorScheme cs) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: SizedBox(
+        if (_showingReciteScore && _lastReciteScore != null) ...[
+          _ScoreReveal(score: _lastReciteScore!, cs: cs),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              onPressed: () => _recordAndAdvance(_lastReciteScore!),
+              child: const Text('Continue'),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ] else ...[
+          SizedBox(
             height: 48,
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
-                backgroundColor: cs.success,
-                foregroundColor: cs.onPrimary,
+                backgroundColor:
+                    _isListening ? cs.primary : cs.primaryContainer,
+                foregroundColor:
+                    _isListening ? cs.onPrimary : cs.onPrimaryContainer,
               ),
-              icon: const Icon(Icons.check_rounded),
-              label: const Text('I knew it'),
-              onPressed: _onReciteKnew,
+              icon: Icon(
+                _isListening ? Symbols.mic_rounded : Symbols.mic_none_rounded,
+              ),
+              label: Text(_isListening ? 'Listening…' : 'Recite aloud'),
+              onPressed: _onMicPressed,
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: SizedBox(
-            height: 48,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: cs.error,
-                foregroundColor: cs.onError,
+          if (_micAnnouncement.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  _micAnnouncement,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: cs.onSurfaceVariant),
+                ),
               ),
-              icon: const Icon(Icons.close_rounded),
-              label: const Text("Didn't know"),
-              onPressed: _onReciteDidntKnow,
             ),
-          ),
+          const SizedBox(height: 16),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.success,
+                    foregroundColor: cs.onPrimary,
+                  ),
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('I knew it'),
+                  onPressed: _onReciteKnew,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.error,
+                    foregroundColor: cs.onError,
+                  ),
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text("Didn't know"),
+                  onPressed: _onReciteDidntKnow,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

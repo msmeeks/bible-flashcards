@@ -28,7 +28,7 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 - No device identifiers or advertising IDs
 - No usage analytics or crash reporting
 - No location data
-- No audio recordings (the user's voice is never captured; recite mode is self-scored)
+- No audio recordings persisted to disk — see Voice Recitation (Recite Mode) below for ephemeral, on-device microphone use
 - No automatic network requests; all network calls (verse lookup, pack import, Drive backup) are user-initiated and require prior consent
 
 ## Special Category Data (GDPR Art. 9)
@@ -36,6 +36,15 @@ Test history (which verses were studied, when, accuracy) combined with verse con
 
 ## PII Assessment
 No PII is collected or processed in normal operation. Verse text and references are not personal information. Notification time preference is a local setting with no identifying value. The Google account email used for Drive OAuth is held in memory only and cleared on sign-out.
+
+## Voice Recitation (Recite Mode)
+
+Recite-mode tests offer an **opt-in** microphone button as an alternative to typing or self-rating; typed/self-rated recite remains the default and is always fully functional without granting microphone access.
+
+- **Permission:** `RECORD_AUDIO` is requested at point-of-use (when the mic button is tapped), never pre-granted or requested at app launch. Denial keeps the typed/self-rated recite flow fully usable; a permanently-denied result routes the user to system settings via an in-app dialog.
+- **On-device only:** Speech recognition is forced to run on-device (`onDevice: true`); if the platform cannot recognize locally, the attempt fails outright rather than sending audio to a cloud recognizer. No recitation audio leaves the device.
+- **Ephemeral transcripts:** The recognized transcript is held only in ephemeral widget state, scored immediately against the verse text using the same on-device LCS algorithm as typed answers, and discarded the moment scoring completes. The transcript is never written to the database, SharedPreferences, or logs, and the raw audio itself is never captured to a file.
+- **Retention:** None — same ephemeral-state policy as typed test input (see Test Modes feature doc).
 
 ## Notification Settings
 
@@ -64,11 +73,12 @@ This feature is **off by default**. Enabling it requires explicit consent.
 | `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Audio classification for Android media session |
 | `POST_NOTIFICATIONS` (Android 13+) | Dismissible interruption notification and daily reminder |
 | `SCHEDULE_EXACT_ALARM` | Daily reminder fires at the configured time (requires user consent via system Settings on API 31+; auto-granted below API 31) |
+| `RECORD_AUDIO` | Optional mic button in recite-mode tests (on-device speech-to-text only); requested at point-of-use, not pre-granted; typed/self-rated recite works fully without it |
 | `INTERNET` | Optional verse lookup/pack import and optional Google Drive backup; both user-initiated, neither runs without explicit consent |
 
 `SCHEDULE_EXACT_ALARM` is only used for the daily reminder. Permission is requested at point-of-use; if denied, the user is shown a message directing them to system settings — the app does not degrade otherwise.
 
-No camera, microphone, contacts, or storage permissions are requested.
+No camera, contacts, or storage permissions are requested.
 
 ## Network Requests
 
@@ -87,6 +97,7 @@ Verse lookup sends HTTPS requests to `bible.helloao.org` (a free public Bible AP
 - `flutter_timezone` — reads device timezone for accurate notification scheduling; data stays on-device
 - `google_fonts` — runtime font fetching is disabled (`allowRuntimeFetching = false`); fonts must be bundled
 - `flutter_tts` — on-device text-to-speech only
+- `speech_to_text` — on-device speech recognition only (`onDevice: true`, no cloud fallback); optional recite-mode mic input
 - `google_sign_in` — OAuth 2.0 for Drive backup (optional); Google may collect SDK usage data per their terms
 - `googleapis` — Drive API client for backup upload/download (optional)
 - `share_plus` — Android share sheet for export file; no data sent to the package author

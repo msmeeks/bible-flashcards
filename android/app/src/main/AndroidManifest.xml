@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- Required for daily reminder; user must grant via system settings on API 31+ -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Requested at point-of-use (recite-mode mic button), never pre-granted -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:label="bible_flashcards"
