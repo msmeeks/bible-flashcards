@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:bible_flashcards/providers/tracking_provider.dart';
+import 'package:bible_flashcards/utils/date_format.dart';
 
-String _dateKey(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+String _dateKey(DateTime d) => isoDateKey(d);
 
 void main() {
   // ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ void main() {
       ];
       final result = TrackingProvider.computeLast30DaysScores(rows);
       expect(result, hasLength(1));
-      expect(result.first, closeTo(0.9, 0.001));
+      expect(result.first.value, closeTo(0.9, 0.001));
     });
 
     test('31 days ago excluded', () {
@@ -161,18 +161,101 @@ void main() {
         {'tested_at': now.subtract(const Duration(days: 3)).toIso8601String(), 'accuracy': 0.7},
       ];
       final result = TrackingProvider.computeLast30DaysScores(rows);
-      expect(result[0], closeTo(0.6, 0.001));
-      expect(result[1], closeTo(0.7, 0.001));
-      expect(result[2], closeTo(0.8, 0.001));
+      expect(result[0].value, closeTo(0.6, 0.001));
+      expect(result[1].value, closeTo(0.7, 0.001));
+      expect(result[2].value, closeTo(0.8, 0.001));
     });
 
-    test('only flashcard_tap rows included via totalVersesReviewed filter — separate', () {
-      final now = DateTime.now().subtract(const Duration(days: 1));
+    test('29 days ago included (safely inside the window)', () {
+      final old = DateTime.now().subtract(const Duration(days: 29));
       final rows = [
-        {'tested_at': now.toIso8601String(), 'accuracy': 0.75},
+        {'tested_at': old.toIso8601String(), 'accuracy': 0.75},
       ];
       final result = TrackingProvider.computeLast30DaysScores(rows);
       expect(result, hasLength(1));
+    });
+
+    test('valid rows kept when mixed with invalid tested_at rows', () {
+      final valid = DateTime.now().subtract(const Duration(days: 1));
+      final rows = [
+        {'tested_at': valid.toIso8601String(), 'accuracy': 0.75},
+        {'tested_at': 'not-a-date', 'accuracy': 0.5},
+      ];
+      final result = TrackingProvider.computeLast30DaysScores(rows);
+      expect(result, hasLength(1));
+      expect(result.first.value, closeTo(0.75, 0.001));
+    });
+
+    test('multiple same-day tests average correctly', () {
+      final today = DateTime.now().subtract(const Duration(hours: 1));
+      final rows = [
+        {'tested_at': today.toIso8601String(), 'accuracy': 0.6},
+        {'tested_at': today.add(const Duration(minutes: 5)).toIso8601String(), 'accuracy': 1.0},
+      ];
+      final result = TrackingProvider.computeLast30DaysScores(rows);
+      expect(result, hasLength(1));
+      expect(result.first.value, closeTo(0.8, 0.001));
+    });
+
+    test('one test on a day passes through unchanged', () {
+      final day = DateTime.now().subtract(const Duration(days: 2));
+      final rows = [
+        {'tested_at': day.toIso8601String(), 'accuracy': 0.55},
+      ];
+      final result = TrackingProvider.computeLast30DaysScores(rows);
+      expect(result, hasLength(1));
+      expect(result.first.value, closeTo(0.55, 0.001));
+    });
+
+    test('two different days produce two entries sorted ascending', () {
+      final now = DateTime.now();
+      final rows = [
+        {'tested_at': now.subtract(const Duration(days: 1)).toIso8601String(), 'accuracy': 0.9},
+        {'tested_at': now.subtract(const Duration(days: 2)).toIso8601String(), 'accuracy': 0.5},
+      ];
+      final result = TrackingProvider.computeLast30DaysScores(rows);
+      expect(result, hasLength(2));
+      expect(result[0].value, closeTo(0.5, 0.001));
+      expect(result[1].value, closeTo(0.9, 0.001));
+    });
+
+    test('multiple days each with multiple tests average independently', () {
+      final noonToday = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+        12,
+      );
+      final dayA = noonToday.subtract(const Duration(days: 1));
+      final dayB = noonToday.subtract(const Duration(days: 3));
+      final rows = [
+        {'tested_at': dayA.toIso8601String(), 'accuracy': 0.4},
+        {'tested_at': dayA.add(const Duration(hours: 2)).toIso8601String(), 'accuracy': 1.0},
+        {'tested_at': dayB.toIso8601String(), 'accuracy': 0.2},
+        {'tested_at': dayB.add(const Duration(hours: 1)).toIso8601String(), 'accuracy': 0.4},
+        {'tested_at': dayB.add(const Duration(hours: 2)).toIso8601String(), 'accuracy': 0.6},
+      ];
+      final result = TrackingProvider.computeLast30DaysScores(rows);
+      expect(result, hasLength(2));
+      expect(result[0].value, closeTo(0.4, 0.001)); // dayB average: (0.2+0.4+0.6)/3
+      expect(result[1].value, closeTo(0.7, 0.001)); // dayA average: (0.4+1.0)/2
+    });
+
+    test('groups by local calendar day, not by 24h offset from now', () {
+      final midnightTonight = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+      final lateTonight = midnightTonight.add(const Duration(hours: 23, minutes: 59));
+      final earlyToday = midnightTonight.add(const Duration(minutes: 1));
+      final rows = [
+        {'tested_at': earlyToday.toIso8601String(), 'accuracy': 0.2},
+        {'tested_at': lateTonight.toIso8601String(), 'accuracy': 0.8},
+      ];
+      final result = TrackingProvider.computeLast30DaysScores(rows);
+      expect(result, hasLength(1));
+      expect(result.first.value, closeTo(0.5, 0.001));
     });
   });
 }

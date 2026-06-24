@@ -28,6 +28,7 @@ N/A — local SQLite only.
 | `lib/screens/settings/settings_screen.dart` | Activity History nav tile + Clear Activity History destructive tile |
 | `lib/app.dart` | `_EngagementNoticeWrapper` — first-launch consent dialog |
 | `test/providers/tracking_provider_test.dart` | Unit tests for all three static compute methods |
+| `lib/utils/date_format.dart` | Shared `isoDateKey` (yyyy-MM-dd day-bucket key) and `shortDateLabel` (MM/DD chart axis label) helpers, local-calendar-day based |
 
 ## Technical Detail
 
@@ -56,7 +57,7 @@ All three are `@visibleForTesting static` so tests can call them directly withou
 |---|---|---|---|
 | `computeStreak` | `engagement_log` rows | `int` days | If today has no activity, starts from yesterday so the streak does not reset each morning before first tap |
 | `computeLast7Days` | `engagement_log` rows | `List<MapEntry<String,int>>` (7 entries, oldest first) | Aggregates all event_types per day; zero-fills missing days |
-| `computeLast30DaysScores` | `test_results` raw rows | `List<double>` (0.0–1.0, oldest first) | Filters by `tested_at > now - 30 days`; sorted ascending for correct chart X-axis |
+| `computeLast30DaysScores` | `test_results` raw rows | `List<MapEntry<DateTime, double>>` (0.0–1.0, oldest first) | Filters by `tested_at > now - 30 days`; groups rows by local calendar day via `isoDateKey`, averages `accuracy` per day; one entry per day, sorted ascending |
 
 ### First-launch consent dialog
 `_BibleFlashcardsAppState._checkEngagementNotice()` runs in `initState`. If `engagement_notice_shown` is absent or false, the `/` route renders `_EngagementNoticeWrapper` instead of `MainScaffold`. The wrapper shows a non-dismissible `AlertDialog` with "No thanks" (opt-out) and "Got it" (opt-in). Both paths write `engagement_notice_shown = true` and the chosen `engagement_tracking_enabled` value, then call `invalidateTrackingCache()` to flush the in-memory preference cache.
@@ -68,3 +69,6 @@ Under the **Data** section of `SettingsScreen`:
 
 ### HistoryScreen chart/table toggle
 A single `_showAsTable` bool in `_HistoryScreenState` controls both the weekly and score sections simultaneously. The "Show as table" / "Show chart" `TextButton` is wrapped in a `Semantics` widget with descriptive labels for screen readers. Charts themselves are wrapped with a full-sentence `Semantics.label` summary (per-day counts and total for bar chart; per-test scores and average for line chart).
+
+### Test score chart and table (day-averaged)
+`_TestScoreChart` plots one point per calendar day (the averaged accuracy from `computeLast30DaysScores`), not one point per raw test attempt. X-axis labels use real MM/DD dates via `shortDateLabel`, reusing `_WeeklyChart`'s label `TextStyle` for visual consistency between the two charts. `_ScoreTable`'s date column is labeled "Date" (not "Test #") and renders the full `isoDateKey` (yyyy-MM-dd) per row; the column's `numeric` flag is `false` since it now holds a date string, not an index.
