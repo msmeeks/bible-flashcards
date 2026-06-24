@@ -23,6 +23,11 @@ class ImportService {
   // Hard file-size cap in bytes — rejects multibyte-heavy files that pass char-count checks
   static const _maxBytes = 5 * 1024 * 1024;
 
+  // Caps array length independent of the byte cap — a 5MB file of tiny,
+  // deeply-nested or highly-repetitive entries could still cause excessive
+  // allocation/parse work per row.
+  static const _maxArrayLength = 50000;
+
   Future<ImportSummary> import(
     String jsonString, {
     bool replace = false,
@@ -60,6 +65,9 @@ class ImportService {
     if (rawVerses is! List) {
       throw const ImportException('Missing or invalid verses array');
     }
+    if (rawVerses.length > _maxArrayLength) {
+      throw const ImportException('Too many verses in file');
+    }
 
     // Validate and coerce verses — skip invalid rows rather than aborting
     final verses = <Verse>[];
@@ -87,6 +95,9 @@ class ImportService {
     final rawResults = raw['test_results'];
     final results = <VerseTestResult>[];
     if (rawResults is List) {
+      if (rawResults.length > _maxArrayLength) {
+        throw const ImportException('Too many test results in file');
+      }
       for (final item in rawResults) {
         if (item is! Map<String, dynamic>) continue;
         final verseId = item['verse_id'];
