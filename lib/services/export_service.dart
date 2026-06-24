@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -21,7 +22,7 @@ class ExportService {
 
   Future<String> _buildPayloadJson({
     required bool includeHistory,
-    required bool includeScores,
+    required bool includeSettings,
   }) async {
     final verses = await _db.getVerses();
     final results = includeHistory
@@ -35,18 +36,18 @@ class ExportService {
       'exported_at': DateTime.now().toUtc().toIso8601String(),
       'verses': verses.map((v) => v.toMap()).toList(),
       if (includeHistory) 'test_results': results.map((r) => r.toMap()).toList(),
-      if (includeScores) 'settings': settings.toMap(),
+      if (includeSettings) 'settings': settings.toMap(),
     };
     return jsonEncode(payload);
   }
 
   Future<void> shareExport({
-    bool includeScores = true,
+    bool includeSettings = true,
     bool includeHistory = true,
   }) async {
     final json = await _buildPayloadJson(
       includeHistory: includeHistory,
-      includeScores: includeScores,
+      includeSettings: includeSettings,
     );
 
     final dir = await getApplicationDocumentsDirectory();
@@ -69,11 +70,33 @@ class ExportService {
 
   // Builds payload JSON string for Drive backup — no file I/O, no share sheet.
   Future<String> buildExportJson({
-    bool includeScores = true,
+    bool includeSettings = true,
     bool includeHistory = true,
   }) =>
       _buildPayloadJson(
         includeHistory: includeHistory,
-        includeScores: includeScores,
+        includeSettings: includeSettings,
       );
+
+  // Saves the export directly to a user-chosen location via SAF — file_picker
+  // writes the bytes through the content:// URI, so no temp/cache file is
+  // ever created on disk. Returns false if the user cancels the picker.
+  Future<bool> saveExportToFile({
+    bool includeSettings = true,
+    bool includeHistory = true,
+  }) async {
+    final json = await _buildPayloadJson(
+      includeHistory: includeHistory,
+      includeSettings: includeSettings,
+    );
+    final rand = Random.secure().nextInt(0xFFFFFF).toRadixString(16);
+    final path = await FilePicker.saveFile(
+      dialogTitle: 'Save Bible Flashcards backup',
+      fileName: 'bible_flashcards_export_$rand.json',
+      bytes: utf8.encode(json),
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+    );
+    return path != null;
+  }
 }

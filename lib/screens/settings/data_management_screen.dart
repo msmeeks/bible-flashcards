@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
@@ -26,17 +27,31 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
 
   bool _exportLoading = false;
   bool _importLoading = false;
+  bool _saveLocallyLoading = false;
   bool _driveLoading = false;
   String _exportStatus = '';
   String _importStatus = '';
+  String _saveLocallyStatus = '';
   String _driveStatus = '';
 
   bool _driveSignedIn = false;
+
+  final _exportTileFocusNode = FocusNode();
+  final _saveLocallyTileFocusNode = FocusNode();
+  final _importTileFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _loadSignInState();
+  }
+
+  @override
+  void dispose() {
+    _exportTileFocusNode.dispose();
+    _saveLocallyTileFocusNode.dispose();
+    _importTileFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSignInState() async {
@@ -69,6 +84,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             ),
           ),
           ListTile(
+            focusNode: _exportTileFocusNode,
             leading: const Icon(Symbols.upload_rounded),
             title: const Text('Export Data'),
             subtitle: const Text('Save a backup file to share or transfer'),
@@ -87,6 +103,25 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                   )
                 : const SizedBox.shrink(),
           ),
+          ListTile(
+            focusNode: _saveLocallyTileFocusNode,
+            leading: const Icon(Symbols.save_rounded),
+            title: const Text('Save Locally'),
+            subtitle: const Text('Save a backup file to a location you choose'),
+            onTap: _saveLocallyLoading ? null : _showSaveLocallyDialog,
+          ),
+          if (_saveLocallyLoading)
+            const LinearProgressIndicator(minHeight: 6),
+          Semantics(
+            liveRegion: true,
+            child: _saveLocallyStatus.isNotEmpty
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(72, 0, 16, 8),
+                    child: Text(_saveLocallyStatus,
+                        style: tt.bodySmall?.copyWith(color: cs.primary)),
+                  )
+                : const SizedBox.shrink(),
+          ),
           // ----------------------------------------------------------------
           // Import
           // ----------------------------------------------------------------
@@ -101,6 +136,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             ),
           ),
           ListTile(
+            focusNode: _importTileFocusNode,
             leading: const Icon(Symbols.download_rounded),
             title: const Text('Import Data'),
             subtitle: const Text('Restore from a backup file'),
@@ -251,7 +287,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: const Text('Include settings'),
+                title: const Text('Include app settings'),
+                subtitle: const Text('Audio, notification, and theme preferences'),
                 value: includeSettings,
                 onChanged: (v) => setS(() => includeSettings = v ?? true),
                 contentPadding: EdgeInsets.zero,
@@ -272,6 +309,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       ),
     );
 
+    _exportTileFocusNode.requestFocus();
     if (confirmed != true || !mounted) return;
 
     final settingsProvider = context.read<SettingsProvider>();
@@ -287,7 +325,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       );
       await exportService.shareExport(
         includeHistory: includeHistory,
-        includeScores: includeSettings,
+        includeSettings: includeSettings,
       );
       if (mounted) setState(() => _exportStatus = 'Export complete');
     } catch (_) {
@@ -296,6 +334,90 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       }
     } finally {
       if (mounted) setState(() => _exportLoading = false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Save Locally dialog
+  // ---------------------------------------------------------------------------
+
+  Future<void> _showSaveLocallyDialog() async {
+    var includeHistory = true;
+    var includeSettings = true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          semanticLabel: 'Save locally options',
+          title: const Text('Save Locally'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Choose what to include, then pick a location to save the '
+                'backup file on this device.',
+              ),
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                title: const Text('Include test history'),
+                value: includeHistory,
+                onChanged: (v) => setS(() => includeHistory = v ?? true),
+                contentPadding: EdgeInsets.zero,
+              ),
+              CheckboxListTile(
+                title: const Text('Include app settings'),
+                subtitle: const Text('Audio, notification, and theme preferences'),
+                value: includeSettings,
+                onChanged: (v) => setS(() => includeSettings = v ?? true),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Choose Location'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    _saveLocallyTileFocusNode.requestFocus();
+    if (confirmed != true || !mounted) return;
+
+    final settingsProvider = context.read<SettingsProvider>();
+    setState(() {
+      _saveLocallyLoading = true;
+      _saveLocallyStatus = 'Preparing backup…';
+    });
+
+    try {
+      final exportService = ExportService(
+        db: DatabaseHelper(),
+        settingsProvider: settingsProvider,
+      );
+      final saved = await exportService.saveExportToFile(
+        includeHistory: includeHistory,
+        includeSettings: includeSettings,
+      );
+      _saveLocallyTileFocusNode.requestFocus();
+      if (mounted) {
+        setState(() => _saveLocallyStatus =
+            saved ? 'Backup saved' : 'Save cancelled');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _saveLocallyStatus = 'Save failed. Please try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _saveLocallyLoading = false);
     }
   }
 
@@ -383,6 +505,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       ),
     );
 
+    _importTileFocusNode.requestFocus();
     if (confirmed != true || !mounted) return;
 
     // Extra confirmation for replace mode
@@ -398,8 +521,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
 
     try {
       final jsonString = await _pickJsonFile();
+      _importTileFocusNode.requestFocus();
       if (jsonString == null) {
-        if (mounted) setState(() => _importStatus = '');
+        if (mounted) setState(() => _importStatus = 'Import cancelled');
         return;
       }
       if (!mounted) return;
@@ -476,45 +600,18 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     return confirmed == true;
   }
 
+  // Reads picked bytes directly — never opens a raw filesystem path with
+  // dart:io, since Android may hand back a SAF content:// URI rather than
+  // a real path on some API levels/configs.
   Future<String?> _pickJsonFile() async {
-    // File picker placeholder: prompts user to enter a path.
-    // Replace with file_picker package for production UX.
-    final controller = TextEditingController();
-    final path = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        semanticLabel: 'Enter file path',
-        title: const Text('Select Backup File'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter the full path to the backup JSON file:'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                hintText: '/sdcard/Download/bible_flashcards_export.json',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Open'),
-          ),
-        ],
-      ),
+    final result = await FilePicker.pickFiles(
+      withData: true,
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
     );
-    controller.dispose();
-    if (path == null || path.isEmpty) return null;
-    final file = File(path);
-    if (!file.existsSync()) return null;
-    return file.readAsString();
+    final bytes = result?.files.firstOrNull?.bytes;
+    if (bytes == null) return null;
+    return utf8.decode(bytes);
   }
 
   // ---------------------------------------------------------------------------
