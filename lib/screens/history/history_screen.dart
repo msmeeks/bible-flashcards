@@ -373,6 +373,8 @@ class _TestScoreChart extends StatelessWidget {
 
     return LineChart(
       LineChartData(
+        minX: 0,
+        maxX: (scores.length - 1).toDouble(),
         minY: 0,
         maxY: 100,
         lineBarsData: [
@@ -416,9 +418,12 @@ class _TestScoreChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              interval: 1,
               getTitlesWidget: (value, meta) {
-                final idx = value.toInt();
-                if (idx < 0 || idx >= scores.length) {
+                final idx = value.round();
+                if (idx < 0 ||
+                    idx >= scores.length ||
+                    (value - idx).abs() > 0.01) {
                   return const SizedBox.shrink();
                 }
                 final label = shortDateLabel(scores[idx].key);
