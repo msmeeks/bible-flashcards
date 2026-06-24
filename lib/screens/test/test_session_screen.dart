@@ -63,6 +63,9 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   double? _lastReciteScore;
   String _micAnnouncement = '';
 
+  // Custom book-name variants for lenient reference-answer scoring (#30).
+  Map<String, String> _customVariantLookup = const {};
+
   TestFormat get _currentFormat => _verseFormats[_currentIndex];
 
   bool get _promptIsReference =>
@@ -91,6 +94,25 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       (_) => directions[rng.nextInt(directions.length)],
     );
     _initBlankState();
+    _loadCustomVariants();
+  }
+
+  Future<void> _loadCustomVariants() async {
+    final lookup = await DatabaseHelper().getCustomVariantLookup();
+    if (mounted) setState(() => _customVariantLookup = lookup);
+  }
+
+  /// Scores [given] against [_answerText], using lenient book-name matching
+  /// when the answer is a reference (textToRef direction).
+  double _scoreAnswer(String given) {
+    if (_promptIsReference) {
+      return computeScore(given, _answerText);
+    }
+    return computeReferenceScore(
+      given,
+      _answerText,
+      customVariants: _customVariantLookup,
+    );
   }
 
   void _initBlankState() {
@@ -288,7 +310,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   void _onReciteTranscriptFinal(String transcript, int verseIndex) {
     // _answerText reflects the verse at verseIndex since the caller already
     // confirmed _listeningVerseIndex == verseIndex == _currentIndex.
-    final score = computeScore(transcript, _answerText);
+    final score = _scoreAnswer(transcript);
     // Transcript is discarded immediately after scoring; never persisted.
     setState(() {
       _isListening = false;
@@ -302,7 +324,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   }
 
   Future<void> _onTypeCheck() async {
-    final score = computeScore(_typeController.text, _answerText);
+    final score = _scoreAnswer(_typeController.text);
     _typeController.clear(); // discard typed input immediately
 
     setState(() {

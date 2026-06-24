@@ -12,10 +12,12 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/test_result.dart';
 import '../models/verse.dart';
+import '../utils/book_name_variants.dart'
+    show bookDisplayNames, maxCustomVariants, maxVariantLength, normalizeBookNameKey;
 
 class DatabaseHelper {
   static const _dbName = 'bible_flashcards.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
 
   static const _secureKeyDbSeed = 'db_encryption_seed_v1';
   static const _secureStorage = FlutterSecureStorage(
@@ -116,6 +118,20 @@ class DatabaseHelper {
       });
       await _createEngagementLogTable(db);
     }
+    if (oldVersion < 3) {
+      await _createBookNameVariantsTable(db);
+    }
+  }
+
+  Future<void> _createBookNameVariantsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS book_name_variants (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_code    TEXT NOT NULL CHECK(length(book_code) <= 10),
+        variant_text TEXT NOT NULL CHECK(length(variant_text) <= 60),
+        UNIQUE(book_code, variant_text)
+      )
+    ''');
   }
 
   Future<void> _createTables(Database db) async {
@@ -155,6 +171,7 @@ class DatabaseHelper {
     ''');
 
     await _createEngagementLogTable(db);
+    await _createBookNameVariantsTable(db);
   }
 
   Future<void> _createEngagementLogTable(Database db) async {
@@ -375,6 +392,63 @@ class DatabaseHelper {
   Future<List<Map<String, Object?>>> getEngagementLog() async {
     final db = await database;
     return db.query('engagement_log', orderBy: 'date ASC');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Custom book-name variants (#30)
+  // ---------------------------------------------------------------------------
+
+  /// Returns all stored custom variants as `{id, book_code, variant_text}` rows.
+  Future<List<Map<String, Object?>>> getBookNameVariants() async {
+    final db = await database;
+    return db.query('book_name_variants', orderBy: 'book_code ASC, variant_text ASC');
+  }
+
+  /// Adds a custom (book code, variant text) pair. Throws [ArgumentError] if
+  /// [bookCode] is unrecognized, [variantText] is empty/too long, the pair
+  /// is a duplicate, or the per-user variant cap is already reached (data
+  /// minimization).
+  Future<void> addBookNameVariant(String bookCode, String variantText) async {
+    if (!bookDisplayNames.containsKey(bookCode)) {
+      throw ArgumentError('Unrecognized book code: $bookCode');
+    }
+    final trimmed = variantText.trim();
+    if (trimmed.isEmpty || trimmed.length > maxVariantLength) {
+      throw ArgumentError('Variant text must be 1-$maxVariantLength characters.');
+    }
+    final db = await database;
+    await db.transaction((txn) async {
+      final countResult =
+          await txn.rawQuery('SELECT COUNT(*) AS c FROM book_name_variants');
+      final count = countResult.first['c'] as int;
+      if (count >= maxCustomVariants) {
+        throw ArgumentError('Maximum of $maxCustomVariants custom variants reached.');
+      }
+      final rowId = await txn.insert(
+        'book_name_variants',
+        {'book_code': bookCode, 'variant_text': trimmed},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      if (rowId == 0) {
+        throw ArgumentError('That variant has already been added for this book.');
+      }
+    });
+  }
+
+  Future<void> removeBookNameVariant(int id) async {
+    final db = await database;
+    await db.delete('book_name_variants', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Builds a normalized-key → USFM-code lookup map for scoring, merging all
+  /// stored custom variants on top of the built-in table (without mutating it).
+  Future<Map<String, String>> getCustomVariantLookup() async {
+    final rows = await getBookNameVariants();
+    return {
+      for (final row in rows)
+        normalizeBookNameKey(row['variant_text'] as String):
+            row['book_code'] as String,
+    };
   }
 
   Future<List<Map<String, Object?>>> getTestResultsRaw() async {

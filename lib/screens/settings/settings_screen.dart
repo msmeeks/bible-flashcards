@@ -11,6 +11,7 @@ import '../../services/audio_interrupt_service.dart';
 import '../../services/audio_review_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/notification_service.dart';
+import 'book_variants_screen.dart';
 import 'data_management_screen.dart';
 import 'test_history_screen.dart';
 
@@ -215,6 +216,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Clear Activity History'),
             leading: Icon(Icons.delete_outline_rounded, color: cs.error),
             onTap: () => _confirmClearActivityHistory(context),
+          ),
+          ListTile(
+            leading: Icon(Symbols.menu_book_rounded, color: cs.primary),
+            title: const Text('Book Name Variants'),
+            subtitle: const Text(
+                'Custom abbreviations recognized in reference test answers'),
+            trailing: const Icon(Symbols.chevron_right_rounded, semanticLabel: ''),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const BookVariantsScreen(),
+              ),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.backup_rounded),

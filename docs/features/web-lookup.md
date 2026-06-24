@@ -14,6 +14,8 @@ Lets users auto-fill verse text on the Add Verse screen by typing a reference an
 ## Technical Overview
 `BibleLookupService` is the sole HTTP client. It validates the reference string against a regex, parses it into USFM book code + chapter + verse range, constructs a URL of the form `https://bible.helloao.org/api/{translationId}/{bookUsfm}/{chapter}.json`, and extracts matching verse rows from the JSON response. SSRF is prevented by asserting `scheme == https` and `host == bible.helloao.org` on every constructed URI. A 50-entry LRU-style in-memory cache (keyed `reference|translation`) bounds memory per screen instance and is cleared when the screen is disposed. The service is created and owned by `_AddVerseScreenState`; `dispose()` closes the HTTP client.
 
+Book-name → USFM resolution is delegated to the shared table in `lib/utils/book_name_variants.dart` (`bookNameToUsfm`) rather than a private map inside this service — that table is also used by reference-test answer scoring (see `docs/features/test-modes.md`, "Lenient Book-Name Matching"). `BibleLookupService` does not consult user-added custom variants (those only affect test scoring); it resolves only against the built-in table.
+
 The Add Verse screen owns the full lookup flow: consent check → loading state → preview card → Accept/Dismiss → form population.
 
 `DatabaseHelper.importPackFromJson` (separate concern on the same branch) provides a transactional batch import path for JSON packs, with per-field validation and `ConflictAlgorithm.ignore`.
@@ -28,7 +30,8 @@ Translation IDs: `BSB` → `BSB`, `KJV` → `eng_kjv`, `WEB` → `ENGWEBP`.
 ## Key Files
 | File | Purpose |
 |---|---|
-| `lib/services/bible_lookup_service.dart` | HTTP fetch, reference parsing, USFM map, SSRF guard, session cache |
+| `lib/services/bible_lookup_service.dart` | HTTP fetch, reference parsing, SSRF guard, session cache (book-name→USFM resolution delegated to `book_name_variants.dart`) |
+| `lib/utils/book_name_variants.dart` | Shared book-name-variant table (`builtInBookNameVariants`, `bookNameToUsfm`); single source of truth, also used by test-mode scoring |
 | `lib/screens/verses/add_verse_screen.dart` | UI: consent dialog, loading/preview/error states, form population |
 | `lib/database/database_helper.dart` | `importPackFromJson` — batch JSON pack import with field validation |
 | `android/app/src/main/AndroidManifest.xml` | `INTERNET` permission + `networkSecurityConfig` attribute |
@@ -38,7 +41,7 @@ Translation IDs: `BSB` → `BSB`, `KJV` → `eng_kjv`, `WEB` → `ENGWEBP`.
 ## Technical Detail
 
 ### Reference parsing
-Pattern: `^(.+?)\s+(\d+):(\d+)(?:-(\d+))?\s*$` — captures book name, chapter, start verse, optional end verse. Book name is lowercased and stripped of spaces/dots then looked up in a 150-entry static map of common abbreviations to USFM codes (full OT + NT coverage). Unknown book → `LookupException`.
+Pattern: `^(.+?)\s+(\d+):(\d+)(?:-(\d+))?\s*$` — captures book name, chapter, start verse, optional end verse. Book name is normalized (`normalizeBookNameKey`: lowercased, spaces/dots stripped) then resolved via `bookNameToUsfm` against the shared `builtInBookNameVariants` table in `lib/utils/book_name_variants.dart` (full OT + NT coverage, including longhand forms like "The Gospel of Mark" and spoken-number forms like "First Peter"/"1st Peter"). Unknown book → `LookupException`. This table used to be a private map inside this service; it was extracted (#30) so reference-test answer scoring could reuse the exact same variant list — do not reintroduce a duplicate map here.
 
 ### Consent flow
 `_ensureConsent()` reads `bible_lookup_consent_v1` from `SharedPreferences`. If absent, shows a blocking `AlertDialog` naming `bible.helloao.org` and explaining IP visibility. On Continue, persists `true` and proceeds. On Cancel, aborts the lookup. Focus returns to the Search button after the dialog closes.
