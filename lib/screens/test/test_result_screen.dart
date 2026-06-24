@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
 import '../../models/test_result.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/verse_reference_format.dart';
+import 'test_enums.dart';
 
 class TestResultScreen extends StatefulWidget {
   const TestResultScreen({super.key, required this.sessionResult});
@@ -149,12 +151,9 @@ class _VerseResultCard extends StatelessWidget {
       badgeIcon = Icons.cancel_outlined;
     }
 
-    final formatLabel = switch (result.testFormat) {
-      'recite' => 'Recite',
-      'type' => 'Type',
-      'fill_blank' => 'Fill Blanks',
-      _ => result.testFormat,
-    };
+    final formatLabel =
+        TestFormatLabel.tryFromName(result.testFormat)?.label ??
+            result.testFormat;
 
     return Card(
       child: Padding(
@@ -165,7 +164,8 @@ class _VerseResultCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(result.verseId, style: tt.titleSmall),
+                  Text(formatVerseReference(result.verseId),
+                      style: tt.titleSmall),
                   const SizedBox(height: 2),
                   Text(
                     formatLabel,

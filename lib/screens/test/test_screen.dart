@@ -113,9 +113,9 @@ class _TestScreenState extends State<TestScreen> {
                   child: Wrap(
                     spacing: 8,
                     children: [
-                      FilterChip(
-                        label: const Text('Recite'),
-                        avatar: const Icon(Icons.record_voice_over_outlined),
+                      _FormatChip(
+                        format: TestFormat.recite,
+                        icon: Icons.record_voice_over_outlined,
                         selected: _selectedFormats.contains(TestFormat.recite),
                         onSelected: (on) => setState(() {
                           on
@@ -124,9 +124,9 @@ class _TestScreenState extends State<TestScreen> {
                           _prerequisiteError = null;
                         }),
                       ),
-                      FilterChip(
-                        label: const Text('Type'),
-                        avatar: const Icon(Icons.keyboard_outlined),
+                      _FormatChip(
+                        format: TestFormat.type,
+                        icon: Icons.keyboard_outlined,
                         selected: _selectedFormats.contains(TestFormat.type),
                         onSelected: (on) => setState(() {
                           on
@@ -135,9 +135,9 @@ class _TestScreenState extends State<TestScreen> {
                           _prerequisiteError = null;
                         }),
                       ),
-                      FilterChip(
-                        label: const Text('Fill Blanks'),
-                        avatar: const Icon(Icons.text_fields_outlined),
+                      _FormatChip(
+                        format: TestFormat.fillBlank,
+                        icon: Icons.text_fields_outlined,
                         selected:
                             _selectedFormats.contains(TestFormat.fillBlank),
                         onSelected: (on) => setState(() {
@@ -222,6 +222,38 @@ class _SectionLabel extends StatelessWidget {
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
+    );
+  }
+}
+
+class _FormatChip extends StatelessWidget {
+  const _FormatChip({
+    required this.format,
+    required this.icon,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final TestFormat format;
+  final IconData icon;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    // The format icon lives in the label row (not `avatar`) so the
+    // selected-state checkmark has its own space and doesn't overlap it.
+    return FilterChip(
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 6),
+          Text(format.label),
+        ],
+      ),
+      selected: selected,
+      onSelected: onSelected,
     );
   }
 }

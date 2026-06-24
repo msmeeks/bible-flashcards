@@ -409,7 +409,13 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                   isDense: true,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  errorText: (isCorrect == false) ? 'Incorrect' : null,
+                  errorText: (isCorrect == false)
+                      ? 'Incorrect — correct: ${_currentBlankWords[i]}'
+                      : null,
+                  errorStyle: TextStyle(color: cs.onErrorContainer),
+                  errorMaxLines: 2,
+                  helperText: (isCorrect == true) ? 'Correct' : null,
+                  helperStyle: TextStyle(color: cs.onSuccessContainer),
                   suffixIcon: isCorrect == false
                       ? Icon(Icons.close, color: cs.onErrorContainer, size: 16)
                       : isCorrect == true
