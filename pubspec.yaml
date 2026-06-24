@@ -66,6 +66,10 @@ dependencies:
   # HTTP client for verse lookup and pack import
   http: ^1.2.0
 
+  # On-device speech-to-text for recite-mode scoring (forced onDevice: true,
+  # never falls back to cloud recognition)
+  speech_to_text: ^7.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
