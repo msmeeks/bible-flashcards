@@ -120,4 +120,80 @@ void main() {
       expect(indices.toSet().length, indices.length);
     });
   });
+
+  group('computeReferenceScore', () {
+    test('abbreviation matches canonical book name exactly', () {
+      expect(computeReferenceScore('1 Pt 3:16', '1 Peter 3:16'), 1.0);
+      expect(computeReferenceScore('1pt 3:16', '1 Peter 3:16'), 1.0);
+      expect(computeReferenceScore('1 pet 3:16', '1 Peter 3:16'), 1.0);
+    });
+
+    test('spoken number-word forms match', () {
+      expect(computeReferenceScore('First Peter 3:16', '1 Peter 3:16'), 1.0);
+      expect(computeReferenceScore('one peter 3:16', '1 Peter 3:16'), 1.0);
+    });
+
+    test('longhand "Gospel of X" / "St X" forms match', () {
+      expect(computeReferenceScore('The Gospel of Mark 4:9', 'Mark 4:9'), 1.0);
+      expect(
+        computeReferenceScore(
+            'The Gospel According to Mark 4:9', 'Mark 4:9'),
+        1.0,
+      );
+      expect(computeReferenceScore('St Mark 4:9', 'Mark 4:9'), 1.0);
+    });
+
+    test('"Acts" longhand forms match', () {
+      expect(
+        computeReferenceScore('The Acts of the Apostles 2:1', 'Acts 2:1'),
+        1.0,
+      );
+      expect(computeReferenceScore('The Book of Acts 2:1', 'Acts 2:1'), 1.0);
+    });
+
+    test('unrecognized book name falls through to plain LCS, no false credit', () {
+      final score = computeReferenceScore('Frodo 3:16', '1 Peter 3:16');
+      expect(score, computeScore('Frodo 3:16', '1 Peter 3:16'));
+      expect(score, lessThan(1.0));
+    });
+
+    test('recognized but different book scores via plain LCS', () {
+      final score = computeReferenceScore('Mark 4:9', 'Luke 4:9');
+      expect(score, computeScore('Mark 4:9', 'Luke 4:9'));
+      expect(score, lessThan(1.0));
+    });
+
+    test('typed side unrecognized, correct side recognized → falls through', () {
+      final score = computeReferenceScore('Frodo 4:9', 'Mark 4:9');
+      expect(score, computeScore('Frodo 4:9', 'Mark 4:9'));
+    });
+
+    test('typed side recognized, correct side unrecognized → falls through', () {
+      final score = computeReferenceScore('Mark 4:9', 'Frodo 4:9');
+      expect(score, computeScore('Mark 4:9', 'Frodo 4:9'));
+    });
+
+    test('non-reference input falls through to plain computeScore', () {
+      expect(
+        computeReferenceScore('for God so loved', 'for God so loved'),
+        1.0,
+      );
+    });
+
+    test('verse-range form (chapter:verse-verse) matches across book variants', () {
+      expect(
+        computeReferenceScore('1 Pt 3:16-18', '1 Peter 3:16-18'),
+        1.0,
+      );
+    });
+
+    test('custom variant resolves to its mapped book', () {
+      final score = computeReferenceScore(
+        'JPet 3:16',
+        '1 Peter 3:16',
+        customVariants: {'jpet': '1PE'},
+      );
+      expect(score, 1.0);
+    });
+  });
 }

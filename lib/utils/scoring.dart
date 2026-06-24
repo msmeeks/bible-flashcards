@@ -1,5 +1,47 @@
 import 'dart:math';
 
+import 'book_name_variants.dart' show bookNameToUsfm;
+
+/// Matches "Book Chapter:Verse" or "Book Chapter:Verse-Verse" strings,
+/// capturing the book-name span separately from the chapter:verse span.
+final RegExp _referenceSplitPattern =
+    RegExp(r'^(.+?)\s+(\d+:\d+(?:-\d+)?)\s*$');
+
+/// Computes a 0.0–1.0 similarity score for a reference-answer (book chapter:verse).
+///
+/// Before running the usual word-level LCS, the book-name portion of [typed]
+/// and [correct] is resolved against the book-name-variant table (built-in
+/// plus [customVariants]). If both resolve to the same book, [typed]'s book
+/// name is rewritten to match [correct]'s wording exactly, so abbreviations
+/// and longhand variants ("1 Pt", "First Peter", "The Gospel of Mark") score
+/// identically to the canonical form instead of being penalized for
+/// word-choice. If either side's book name is unrecognized, or they resolve
+/// to different books, scoring falls through to plain [computeScore].
+double computeReferenceScore(
+  String typed,
+  String correct, {
+  Map<String, String> customVariants = const {},
+}) {
+  final typedMatch = _referenceSplitPattern.firstMatch(typed.trim());
+  final correctMatch = _referenceSplitPattern.firstMatch(correct.trim());
+  if (typedMatch == null || correctMatch == null) {
+    return computeScore(typed, correct);
+  }
+
+  final typedBook = typedMatch.group(1)!;
+  final correctBook = correctMatch.group(1)!;
+  final typedUsfm = bookNameToUsfm(typedBook, customVariants: customVariants);
+  final correctUsfm =
+      bookNameToUsfm(correctBook, customVariants: customVariants);
+
+  if (typedUsfm == null || correctUsfm == null || typedUsfm != correctUsfm) {
+    return computeScore(typed, correct);
+  }
+
+  final canonicalizedTyped = '$correctBook ${typedMatch.group(2)}';
+  return computeScore(canonicalizedTyped, correct);
+}
+
 /// Computes a 0.0–1.0 similarity score using word-level LCS.
 /// Both-empty inputs return 1.0; either-empty returns 0.0.
 double computeScore(String typed, String correct) {

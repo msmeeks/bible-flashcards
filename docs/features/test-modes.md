@@ -22,9 +22,12 @@ A test session is a sequence of verse cards. The user first configures mode, for
 | `lib/screens/test/test_result_screen.dart` | Per-card scores, session total |
 | `lib/screens/test/test_enums.dart` | `TestMode`, `TestFormat`, `PromptDirection` enums |
 | `lib/models/test_result.dart` | `VerseTestResult` and `TestSessionResult` models |
-| `lib/utils/scoring.dart` | `computeScore` (LCS) and `blankIndices` functions |
+| `lib/utils/scoring.dart` | `computeScore` (LCS), `computeReferenceScore` (lenient book-name matching), `blankIndices` |
+| `lib/utils/book_name_variants.dart` | Shared book-name-variant table (`builtInBookNameVariants`, `bookDisplayNames`, `normalizeBookNameKey`, `bookNameToUsfm`); single source of truth, also used by `BibleLookupService` |
 | `lib/services/speech_recognition_service.dart` | On-device speech-to-text wrapper for recite mode (mic permission, listen/stop/cancel) |
 | `lib/utils/verse_reference_format.dart` | `formatVerseReference` — slug ("esv_phil_4_13") to display string ("Phil 4:13 (ESV)") |
+| `lib/screens/settings/book_variants_screen.dart` | Settings UI to add/remove custom book-name variants |
+| `lib/database/database_helper.dart` | `book_name_variants` table + CRUD (`getBookNameVariants`, `addBookNameVariant`, `removeBookNameVariant`, `getCustomVariantLookup`) |
 
 ## Technical Detail
 
@@ -72,6 +75,14 @@ score = lcs_length(typed_words, correct_words) / max(len(typed_words), len(corre
 
 **Session total** = arithmetic mean of all card scores.
 
+### Lenient Book-Name Matching (textToRef answers)
+When the prompt direction is `textToReference` (user types or recites the reference), `test_session_screen.dart`'s `_scoreAnswer()` calls `computeReferenceScore` instead of plain `computeScore`. It splits both the typed/spoken answer and the correct reference into book-name span + chapter:verse span (regex `^(.+?)\s+(\d+:\d+(?:-\d+)?)\s*$`), resolves each book name to a USFM code via `bookNameToUsfm` (built-in table plus any custom variants), and — if both resolve to the **same** book — rewrites the typed book name to match the correct wording before running the usual word-level LCS. So "1 Pt 5:7", "First Peter 5:7", and "The First Letter of Peter 5:7" (if added as a custom variant) all score identically to whatever wording the stored verse reference uses. If either book name is unrecognized, or the two resolve to different books, it falls straight through to plain `computeScore` (no silent pass for wrong-book answers). `fillBlank` and `refToText` directions are untouched — book names there aren't a "type the reference" target, so the issue (#30) scoped lenient matching to `textToRef` only.
+
+Custom variants are loaded once per session in `initState` via `_loadCustomVariants()` → `DatabaseHelper.getCustomVariantLookup()`, which merges all stored rows into a normalized-key → USFM-code map layered on top of the built-in table (built-in never mutated).
+
+### Custom Book-Name Variants (Settings)
+`lib/screens/settings/book_variants_screen.dart`, linked from Settings → Data ("Book Name Variants"), lets the user add/remove their own variant spellings per book (e.g. a personal abbreviation). Add flow: book `DropdownButtonFormField` (from `bookDisplayNames`) + free-text `TextFormField` (capped at `maxVariantLength` = 60 chars), inline `errorText` validation, focus returned to the offending field on error. List view shows existing variants with an accessible (48x48, `Semantics`-labeled) delete button per row. Stored variants are capped at `maxCustomVariants` = 200 total (data minimization) and validated server-side (in `DatabaseHelper.addBookNameVariant`) for unknown book code, empty/over-length text, and duplicate (book, variant) pairs — the count-check-then-insert runs inside one `db.transaction` to avoid a race past the cap.
+
 ### Fill-in-Blank Word Selection
 Words to mask are selected by `blankIndices()` in `lib/utils/scoring.dart`. The step cycles 3→4→5→3→… using `step = 3 + (blankCount % 3)` after each blank is placed, starting with the word at index 2. There is no difficulty setting and no short-word skipping.
 
@@ -90,6 +101,7 @@ Fill-blank feedback in `test_session_screen.dart` uses `TextField` `errorText`/`
 ## Changelog
 | Date | Change |
 |---|---|
+| 2026-06-24 | Added lenient book-name matching for `textToRef` answers (#30): `computeReferenceScore` in `scoring.dart` canonicalizes the typed book-name span before LCS scoring; new shared `lib/utils/book_name_variants.dart` table (built-in variants + longhand/spoken-number forms), `book_name_variants` DB table (v2→v3) for user-added variants with CRUD + caps, new Settings screen `book_variants_screen.dart` |
 | 2026-05-27 | Initial documentation |
 | 2026-05-27 | Updated with full implementation: enum types, word-level LCS scoring algorithm, fill-blank word selection pattern, setup/session/results screen structure, privacy decision on typed input |
 | 2026-05-27 | Corrected enum identifiers, file paths, fill-blank algorithm description, recite scoring values; extracted scoring logic to lib/utils/scoring.dart; added unit tests |

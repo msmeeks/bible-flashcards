@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../utils/book_name_variants.dart' show bookNameToUsfm;
+
 class VerseLookupResult {
   const VerseLookupResult({
     required this.reference,
@@ -155,82 +157,7 @@ class BibleLookupService {
     }
   }
 
-  static String? _bookToUsfm(String name) {
-    final key = name.toLowerCase().replaceAll(RegExp(r'[\s\.]+'), '');
-    return _bookMap[key];
-  }
-
-  // Book name variants (lowercase, spaces/dots stripped) → USFM code.
-  static const _bookMap = <String, String>{
-    // Old Testament
-    'genesis': 'GEN', 'gen': 'GEN',
-    'exodus': 'EXO', 'exod': 'EXO', 'exo': 'EXO',
-    'leviticus': 'LEV', 'lev': 'LEV',
-    'numbers': 'NUM', 'num': 'NUM',
-    'deuteronomy': 'DEU', 'deut': 'DEU', 'deu': 'DEU',
-    'joshua': 'JOS', 'josh': 'JOS', 'jos': 'JOS',
-    'judges': 'JDG', 'judg': 'JDG', 'jdg': 'JDG',
-    'ruth': 'RUT', 'rut': 'RUT',
-    '1samuel': '1SA', '1sam': '1SA', '1sa': '1SA',
-    '2samuel': '2SA', '2sam': '2SA', '2sa': '2SA',
-    '1kings': '1KI', '1kgs': '1KI', '1ki': '1KI',
-    '2kings': '2KI', '2kgs': '2KI', '2ki': '2KI',
-    '1chronicles': '1CH', '1chron': '1CH', '1chr': '1CH', '1ch': '1CH',
-    '2chronicles': '2CH', '2chron': '2CH', '2chr': '2CH', '2ch': '2CH',
-    'ezra': 'EZR', 'ezr': 'EZR',
-    'nehemiah': 'NEH', 'neh': 'NEH',
-    'esther': 'EST', 'esth': 'EST', 'est': 'EST',
-    'job': 'JOB',
-    'psalm': 'PSA', 'psalms': 'PSA', 'psa': 'PSA', 'ps': 'PSA',
-    'proverbs': 'PRO', 'prov': 'PRO', 'pro': 'PRO',
-    'ecclesiastes': 'ECC', 'eccl': 'ECC', 'ecc': 'ECC',
-    'songofsolomon': 'SNG', 'songofsongs': 'SNG', 'song': 'SNG', 'sos': 'SNG', 'sng': 'SNG',
-    'isaiah': 'ISA', 'isa': 'ISA',
-    'jeremiah': 'JER', 'jer': 'JER',
-    'lamentations': 'LAM', 'lam': 'LAM',
-    'ezekiel': 'EZK', 'ezek': 'EZK', 'eze': 'EZK', 'ezk': 'EZK',
-    'daniel': 'DAN', 'dan': 'DAN',
-    'hosea': 'HOS', 'hos': 'HOS',
-    'joel': 'JOL', 'joe': 'JOL', 'jol': 'JOL',
-    'amos': 'AMO', 'amo': 'AMO',
-    'obadiah': 'OBA', 'obad': 'OBA', 'oba': 'OBA',
-    'jonah': 'JON', 'jon': 'JON',
-    'micah': 'MIC', 'mic': 'MIC',
-    'nahum': 'NAH', 'nah': 'NAH',
-    'habakkuk': 'HAB', 'hab': 'HAB',
-    'zephaniah': 'ZEP', 'zeph': 'ZEP', 'zep': 'ZEP',
-    'haggai': 'HAG', 'hag': 'HAG',
-    'zechariah': 'ZEC', 'zech': 'ZEC', 'zec': 'ZEC',
-    'malachi': 'MAL', 'mal': 'MAL',
-    // New Testament
-    'matthew': 'MAT', 'matt': 'MAT', 'mat': 'MAT',
-    'mark': 'MRK', 'mar': 'MRK', 'mrk': 'MRK',
-    'luke': 'LUK', 'luk': 'LUK',
-    'john': 'JHN', 'joh': 'JHN', 'jhn': 'JHN',
-    'acts': 'ACT', 'act': 'ACT',
-    'romans': 'ROM', 'rom': 'ROM',
-    '1corinthians': '1CO', '1cor': '1CO', '1co': '1CO',
-    '2corinthians': '2CO', '2cor': '2CO', '2co': '2CO',
-    'galatians': 'GAL', 'gal': 'GAL',
-    'ephesians': 'EPH', 'eph': 'EPH',
-    'philippians': 'PHP', 'phil': 'PHP', 'php': 'PHP',
-    'colossians': 'COL', 'col': 'COL',
-    '1thessalonians': '1TH', '1thess': '1TH', '1th': '1TH',
-    '2thessalonians': '2TH', '2thess': '2TH', '2th': '2TH',
-    '1timothy': '1TI', '1tim': '1TI', '1ti': '1TI',
-    '2timothy': '2TI', '2tim': '2TI', '2ti': '2TI',
-    'titus': 'TIT', 'tit': 'TIT',
-    'philemon': 'PHM', 'phlm': 'PHM', 'phm': 'PHM',
-    'hebrews': 'HEB', 'heb': 'HEB',
-    'james': 'JAS', 'jas': 'JAS',
-    '1peter': '1PE', '1pet': '1PE', '1pe': '1PE',
-    '2peter': '2PE', '2pet': '2PE', '2pe': '2PE',
-    '1john': '1JN', '1jn': '1JN',
-    '2john': '2JN', '2jn': '2JN',
-    '3john': '3JN', '3jn': '3JN',
-    'jude': 'JUD', 'jud': 'JUD',
-    'revelation': 'REV', 'rev': 'REV', 'apoc': 'REV',
-  };
+  static String? _bookToUsfm(String name) => bookNameToUsfm(name);
 
   void dispose() => _client.close();
 }
