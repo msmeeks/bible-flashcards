@@ -63,6 +63,9 @@ dependencies:
   googleapis: ^13.1.0
   share_plus: ^10.0.0
 
+  # Native file picker (SAF-scoped on Android) for import/export
+  file_picker: 11.0.2
+
   # HTTP client for verse lookup and pack import
   http: ^1.2.0
 

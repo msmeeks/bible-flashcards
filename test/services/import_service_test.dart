@@ -57,6 +57,32 @@ void main() {
       );
     });
 
+    test('throws ImportException when verses array exceeds max length', () {
+      final json = jsonEncode({
+        'schema_version': 1,
+        'source_app': 'bible_flashcards',
+        'verses': List.generate(50001, (_) => {}),
+      });
+      expect(
+        () => service.import(json),
+        throwsA(isA<ImportException>()),
+      );
+    });
+
+    test('throws ImportException when test_results array exceeds max length',
+        () {
+      final json = jsonEncode({
+        'schema_version': 1,
+        'source_app': 'bible_flashcards',
+        'verses': [],
+        'test_results': List.generate(50001, (_) => {}),
+      });
+      expect(
+        () => service.import(json),
+        throwsA(isA<ImportException>()),
+      );
+    });
+
     test('throws ImportException when schema_version is missing', () {
       final json = jsonEncode({
         'source_app': 'bible_flashcards',

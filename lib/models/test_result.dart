@@ -1,8 +1,8 @@
 class VerseTestResult {
   final String verseId;
   final double accuracy; // 0.0 – 1.0
-  final String testMode; // "verse_of_week" | "review"
-  final String testFormat; // "type" | "recite" | "fill_blank"
+  final String testMode; // "verseOfWeek" | "review"
+  final String testFormat; // "type" | "recite" | "fillBlank"
   final DateTime testedAt;
   // NOTE: typed input is intentionally NOT stored here — discard after scoring.
 

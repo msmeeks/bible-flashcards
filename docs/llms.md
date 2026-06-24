@@ -10,6 +10,7 @@ Load this file first. Then load only the specific doc files relevant to your tas
 - [features/notifications.md](features/notifications.md) — daily reminder scheduling, timezone init, lock-screen toggle, notification channels, SCHEDULE_EXACT_ALARM
 - [features/web-lookup.md](features/web-lookup.md) — BibleLookupService HTTP fetch, reference parsing, consent dialog, preview card, importPackFromJson batch import
 - [features/tracking.md](features/tracking.md) — engagement_log schema, TrackingProvider streak/chart computations, HistoryScreen charts + table toggle, first-launch consent, Settings clear
+- [features/data-management.md](features/data-management.md) — export/import JSON backup (share sheet, Save Locally via SAF file_picker, Google Drive), ImportService validation caps, DataManagementScreen dialogs
 
 ## Setup & tooling
 - [../scripts/setup-mac.sh](../scripts/setup-mac.sh) — one-command macOS bootstrap script (Flutter, Java 17, Android SDK, emulator)

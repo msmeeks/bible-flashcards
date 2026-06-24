@@ -35,6 +35,16 @@ subprojects {
     }
 }
 
+// file_picker skips applying org.jetbrains.kotlin.android itself on AGP 9+,
+// expecting AGP's built-in Kotlin support to compile its Kotlin sources —
+// but this Flutter version's plugin loader doesn't enable that path, so its
+// Kotlin classes never compile. Apply the plugin explicitly as a workaround.
+subprojects {
+    if (project.name == "file_picker") {
+        apply(plugin = "org.jetbrains.kotlin.android")
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

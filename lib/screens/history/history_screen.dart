@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/tracking_provider.dart';
+import '../../utils/date_format.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -208,16 +209,16 @@ class _WeeklyChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              interval: 1,
               getTitlesWidget: (value, meta) {
-                final idx = value.toInt();
-                if (idx < 0 || idx >= counts.length) {
+                final idx = value.round();
+                if (idx < 0 ||
+                    idx >= counts.length ||
+                    (value - idx).abs() > 0.01) {
                   return const SizedBox.shrink();
                 }
-                final date = counts[idx].key;
-                final parts = date.split('-');
-                final label = parts.length == 3
-                    ? '${parts[1]}/${parts[2]}'
-                    : date;
+                final parsed = DateTime.parse(counts[idx].key);
+                final label = shortDateLabel(parsed);
                 return Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
@@ -288,7 +289,7 @@ class _TestScoreChart extends StatelessWidget {
     required this.cs,
   });
 
-  final List<double> scores;
+  final List<MapEntry<DateTime, double>> scores;
   final bool showAsTable;
   final VoidCallback onToggleTable;
   final TextTheme tt;
@@ -315,11 +316,10 @@ class _TestScoreChart extends StatelessWidget {
       );
     }
 
-    final avg = scores.reduce((a, b) => a + b) / scores.length;
+    final avg =
+        scores.map((e) => e.value).reduce((a, b) => a + b) / scores.length;
     final perScore = scores
-        .asMap()
-        .entries
-        .map((e) => 'Test ${e.key + 1}: ${(e.value * 100).round()}%')
+        .map((e) => '${isoDateKey(e.key)}: ${(e.value * 100).round()}%')
         .join(', ');
     final summaryLabel =
         'Test scores over 30 days — $perScore. Average: ${(avg * 100).round()}%';
@@ -368,11 +368,17 @@ class _TestScoreChart extends StatelessWidget {
     final spots = scores
         .asMap()
         .entries
-        .map((e) => FlSpot(e.key.toDouble(), e.value * 100))
+        .map((e) => FlSpot(e.key.toDouble(), e.value.value * 100))
         .toList();
+    // Cap visible x-axis labels at ~6 so dates stay legible when the
+    // 30-day window has many entries; the off-screen Semantics summary
+    // always lists every date regardless of this thinning.
+    final labelInterval = (scores.length / 6).ceil().clamp(1, scores.length);
 
     return LineChart(
       LineChartData(
+        minX: 0,
+        maxX: (scores.length - 1).toDouble(),
         minY: 0,
         maxY: 100,
         lineBarsData: [
@@ -403,7 +409,7 @@ class _TestScoreChart extends StatelessWidget {
               reservedSize: 36,
               getTitlesWidget: (value, meta) => Text(
                 '${value.toInt()}%',
-                style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
               ),
             ),
           ),
@@ -413,8 +419,27 @@ class _TestScoreChart extends StatelessWidget {
           topTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
           ),
-          bottomTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: labelInterval.toDouble(),
+              getTitlesWidget: (value, meta) {
+                final idx = value.round();
+                if (idx < 0 ||
+                    idx >= scores.length ||
+                    (value - idx).abs() > 0.01) {
+                  return const SizedBox.shrink();
+                }
+                final label = shortDateLabel(scores[idx].key);
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    label,
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                );
+              },
+            ),
           ),
         ),
         gridData: FlGridData(
@@ -434,7 +459,7 @@ class _TestScoreChart extends StatelessWidget {
 class _ScoreTable extends StatelessWidget {
   const _ScoreTable({required this.scores, required this.tt, required this.cs});
 
-  final List<double> scores;
+  final List<MapEntry<DateTime, double>> scores;
   final TextTheme tt;
   final ColorScheme cs;
 
@@ -442,16 +467,14 @@ class _ScoreTable extends StatelessWidget {
   Widget build(BuildContext context) {
     return DataTable(
       columns: const [
-        DataColumn(label: Text('Test #'), numeric: true),
+        DataColumn(label: Text('Date')),
         DataColumn(label: Text('Score'), numeric: true),
       ],
       rows: scores
-          .asMap()
-          .entries
           .map(
             (e) => DataRow(
               cells: [
-                DataCell(Text('${e.key + 1}')),
+                DataCell(Text(isoDateKey(e.key))),
                 DataCell(Text('${(e.value * 100).round()}%')),
               ],
             ),

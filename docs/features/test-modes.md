@@ -24,6 +24,7 @@ A test session is a sequence of verse cards. The user first configures mode, for
 | `lib/models/test_result.dart` | `VerseTestResult` and `TestSessionResult` models |
 | `lib/utils/scoring.dart` | `computeScore` (LCS) and `blankIndices` functions |
 | `lib/services/speech_recognition_service.dart` | On-device speech-to-text wrapper for recite mode (mic permission, listen/stop/cancel) |
+| `lib/utils/verse_reference_format.dart` | `formatVerseReference` — slug ("esv_phil_4_13") to display string ("Phil 4:13 (ESV)") |
 
 ## Technical Detail
 
@@ -36,6 +37,8 @@ enum PromptDirection { refToText, textToRef }
 ```
 
 `fillBlank` ignores `PromptDirection` (always reference context → masked text).
+
+`TestFormat.label` extension getter is single source of truth for display labels ("Recite"/"Type"/"Fill Blanks"), used by `test_screen.dart` and `test_result_screen.dart`. `TestFormatLabel.tryFromName` does safe string-to-enum lookup for stored values. Fixes prior bug where `test_result_screen.dart` checked for `'fill_blank'` when stored value was actually `'fillBlank'`.
 
 ### Modes
 
@@ -76,7 +79,13 @@ Words to mask are selected by `blankIndices()` in `lib/utils/scoring.dart`. The 
 Typed test input is held only in ephemeral widget state. It is discarded immediately after the scoring function runs and is never written to the database or logs. Voice transcripts from the recite-mode mic option follow the same rule — held in memory only, discarded immediately after `computeScore` runs, never persisted or logged. See `meta/PRIVACY.md` ("Voice Recitation (Recite Mode)" section) for the full data-handling statement.
 
 ### History
-Each completed session is stored with: timestamp, mode, list of (reference, score) pairs, and total score. The Settings screen exposes a "Clear History" action. The home screen shows recent memorized verses as chips.
+Each completed session is stored with: timestamp, mode, list of (reference, score) pairs, and total score. The Settings screen exposes a "Clear History" action. The home screen shows recent memorized verses as chips. Results screen displays verse refs via `formatVerseReference` instead of raw slug.
+
+### Accessibility
+Fill-blank feedback in `test_session_screen.dart` uses `TextField` `errorText`/`helperText` (not just color/icon) so screen readers announce "Incorrect — correct: <word>" or "Correct".
+
+### Format Chip UI
+`test_screen.dart` format-selection `FilterChip`s use a private `_FormatChip` widget that puts the format icon inside the label `Row` rather than the `avatar` slot, avoiding overlap with the Material selection checkmark.
 
 ## Changelog
 | Date | Change |
@@ -85,3 +94,4 @@ Each completed session is stored with: timestamp, mode, list of (reference, scor
 | 2026-05-27 | Updated with full implementation: enum types, word-level LCS scoring algorithm, fill-blank word selection pattern, setup/session/results screen structure, privacy decision on typed input |
 | 2026-05-27 | Corrected enum identifiers, file paths, fill-blank algorithm description, recite scoring values; extracted scoring logic to lib/utils/scoring.dart; added unit tests |
 | 2026-06-24 | Added opt-in mic button for recite mode: on-device speech-to-text via `speech_to_text` (`SpeechRecognitionService`), scored with existing LCS `computeScore`, transcript never persisted; RECORD_AUDIO requested at point-of-use; typed/self-rated recite remains the default path |
+| 2026-06-23 | Fixed #21/#23/#24/#25: added `TestFormat.label`/`tryFromName` shared label helper (fixed fillBlank/fill_blank mismatch bug), added `verse_reference_format.dart` for slug-to-display formatting on results screen, a11y errorText/helperText for fill-blank feedback, fixed icon/checkmark overlap in format chips via `_FormatChip` |

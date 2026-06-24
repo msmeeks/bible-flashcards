@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../database/database_helper.dart';
+import '../utils/date_format.dart';
 
 class TrackingProvider extends ChangeNotifier {
   final DatabaseHelper _db;
@@ -8,14 +9,15 @@ class TrackingProvider extends ChangeNotifier {
   int _streak = 0;
   int _totalVersesReviewed = 0;
   List<MapEntry<String, int>> _last7DaysCounts = [];
-  List<double> _last30DaysTestScores = [];
+  List<MapEntry<DateTime, double>> _last30DaysTestScores = [];
 
   TrackingProvider(this._db);
 
   int get streak => _streak;
   int get totalVersesReviewed => _totalVersesReviewed;
   List<MapEntry<String, int>> get last7DaysCounts => _last7DaysCounts;
-  List<double> get last30DaysTestScores => _last30DaysTestScores;
+  List<MapEntry<DateTime, double>> get last30DaysTestScores =>
+      _last30DaysTestScores;
 
   Future<void> load() async {
     final rows = await _db.getEngagementLog();
@@ -32,29 +34,24 @@ class TrackingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  static String _dateKey(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  /// Exposed for testing.
   @visibleForTesting
   static int computeStreak(List<Map<String, Object?>> rows) {
     final activeDays = rows.map((r) => r['date'] as String).toSet();
     // If today has no activity yet, start from yesterday so a live streak
     // doesn't reset every morning before the first tap.
-    final today = _dateKey(DateTime.now());
+    final today = isoDateKey(DateTime.now());
     var day = activeDays.contains(today)
         ? DateTime.now()
         : DateTime.now().subtract(const Duration(days: 1));
 
     var streak = 0;
-    while (activeDays.contains(_dateKey(day))) {
+    while (activeDays.contains(isoDateKey(day))) {
       streak++;
       day = day.subtract(const Duration(days: 1));
     }
     return streak;
   }
 
-  /// Exposed for testing.
   @visibleForTesting
   static List<MapEntry<String, int>> computeLast7Days(
     List<Map<String, Object?>> rows,
@@ -69,24 +66,40 @@ class TrackingProvider extends ChangeNotifier {
     final result = <MapEntry<String, int>>[];
     for (var i = 6; i >= 0; i--) {
       final day = DateTime.now().subtract(Duration(days: i));
-      result.add(MapEntry(_dateKey(day), counts[_dateKey(day)] ?? 0));
+      result.add(MapEntry(isoDateKey(day), counts[isoDateKey(day)] ?? 0));
     }
     return result;
   }
 
-  /// Exposed for testing. Returns scores sorted oldest-first for correct chart X-axis.
+  /// Returns one averaged entry per local day, sorted oldest-first for
+  /// correct chart X-axis. Relies on `tested_at` being stored as a local
+  /// (non-UTC) ISO timestamp — see DatabaseHelper.logTestResult.
   @visibleForTesting
-  static List<double> computeLast30DaysScores(List<Map<String, Object?>> rows) {
+  static List<MapEntry<DateTime, double>> computeLast30DaysScores(
+    List<Map<String, Object?>> rows,
+  ) {
     final cutoff = DateTime.now().subtract(const Duration(days: 30));
     final filtered = rows.where((r) {
       final testedAt = DateTime.tryParse(r['tested_at'] as String? ?? '');
       return testedAt != null && testedAt.isAfter(cutoff);
-    }).toList()
-      ..sort((a, b) {
-        final ta = DateTime.parse(a['tested_at'] as String);
-        final tb = DateTime.parse(b['tested_at'] as String);
-        return ta.compareTo(tb);
-      });
-    return filtered.map((r) => (r['accuracy'] as num).toDouble()).toList();
+    });
+
+    final sums = <String, double>{};
+    final counts = <String, int>{};
+    final dayDates = <String, DateTime>{};
+    for (final r in filtered) {
+      final testedAt = DateTime.parse(r['tested_at'] as String);
+      final key = isoDateKey(testedAt);
+      final accuracy = (r['accuracy'] as num).toDouble();
+      sums[key] = (sums[key] ?? 0) + accuracy;
+      counts[key] = (counts[key] ?? 0) + 1;
+      dayDates[key] = DateTime(testedAt.year, testedAt.month, testedAt.day);
+    }
+
+    final result = sums.keys
+        .map((key) => MapEntry(dayDates[key]!, sums[key]! / counts[key]!))
+        .toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return result;
   }
 }
