@@ -209,16 +209,16 @@ class _WeeklyChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              interval: 1,
               getTitlesWidget: (value, meta) {
-                final idx = value.toInt();
-                if (idx < 0 || idx >= counts.length) {
+                final idx = value.round();
+                if (idx < 0 ||
+                    idx >= counts.length ||
+                    (value - idx).abs() > 0.01) {
                   return const SizedBox.shrink();
                 }
-                final date = counts[idx].key;
-                final parts = date.split('-');
-                final label = parts.length == 3
-                    ? '${parts[1]}/${parts[2]}'
-                    : date;
+                final parsed = DateTime.parse(counts[idx].key);
+                final label = shortDateLabel(parsed);
                 return Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
@@ -370,6 +370,10 @@ class _TestScoreChart extends StatelessWidget {
         .entries
         .map((e) => FlSpot(e.key.toDouble(), e.value.value * 100))
         .toList();
+    // Cap visible x-axis labels at ~6 so dates stay legible when the
+    // 30-day window has many entries; the off-screen Semantics summary
+    // always lists every date regardless of this thinning.
+    final labelInterval = (scores.length / 6).ceil().clamp(1, scores.length);
 
     return LineChart(
       LineChartData(
@@ -418,7 +422,7 @@ class _TestScoreChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              interval: 1,
+              interval: labelInterval.toDouble(),
               getTitlesWidget: (value, meta) {
                 final idx = value.round();
                 if (idx < 0 ||

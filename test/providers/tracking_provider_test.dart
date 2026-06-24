@@ -195,6 +195,10 @@ void main() {
       final result = TrackingProvider.computeLast30DaysScores(rows);
       expect(result, hasLength(1));
       expect(result.first.value, closeTo(0.8, 0.001));
+      expect(
+        result.first.key,
+        DateTime(today.year, today.month, today.day),
+      );
     });
 
     test('one test on a day passes through unchanged', () {
@@ -205,18 +209,58 @@ void main() {
       final result = TrackingProvider.computeLast30DaysScores(rows);
       expect(result, hasLength(1));
       expect(result.first.value, closeTo(0.55, 0.001));
+      expect(result.first.key, DateTime(day.year, day.month, day.day));
     });
 
     test('two different days produce two entries sorted ascending', () {
       final now = DateTime.now();
+      final dayMinus1 = now.subtract(const Duration(days: 1));
+      final dayMinus2 = now.subtract(const Duration(days: 2));
       final rows = [
-        {'tested_at': now.subtract(const Duration(days: 1)).toIso8601String(), 'accuracy': 0.9},
-        {'tested_at': now.subtract(const Duration(days: 2)).toIso8601String(), 'accuracy': 0.5},
+        {'tested_at': dayMinus1.toIso8601String(), 'accuracy': 0.9},
+        {'tested_at': dayMinus2.toIso8601String(), 'accuracy': 0.5},
       ];
       final result = TrackingProvider.computeLast30DaysScores(rows);
       expect(result, hasLength(2));
       expect(result[0].value, closeTo(0.5, 0.001));
+      expect(
+        result[0].key,
+        DateTime(dayMinus2.year, dayMinus2.month, dayMinus2.day),
+      );
       expect(result[1].value, closeTo(0.9, 0.001));
+      expect(
+        result[1].key,
+        DateTime(dayMinus1.year, dayMinus1.month, dayMinus1.day),
+      );
+    });
+
+    test('records straddling midnight do not merge into one day', () {
+      final midnightTonight = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+      final justBeforeMidnight =
+          midnightTonight.subtract(const Duration(minutes: 1));
+      final justAfterMidnight =
+          midnightTonight.add(const Duration(minutes: 1));
+      final rows = [
+        {'tested_at': justBeforeMidnight.toIso8601String(), 'accuracy': 0.2},
+        {'tested_at': justAfterMidnight.toIso8601String(), 'accuracy': 0.8},
+      ];
+      final result = TrackingProvider.computeLast30DaysScores(rows);
+      expect(result, hasLength(2));
+      expect(
+        result[0].key,
+        DateTime(
+          justBeforeMidnight.year,
+          justBeforeMidnight.month,
+          justBeforeMidnight.day,
+        ),
+      );
+      expect(result[0].value, closeTo(0.2, 0.001));
+      expect(result[1].key, midnightTonight);
+      expect(result[1].value, closeTo(0.8, 0.001));
     });
 
     test('multiple days each with multiple tests average independently', () {
