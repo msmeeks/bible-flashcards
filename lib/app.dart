@@ -83,6 +83,7 @@ class _BibleFlashcardsAppState extends State<BibleFlashcardsApp> {
         ChangeNotifierProvider<TrackingProvider>(
           create: (_) => TrackingProvider(widget.dbHelper),
         ),
+        Provider<NotificationService>.value(value: widget.notificationService),
       ],
       child: Consumer<SettingsProvider>(
         builder: (context, settings, _) {
