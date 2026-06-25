@@ -1,59 +1,17 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
-import 'package:bible_flashcards/models/verse.dart';
 import 'package:bible_flashcards/providers/audio_provider.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
 import 'package:bible_flashcards/screens/review/review_play_screen.dart';
 import 'package:bible_flashcards/screens/review/review_screen.dart';
 import 'package:bible_flashcards/screens/review/review_show_screen.dart';
-import 'package:bible_flashcards/services/audio_service.dart';
-import 'package:bible_flashcards/services/notification_service.dart';
 
-class _FakeAudioService extends AudioService {
-  final StreamController<AudioPlaybackState> _controller =
-      StreamController<AudioPlaybackState>.broadcast();
-
-  @override
-  Stream<AudioPlaybackState> get playbackStateStream => _controller.stream;
-
-  @override
-  Future<void> playVerse(Verse verse) async {}
-
-  @override
-  Future<void> stop() async => _controller.add(AudioPlaybackState.idle);
-
-  @override
-  void dispose() {
-    unawaited(_controller.close());
-  }
-}
-
-class _FakeNotificationService extends NotificationService {
-  @override
-  Future<void> showPlaybackNotification() async {}
-
-  @override
-  Future<void> cancelNotification() async {}
-}
-
-Verse _verse(String id, {bool isMemorized = true, bool isVerseOfWeek = false}) {
-  return Verse(
-    id: id,
-    reference: 'Ref $id',
-    text: 'Text $id',
-    translation: 'ESV',
-    packId: 'pack1',
-    isMemorized: isMemorized,
-    isVerseOfWeek: isVerseOfWeek,
-    addedAt: DateTime(2024, 1, 1),
-  );
-}
+import '../../helpers/fake_audio_service.dart';
+import '../../helpers/verse_factory.dart';
 
 Widget _wrap(VerseProvider provider, {AudioProvider? audioProvider}) {
   return MultiProvider(
@@ -62,8 +20,8 @@ Widget _wrap(VerseProvider provider, {AudioProvider? audioProvider}) {
       ChangeNotifierProvider<AudioProvider>.value(
         value: audioProvider ??
             AudioProvider(
-              notificationService: _FakeNotificationService(),
-              audioService: _FakeAudioService(),
+              notificationService: FakeNotificationService(),
+              audioService: FakeAudioService(),
             ),
       ),
     ],
@@ -97,7 +55,7 @@ void main() {
   testWidgets('count chip presets are grouped under a single Semantics label',
       (tester) async {
     final provider = VerseProvider(DatabaseHelper());
-    provider.debugSetVerses(List.generate(7, (i) => _verse('v$i')));
+    provider.debugSetVerses(List.generate(7, (i) => makeVerse('v$i')));
 
     await tester.pumpWidget(_wrap(provider));
 
@@ -110,7 +68,7 @@ void main() {
   testWidgets('Start button uses the Symbols icon set, not legacy Icons',
       (tester) async {
     final provider = VerseProvider(DatabaseHelper());
-    provider.debugSetVerses(List.generate(7, (i) => _verse('v$i')));
+    provider.debugSetVerses(List.generate(7, (i) => makeVerse('v$i')));
 
     await tester.pumpWidget(_wrap(provider));
 
@@ -121,7 +79,7 @@ void main() {
   testWidgets('shows count slider, verse-of-week toggle, and format selector',
       (tester) async {
     final provider = VerseProvider(DatabaseHelper());
-    provider.debugSetVerses(List.generate(7, (i) => _verse('v$i')));
+    provider.debugSetVerses(List.generate(7, (i) => makeVerse('v$i')));
 
     await tester.pumpWidget(_wrap(provider));
 
@@ -134,7 +92,7 @@ void main() {
   testWidgets('Start pushes ReviewShowScreen with the drawn verse list',
       (tester) async {
     final provider = VerseProvider(DatabaseHelper());
-    provider.debugSetVerses(List.generate(7, (i) => _verse('v$i')));
+    provider.debugSetVerses(List.generate(7, (i) => makeVerse('v$i')));
 
     await tester.pumpWidget(_wrap(provider));
 
@@ -151,10 +109,10 @@ void main() {
   testWidgets('Start with Play selected queues playback and pushes ReviewPlayScreen',
       (tester) async {
     final provider = VerseProvider(DatabaseHelper());
-    provider.debugSetVerses(List.generate(7, (i) => _verse('v$i')));
+    provider.debugSetVerses(List.generate(7, (i) => makeVerse('v$i')));
     final audioProvider = AudioProvider(
-      notificationService: _FakeNotificationService(),
-      audioService: _FakeAudioService(),
+      notificationService: FakeNotificationService(),
+      audioService: FakeAudioService(),
     );
 
     await tester.pumpWidget(_wrap(provider, audioProvider: audioProvider));

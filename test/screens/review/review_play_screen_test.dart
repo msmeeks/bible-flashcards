@@ -1,58 +1,13 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-import 'package:bible_flashcards/models/verse.dart';
 import 'package:bible_flashcards/providers/audio_provider.dart';
 import 'package:bible_flashcards/screens/review/review_play_screen.dart';
 import 'package:bible_flashcards/services/audio_service.dart';
-import 'package:bible_flashcards/services/notification_service.dart';
 
-class _FakeAudioService extends AudioService {
-  final StreamController<AudioPlaybackState> _controller =
-      StreamController<AudioPlaybackState>.broadcast();
-
-  @override
-  Stream<AudioPlaybackState> get playbackStateStream => _controller.stream;
-
-  @override
-  Future<void> playVerse(Verse verse) async {}
-
-  @override
-  Future<void> pause() async {}
-
-  @override
-  Future<void> resume() async {}
-
-  @override
-  Future<void> stop() async => _controller.add(AudioPlaybackState.idle);
-
-  void emit(AudioPlaybackState state) => _controller.add(state);
-
-  @override
-  void dispose() {
-    unawaited(_controller.close());
-  }
-}
-
-class _FakeNotificationService extends NotificationService {
-  @override
-  Future<void> showPlaybackNotification() async {}
-
-  @override
-  Future<void> cancelNotification() async {}
-}
-
-Verse _verse(String id) => Verse(
-      id: id,
-      reference: 'Ref $id',
-      text: 'Text $id',
-      translation: 'ESV',
-      packId: 'pack',
-      addedAt: DateTime(2026, 1, 1),
-    );
+import '../../helpers/fake_audio_service.dart';
+import '../../helpers/verse_factory.dart';
 
 Widget _wrap(AudioProvider provider) {
   return ChangeNotifierProvider<AudioProvider>.value(
@@ -65,10 +20,10 @@ void main() {
   testWidgets('shows reference, state label, and "Playing X of N"',
       (tester) async {
     final provider = AudioProvider(
-      notificationService: _FakeNotificationService(),
-      audioService: _FakeAudioService(),
+      notificationService: FakeNotificationService(),
+      audioService: FakeAudioService(),
     );
-    await provider.playQueue([_verse('a'), _verse('b'), _verse('c')]);
+    await provider.playQueue([makeVerse('a'), makeVerse('b'), makeVerse('c')]);
 
     await tester.pumpWidget(_wrap(provider));
     await tester.pump();
@@ -79,10 +34,10 @@ void main() {
 
   testWidgets('pause button pauses, resume button resumes', (tester) async {
     final provider = AudioProvider(
-      notificationService: _FakeNotificationService(),
-      audioService: _FakeAudioService(),
+      notificationService: FakeNotificationService(),
+      audioService: FakeAudioService(),
     );
-    await provider.playQueue([_verse('a')]);
+    await provider.playQueue([makeVerse('a')]);
 
     await tester.pumpWidget(_wrap(provider));
     await tester.pump();
@@ -101,10 +56,10 @@ void main() {
   testWidgets('stop button stops playback and pops the screen',
       (tester) async {
     final provider = AudioProvider(
-      notificationService: _FakeNotificationService(),
-      audioService: _FakeAudioService(),
+      notificationService: FakeNotificationService(),
+      audioService: FakeAudioService(),
     );
-    await provider.playQueue([_verse('a')]);
+    await provider.playQueue([makeVerse('a')]);
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AudioProvider>.value(
@@ -136,12 +91,12 @@ void main() {
 
   testWidgets('disables the play/pause button when playback is completed',
       (tester) async {
-    final audio = _FakeAudioService();
+    final audio = FakeAudioService();
     final provider = AudioProvider(
-      notificationService: _FakeNotificationService(),
+      notificationService: FakeNotificationService(),
       audioService: audio,
     );
-    await provider.playVerse(_verse('a'));
+    await provider.playVerse(makeVerse('a'));
     audio.emit(AudioPlaybackState.completed);
     await Future<void>.value();
     expect(provider.isCompleted, isTrue);
@@ -156,12 +111,12 @@ void main() {
   testWidgets(
       'pops the screen when currentVerse becomes null after a stop event',
       (tester) async {
-    final audio = _FakeAudioService();
+    final audio = FakeAudioService();
     final provider = AudioProvider(
-      notificationService: _FakeNotificationService(),
+      notificationService: FakeNotificationService(),
       audioService: audio,
     );
-    await provider.playQueue([_verse('a')]);
+    await provider.playQueue([makeVerse('a')]);
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AudioProvider>.value(
