@@ -90,15 +90,21 @@ class _AudioPlayerBarContent extends StatelessWidget {
                     children: [
                       Text(
                         audio.currentVerse!.reference,
-                        style: tt.titleSmall
-                            ?.copyWith(color: cs.onInverseSurface),
+                        style:
+                            tt.titleSmall?.copyWith(color: cs.onInverseSurface),
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (audio.playbackStateLabel.isNotEmpty)
                         Text(
                           audio.playbackStateLabel,
-                          style: tt.bodySmall
-                              ?.copyWith(color: cs.onInverseSurface.withAlpha(179)),
+                          style: tt.bodySmall?.copyWith(
+                              color: cs.onInverseSurface.withAlpha(179)),
+                        ),
+                      if (audio.queueLength > 1)
+                        Text(
+                          'Playing ${audio.currentQueueIndex + 1} of ${audio.queueLength}',
+                          style: tt.bodySmall?.copyWith(
+                              color: cs.onInverseSurface.withAlpha(179)),
                         ),
                     ],
                   ),
@@ -117,10 +123,10 @@ class _AudioPlayerBarContent extends StatelessWidget {
                   label: 'Previous verse',
                   enabled: false,
                   button: true,
-                  child: Tooltip(
+                  child: const Tooltip(
                     message: 'Previous',
                     child: IconButton(
-                      icon: const Icon(Symbols.skip_previous_rounded),
+                      icon: Icon(Symbols.skip_previous_rounded),
                       onPressed: null,
                     ),
                   ),
@@ -131,10 +137,10 @@ class _AudioPlayerBarContent extends StatelessWidget {
                   label: 'Rewind 5 seconds',
                   enabled: false,
                   button: true,
-                  child: Tooltip(
+                  child: const Tooltip(
                     message: 'Rewind 5 seconds',
                     child: IconButton(
-                      icon: const Icon(Symbols.replay_5_rounded),
+                      icon: Icon(Symbols.replay_5_rounded),
                       onPressed: null,
                     ),
                   ),
@@ -160,8 +166,10 @@ class _AudioPlayerBarContent extends StatelessWidget {
                           padding: EdgeInsets.zero,
                           backgroundColor: cs.primary,
                           foregroundColor: cs.onPrimary,
-                          disabledBackgroundColor: cs.onInverseSurface.withAlpha(31),
-                          disabledForegroundColor: cs.onInverseSurface.withAlpha(97),
+                          disabledBackgroundColor:
+                              cs.onInverseSurface.withAlpha(31),
+                          disabledForegroundColor:
+                              cs.onInverseSurface.withAlpha(97),
                         ),
                         onPressed: audio.isCompleted
                             ? null
@@ -181,10 +189,10 @@ class _AudioPlayerBarContent extends StatelessWidget {
                   label: 'Forward 5 seconds',
                   enabled: false,
                   button: true,
-                  child: Tooltip(
+                  child: const Tooltip(
                     message: 'Forward 5 seconds',
                     child: IconButton(
-                      icon: const Icon(Symbols.forward_5_rounded),
+                      icon: Icon(Symbols.forward_5_rounded),
                       onPressed: null,
                     ),
                   ),
