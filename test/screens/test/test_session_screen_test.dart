@@ -121,12 +121,16 @@ void main() {
   );
 
   testWidgets(
-    'fill-blank shows no field labels or placeholder text',
+    'fill-blank fields carry a numbered Blank N label for screen readers',
     (tester) async {
       await tester.pumpWidget(wrapFillBlank(_verse()));
       await tester.pump();
 
-      expect(find.textContaining('Blank '), findsNothing);
+      final fields = tester.widgetList<TextField>(find.byType(TextField));
+      expect(fields, isNotEmpty);
+      for (var i = 0; i < fields.length; i++) {
+        expect(fields.elementAt(i).decoration?.labelText, 'Blank ${i + 1}');
+      }
     },
   );
 

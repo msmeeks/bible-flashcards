@@ -664,6 +664,8 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                 controller: _blankControllers[blankIdx],
                 focusNode: _blankFocusNodes[blankIdx],
                 decoration: InputDecoration(
+                  labelText: 'Blank ${blankIdx + 1}',
+                  floatingLabelBehavior: FloatingLabelBehavior.never,
                   isDense: true,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),

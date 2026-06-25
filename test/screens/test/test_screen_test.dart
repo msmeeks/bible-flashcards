@@ -66,6 +66,24 @@ void main() {
   );
 
   testWidgets(
+    'count chip presets are grouped under a single Semantics label',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses(
+        List.generate(7, (i) => _verse('v$i')),
+      );
+
+      await tester.pumpWidget(_wrap(provider));
+      await _selectReviewMode(tester);
+
+      expect(
+        find.bySemanticsLabel('Number of verses — select a preset'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'jump-chips beyond the memorized count are absent, not disabled',
     (tester) async {
       final provider = VerseProvider(DatabaseHelper());
