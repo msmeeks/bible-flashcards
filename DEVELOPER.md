@@ -100,6 +100,7 @@ The first build compiles native Gradle dependencies and takes several minutes. S
 - **Notifications** require granting `POST_NOTIFICATIONS` permission in the emulator's app settings the first time audio review is enabled.
 - **TTS** (`flutter_tts`) uses the system Text-to-Speech engine. The default Google TTS engine is present on Play-image emulators. If TTS is silent, go to **Settings → Accessibility → Text-to-speech** and confirm an engine is installed.
 - **Keystore** works on emulators with a lock screen set up. If the app crashes on first launch with a Keystore error, set a PIN or pattern in the emulator's security settings.
+- **On-device speech recognition** (recite-mode mic, `speech_to_text` with `onDevice: true`) is unreliable on the `bible_flashcards_pixel9` AVD even though it's a Google Play image: recognition reports "started" but `onResult`/`onStatus`/`onError` never fire, so the UI would hang on "Listening" without the bounded timeout in `test_session_screen.dart`. This is a testing-environment gap, not a code bug — if you need to verify real successful recognition rather than just the timeout fallback, try downloading the offline speech model first (Google app → Settings → Voice → Offline speech recognition) or test on a physical device.
 
 ---
 
