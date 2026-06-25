@@ -145,6 +145,8 @@ void main() {
 
       expect(find.text('Correct'), findsNothing);
       expect(find.textContaining('Incorrect —'), findsNothing);
+      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('Try Again'), findsOneWidget);
     },
   );
 }

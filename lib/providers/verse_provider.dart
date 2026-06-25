@@ -103,6 +103,8 @@ class VerseProvider extends ChangeNotifier {
         ? memorizedVerses.toList()
         : memorizedVerses.where((v) => !v.isVerseOfWeek).toList();
 
+    if (count == 0) return [];
+
     pool.shuffle(rng);
     final result =
         (pool.length <= count ? pool : pool.sublist(0, count)).toList();

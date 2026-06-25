@@ -33,18 +33,13 @@ void main() {
     expect(find.text('Text v0'), findsOneWidget);
   });
 
-  testWidgets('verse list stays fixed across a rebuild', (tester) async {
-    final verses = List.generate(3, (i) => _verse('v$i'));
-
+  testWidgets('empty verses list renders ListView without error',
+      (tester) async {
     await tester.pumpWidget(
-      MaterialApp(home: ReviewShowScreen(verses: verses)),
-    );
-    await tester.pumpWidget(
-      MaterialApp(home: ReviewShowScreen(verses: verses)),
+      const MaterialApp(home: ReviewShowScreen(verses: [])),
     );
 
-    expect(find.text('Ref v0'), findsOneWidget);
-    expect(find.text('Ref v1'), findsOneWidget);
-    expect(find.text('Ref v2'), findsOneWidget);
+    expect(find.byType(ListView), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

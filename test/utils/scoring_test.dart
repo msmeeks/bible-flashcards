@@ -133,6 +133,10 @@ void main() {
   });
 
   group('splitAnswerTokens', () {
+    test('empty string returns empty list', () {
+      expect(splitAnswerTokens(''), isEmpty);
+    });
+
     test('plain verse text splits on whitespace only', () {
       expect(splitAnswerTokens('for God so loved'),
           ['for', 'God', 'so', 'loved']);
