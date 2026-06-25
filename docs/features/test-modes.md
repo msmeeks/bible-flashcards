@@ -48,7 +48,10 @@ enum PromptDirection { refToText, textToRef }
 | Mode | Verses Tested |
 |---|---|
 | `verseOfWeek` | The single current verse only |
-| `review` | 5 verses chosen at random from the memorized list |
+| `review` | User-chosen count of verses, randomly chosen from the memorized list, via `getRandomMemorizedVerses(count, includeVerseOfWeek)` |
+
+### Review Mode Controls (`test_screen.dart`)
+When Review mode is selected, a count `Slider` (1 → memorized-verse count) plus jump-`FilterChip`s (5/10/20/All — chips above the memorized count are omitted entirely, not disabled) and an "Include verse of the week" `SwitchListTile` (default on) appear below the mode selector; both are hidden in Verse of Week mode. Starting a Review-mode session with zero memorized verses shows a prerequisite error instead of rendering the slider (which has no valid range at zero).
 
 ### Prompt / Response Formats
 
@@ -101,6 +104,7 @@ Fill-blank feedback in `test_session_screen.dart` uses `TextField` `errorText`/`
 ## Changelog
 | Date | Change |
 |---|---|
+| 2026-06-25 | Retrofitted Review mode (#49) with a user-chosen count slider/chips + verse-of-week toggle, replacing the hardcoded 5-verse selection; wired into `getRandomMemorizedVerses(count, includeVerseOfWeek)` (#46/#53) |
 | 2026-06-24 | Added lenient book-name matching for `textToRef` answers (#30): `computeReferenceScore` in `scoring.dart` canonicalizes the typed book-name span before LCS scoring; new shared `lib/utils/book_name_variants.dart` table (built-in variants + longhand/spoken-number forms), `book_name_variants` DB table (v2→v3) for user-added variants with CRUD + caps, new Settings screen `book_variants_screen.dart` |
 | 2026-05-27 | Initial documentation |
 | 2026-05-27 | Updated with full implementation: enum types, word-level LCS scoring algorithm, fill-blank word selection pattern, setup/session/results screen structure, privacy decision on typed input |
