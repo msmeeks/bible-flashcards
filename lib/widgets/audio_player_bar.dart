@@ -123,10 +123,10 @@ class _AudioPlayerBarContent extends StatelessWidget {
                   label: 'Previous verse',
                   enabled: false,
                   button: true,
-                  child: Tooltip(
+                  child: const Tooltip(
                     message: 'Previous',
                     child: IconButton(
-                      icon: const Icon(Symbols.skip_previous_rounded),
+                      icon: Icon(Symbols.skip_previous_rounded),
                       onPressed: null,
                     ),
                   ),
@@ -137,10 +137,10 @@ class _AudioPlayerBarContent extends StatelessWidget {
                   label: 'Rewind 5 seconds',
                   enabled: false,
                   button: true,
-                  child: Tooltip(
+                  child: const Tooltip(
                     message: 'Rewind 5 seconds',
                     child: IconButton(
-                      icon: const Icon(Symbols.replay_5_rounded),
+                      icon: Icon(Symbols.replay_5_rounded),
                       onPressed: null,
                     ),
                   ),
@@ -189,10 +189,10 @@ class _AudioPlayerBarContent extends StatelessWidget {
                   label: 'Forward 5 seconds',
                   enabled: false,
                   button: true,
-                  child: Tooltip(
+                  child: const Tooltip(
                     message: 'Forward 5 seconds',
                     child: IconButton(
-                      icon: const Icon(Symbols.forward_5_rounded),
+                      icon: Icon(Symbols.forward_5_rounded),
                       onPressed: null,
                     ),
                   ),
