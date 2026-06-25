@@ -1,12 +1,45 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/models/verse.dart';
+import 'package:bible_flashcards/providers/audio_provider.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
+import 'package:bible_flashcards/screens/review/review_play_screen.dart';
 import 'package:bible_flashcards/screens/review/review_screen.dart';
 import 'package:bible_flashcards/screens/review/review_show_screen.dart';
+import 'package:bible_flashcards/services/audio_service.dart';
+import 'package:bible_flashcards/services/notification_service.dart';
+
+class _FakeAudioService extends AudioService {
+  final StreamController<AudioPlaybackState> _controller =
+      StreamController<AudioPlaybackState>.broadcast();
+
+  @override
+  Stream<AudioPlaybackState> get playbackStateStream => _controller.stream;
+
+  @override
+  Future<void> playVerse(Verse verse) async {}
+
+  @override
+  Future<void> stop() async => _controller.add(AudioPlaybackState.idle);
+
+  @override
+  void dispose() {
+    unawaited(_controller.close());
+  }
+}
+
+class _FakeNotificationService extends NotificationService {
+  @override
+  Future<void> showPlaybackNotification() async {}
+
+  @override
+  Future<void> cancelNotification() async {}
+}
 
 Verse _verse(String id, {bool isMemorized = true, bool isVerseOfWeek = false}) {
   return Verse(
@@ -21,9 +54,18 @@ Verse _verse(String id, {bool isMemorized = true, bool isVerseOfWeek = false}) {
   );
 }
 
-Widget _wrap(VerseProvider provider) {
-  return ChangeNotifierProvider<VerseProvider>.value(
-    value: provider,
+Widget _wrap(VerseProvider provider, {AudioProvider? audioProvider}) {
+  return MultiProvider(
+    providers: [
+      ChangeNotifierProvider<VerseProvider>.value(value: provider),
+      ChangeNotifierProvider<AudioProvider>.value(
+        value: audioProvider ??
+            AudioProvider(
+              notificationService: _FakeNotificationService(),
+              audioService: _FakeAudioService(),
+            ),
+      ),
+    ],
     child: const MaterialApp(home: ReviewScreen()),
   );
 }
@@ -68,5 +110,26 @@ void main() {
 
     final show = tester.widget<ReviewShowScreen>(find.byType(ReviewShowScreen));
     expect(show.verses.length, 5);
+  });
+
+  testWidgets('Start with Play selected queues playback and pushes ReviewPlayScreen',
+      (tester) async {
+    final provider = VerseProvider(DatabaseHelper());
+    provider.debugSetVerses(List.generate(7, (i) => _verse('v$i')));
+    final audioProvider = AudioProvider(
+      notificationService: _FakeNotificationService(),
+      audioService: _FakeAudioService(),
+    );
+
+    await tester.pumpWidget(_wrap(provider, audioProvider: audioProvider));
+
+    await tester.tap(find.text('Play'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Start'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ReviewPlayScreen), findsOneWidget);
+    expect(audioProvider.queueLength, 5);
   });
 }

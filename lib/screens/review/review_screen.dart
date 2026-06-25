@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/audio_provider.dart';
 import '../../providers/verse_provider.dart';
+import 'review_play_screen.dart';
 import 'review_show_screen.dart';
 
 enum _ReviewFormat { show, play }
@@ -22,12 +24,21 @@ class _ReviewScreenState extends State<ReviewScreen> {
   _ReviewFormat _format = _ReviewFormat.show;
 
   void _start(VerseProvider provider) {
-    if (_format != _ReviewFormat.show) return;
-
     final verses = provider.getRandomMemorizedVerses(
       _reviewCount,
       includeVerseOfWeek: _includeVerseOfWeek,
     );
+
+    if (_format == _ReviewFormat.play) {
+      context.read<AudioProvider>().playQueue(verses);
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const ReviewPlayScreen(),
+          fullscreenDialog: true,
+        ),
+      );
+      return;
+    }
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -108,8 +119,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     ChoiceChip(
                       label: const Text('Play'),
                       selected: _format == _ReviewFormat.play,
-                      // Play has no functional path yet — selectable but inert.
-                      onSelected: null,
+                      onSelected: (_) =>
+                          setState(() => _format = _ReviewFormat.play),
                     ),
                   ],
                 ),
