@@ -279,22 +279,26 @@ class _ReviewControls extends StatelessWidget {
           label: '$clampedCount',
           onChanged: (value) => onCountChanged(value.round()),
         ),
-        Wrap(
-          spacing: 8,
-          children: [
-            for (final chipCount in _reviewCountChips)
-              if (chipCount <= memorizedCount)
-                FilterChip(
-                  label: Text('$chipCount'),
-                  selected: clampedCount == chipCount,
-                  onSelected: (_) => onCountChanged(chipCount),
-                ),
-            FilterChip(
-              label: const Text('All'),
-              selected: clampedCount == memorizedCount,
-              onSelected: (_) => onCountChanged(memorizedCount),
-            ),
-          ],
+        Semantics(
+          label: 'Number of verses — select a preset',
+          explicitChildNodes: true,
+          child: Wrap(
+            spacing: 8,
+            children: [
+              for (final chipCount in _reviewCountChips)
+                if (chipCount <= memorizedCount)
+                  FilterChip(
+                    label: Text('$chipCount'),
+                    selected: clampedCount == chipCount,
+                    onSelected: (_) => onCountChanged(chipCount),
+                  ),
+              FilterChip(
+                label: const Text('All'),
+                selected: clampedCount == memorizedCount,
+                onSelected: (_) => onCountChanged(memorizedCount),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         SwitchListTile(

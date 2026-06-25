@@ -77,24 +77,28 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   onChanged: (value) =>
                       setState(() => _reviewCount = value.round()),
                 ),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final chipCount in _reviewCountChips)
-                      if (chipCount <= memorizedCount)
-                        FilterChip(
-                          label: Text('$chipCount'),
-                          selected: clampedCount == chipCount,
-                          onSelected: (_) =>
-                              setState(() => _reviewCount = chipCount),
-                        ),
-                    FilterChip(
-                      label: const Text('All'),
-                      selected: clampedCount == memorizedCount,
-                      onSelected: (_) =>
-                          setState(() => _reviewCount = memorizedCount),
-                    ),
-                  ],
+                Semantics(
+                  label: 'Number of verses — select a preset',
+                  explicitChildNodes: true,
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final chipCount in _reviewCountChips)
+                        if (chipCount <= memorizedCount)
+                          FilterChip(
+                            label: Text('$chipCount'),
+                            selected: clampedCount == chipCount,
+                            onSelected: (_) =>
+                                setState(() => _reviewCount = chipCount),
+                          ),
+                      FilterChip(
+                        label: const Text('All'),
+                        selected: clampedCount == memorizedCount,
+                        onSelected: (_) =>
+                            setState(() => _reviewCount = memorizedCount),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
                 SwitchListTile(
@@ -129,7 +133,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   height: 48,
                   child: FilledButton.icon(
                     onPressed: () => _start(provider),
-                    icon: const Icon(Icons.play_arrow_rounded),
+                    icon: const Icon(Symbols.play_arrow_rounded),
                     label: const Text('Start'),
                   ),
                 ),
@@ -172,13 +176,11 @@ class _EmptyReviewState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Semantics(
-              label: 'No memorized verses yet',
-              child: Icon(
-                Symbols.menu_book_rounded,
-                size: 64,
-                color: cs.onSurfaceVariant,
-              ),
+            Icon(
+              Symbols.menu_book_rounded,
+              size: 64,
+              color: cs.onSurfaceVariant,
+              semanticLabel: '',
             ),
             const SizedBox(height: 16),
             Text(

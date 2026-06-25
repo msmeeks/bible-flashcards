@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
@@ -80,6 +81,41 @@ void main() {
 
     expect(find.text('No memorized verses yet'), findsOneWidget);
     expect(find.byType(Slider), findsNothing);
+  });
+
+  testWidgets('empty-state icon is decorative, not double-announced',
+      (tester) async {
+    final provider = VerseProvider(DatabaseHelper());
+    provider.debugSetVerses([]);
+
+    await tester.pumpWidget(_wrap(provider));
+
+    final icon = tester.widget<Icon>(find.byIcon(Symbols.menu_book_rounded));
+    expect(icon.semanticLabel, '');
+  });
+
+  testWidgets('count chip presets are grouped under a single Semantics label',
+      (tester) async {
+    final provider = VerseProvider(DatabaseHelper());
+    provider.debugSetVerses(List.generate(7, (i) => _verse('v$i')));
+
+    await tester.pumpWidget(_wrap(provider));
+
+    expect(
+      find.bySemanticsLabel('Number of verses — select a preset'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Start button uses the Symbols icon set, not legacy Icons',
+      (tester) async {
+    final provider = VerseProvider(DatabaseHelper());
+    provider.debugSetVerses(List.generate(7, (i) => _verse('v$i')));
+
+    await tester.pumpWidget(_wrap(provider));
+
+    expect(find.byIcon(Symbols.play_arrow_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
   });
 
   testWidgets('shows count slider, verse-of-week toggle, and format selector',
