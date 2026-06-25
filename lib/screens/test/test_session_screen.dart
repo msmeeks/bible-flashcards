@@ -130,7 +130,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   }
 
   void _initBlankState() {
-    _currentBlankWords = _answerText.split(' ');
+    _currentBlankWords = splitAnswerTokens(_answerText);
     _currentBlankIndices = blankIndices(_currentBlankWords);
     _blankCorrectness = [];
     _blankControllers = List.generate(
@@ -664,16 +664,14 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                 controller: _blankControllers[blankIdx],
                 focusNode: _blankFocusNodes[blankIdx],
                 decoration: InputDecoration(
-                  labelText: 'Blank ${blankIdx + 1}',
                   isDense: true,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   errorText: (isCorrect == false)
-                      ? 'Incorrect — correct: ${_currentBlankWords[i]}'
+                      ? _currentBlankWords[i]
                       : null,
                   errorStyle: TextStyle(color: cs.onErrorContainer),
                   errorMaxLines: 2,
-                  helperText: (isCorrect == true) ? 'Correct' : null,
                   helperStyle: TextStyle(color: cs.onSuccessContainer),
                   suffixIcon: isCorrect == false
                       ? Icon(Icons.close, color: cs.onErrorContainer, size: 16)
@@ -700,7 +698,12 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
           ),
         );
       }
-      spans.add(const SizedBox(width: 4));
+      final isColon = _currentBlankWords[i] == ':';
+      final nextIsColon = i + 1 < _currentBlankWords.length &&
+          _currentBlankWords[i + 1] == ':';
+      if (!isColon && !nextIsColon) {
+        spans.add(const SizedBox(width: 4));
+      }
     }
 
     return Column(
