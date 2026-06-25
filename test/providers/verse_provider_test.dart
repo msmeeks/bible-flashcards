@@ -44,7 +44,8 @@ void main() {
       );
     });
 
-    test('includeVerseOfWeek true ensures eligible verse-of-week is in result', () {
+    test('includeVerseOfWeek true ensures eligible verse-of-week is in result',
+        () {
       final provider = VerseProvider(DatabaseHelper());
       final vow = _verse('vow', isVerseOfWeek: true);
       final pool = [vow, _verse('a'), _verse('b'), _verse('c')];
@@ -59,7 +60,9 @@ void main() {
       expect(result.any((v) => v.id == 'vow'), isTrue);
     });
 
-    test('includeVerseOfWeek true keeps the verse-of-week as one of the slots at full-pool count', () {
+    test(
+        'includeVerseOfWeek true keeps the verse-of-week as one of the slots at full-pool count',
+        () {
       final provider = VerseProvider(DatabaseHelper());
       final vow = _verse('vow', isVerseOfWeek: true);
       final pool = [vow, _verse('a'), _verse('b')];
@@ -74,7 +77,9 @@ void main() {
       expect(result.any((v) => v.id == 'vow'), isTrue);
     });
 
-    test('includeVerseOfWeek true with no verse-of-week falls back to plain selection', () {
+    test(
+        'includeVerseOfWeek true with no verse-of-week falls back to plain selection',
+        () {
       final provider = VerseProvider(DatabaseHelper());
       final pool = [_verse('a'), _verse('b'), _verse('c')];
       provider.debugSetVerses(pool);
@@ -87,7 +92,9 @@ void main() {
       expect(result.length, 2);
     });
 
-    test('includeVerseOfWeek true with unmemorized verse-of-week falls back to plain selection', () {
+    test(
+        'includeVerseOfWeek true with unmemorized verse-of-week falls back to plain selection',
+        () {
       final provider = VerseProvider(DatabaseHelper());
       final vow = _verse('vow', isMemorized: false, isVerseOfWeek: true);
       final pool = [vow, _verse('a'), _verse('b')];
@@ -102,7 +109,9 @@ void main() {
       expect(result.any((v) => v.id == 'vow'), isFalse);
     });
 
-    test('includeVerseOfWeek false excludes verse-of-week even at full-pool count', () {
+    test(
+        'includeVerseOfWeek false excludes verse-of-week even at full-pool count',
+        () {
       final provider = VerseProvider(DatabaseHelper());
       final vow = _verse('vow', isVerseOfWeek: true);
       final pool = [vow, _verse('a'), _verse('b')];

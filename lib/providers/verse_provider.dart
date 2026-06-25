@@ -21,8 +21,7 @@ class VerseProvider extends ChangeNotifier {
   List<Verse> get availableVerses =>
       _verses.where((v) => !v.isMemorized).toList();
 
-  Verse? get verseOfWeek =>
-      _verses.where((v) => v.isVerseOfWeek).firstOrNull;
+  Verse? get verseOfWeek => _verses.where((v) => v.isVerseOfWeek).firstOrNull;
 
   Map<String, String> get packNames => _packNames;
 
@@ -81,7 +80,8 @@ class VerseProvider extends ChangeNotifier {
   Future<void> unmarkMemorized(String id) async {
     final index = _verses.indexWhere((v) => v.id == id);
     if (index == -1) return;
-    final updated = _verses[index].copyWith(isMemorized: false, clearMemorizedAt: true);
+    final updated =
+        _verses[index].copyWith(isMemorized: false, clearMemorizedAt: true);
     await _db.unmarkMemorizedVerse(updated);
     await loadVerses();
   }
@@ -97,8 +97,7 @@ class VerseProvider extends ChangeNotifier {
   }) {
     final rng = Random();
     final vow = verseOfWeek;
-    final vowEligible =
-        includeVerseOfWeek && vow != null && vow.isMemorized;
+    final vowEligible = includeVerseOfWeek && vow != null && vow.isMemorized;
 
     var pool = memorizedVerses.toList();
     if (!includeVerseOfWeek) {
