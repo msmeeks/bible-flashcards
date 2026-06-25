@@ -90,15 +90,21 @@ class _AudioPlayerBarContent extends StatelessWidget {
                     children: [
                       Text(
                         audio.currentVerse!.reference,
-                        style: tt.titleSmall
-                            ?.copyWith(color: cs.onInverseSurface),
+                        style:
+                            tt.titleSmall?.copyWith(color: cs.onInverseSurface),
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (audio.playbackStateLabel.isNotEmpty)
                         Text(
                           audio.playbackStateLabel,
-                          style: tt.bodySmall
-                              ?.copyWith(color: cs.onInverseSurface.withAlpha(179)),
+                          style: tt.bodySmall?.copyWith(
+                              color: cs.onInverseSurface.withAlpha(179)),
+                        ),
+                      if (audio.queueLength > 1)
+                        Text(
+                          'Playing ${audio.currentQueueIndex + 1} of ${audio.queueLength}',
+                          style: tt.bodySmall?.copyWith(
+                              color: cs.onInverseSurface.withAlpha(179)),
                         ),
                     ],
                   ),
@@ -160,8 +166,10 @@ class _AudioPlayerBarContent extends StatelessWidget {
                           padding: EdgeInsets.zero,
                           backgroundColor: cs.primary,
                           foregroundColor: cs.onPrimary,
-                          disabledBackgroundColor: cs.onInverseSurface.withAlpha(31),
-                          disabledForegroundColor: cs.onInverseSurface.withAlpha(97),
+                          disabledBackgroundColor:
+                              cs.onInverseSurface.withAlpha(31),
+                          disabledForegroundColor:
+                              cs.onInverseSurface.withAlpha(97),
                         ),
                         onPressed: audio.isCompleted
                             ? null
