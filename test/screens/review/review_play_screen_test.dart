@@ -133,4 +133,62 @@ void main() {
 
     expect(find.byType(ReviewPlayScreen), findsNothing);
   });
+
+  testWidgets('disables the play/pause button when playback is completed',
+      (tester) async {
+    final audio = _FakeAudioService();
+    final provider = AudioProvider(
+      notificationService: _FakeNotificationService(),
+      audioService: audio,
+    );
+    await provider.playVerse(_verse('a'));
+    audio.emit(AudioPlaybackState.completed);
+    await Future<void>.value();
+    expect(provider.isCompleted, isTrue);
+
+    await tester.pumpWidget(_wrap(provider));
+    await tester.pump();
+
+    final button = tester.widget<FilledButton>(find.byType(FilledButton));
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets(
+      'pops the screen when currentVerse becomes null after a stop event',
+      (tester) async {
+    final audio = _FakeAudioService();
+    final provider = AudioProvider(
+      notificationService: _FakeNotificationService(),
+      audioService: audio,
+    );
+    await provider.playQueue([_verse('a')]);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AudioProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Builder(builder: (context) {
+            return ElevatedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                    builder: (_) => const ReviewPlayScreen()),
+              ),
+              child: const Text('open'),
+            );
+          }),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReviewPlayScreen), findsOneWidget);
+
+    // Simulate the queue idling out (currentVerse -> null) without the user
+    // tapping Stop directly on this screen.
+    audio.emit(AudioPlaybackState.idle);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ReviewPlayScreen), findsNothing);
+  });
 }

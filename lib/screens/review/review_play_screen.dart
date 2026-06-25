@@ -15,6 +15,32 @@ class ReviewPlayScreen extends StatefulWidget {
 }
 
 class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
+  AudioProvider? _audioProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = context.read<AudioProvider>();
+    if (provider != _audioProvider) {
+      _audioProvider?.removeListener(_onAudioChanged);
+      _audioProvider = provider;
+      provider.addListener(_onAudioChanged);
+    }
+  }
+
+  void _onAudioChanged() {
+    if (!mounted) return;
+    if (_audioProvider?.currentVerse == null) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _audioProvider?.removeListener(_onAudioChanged);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -22,9 +48,6 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
       body: Consumer<AudioProvider>(
         builder: (context, audio, _) {
           if (audio.currentVerse == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) Navigator.of(context).pop();
-            });
             return const SizedBox.shrink();
           }
 
@@ -36,19 +59,25 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                 children: [
                   Text(
                     audio.currentVerse!.reference,
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: Theme.of(context).textTheme.titleMedium,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   if (audio.playbackStateLabel.isNotEmpty)
-                    Text(
-                      audio.playbackStateLabel,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        audio.playbackStateLabel,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ),
                   if (audio.queueLength > 1)
-                    Text(
-                      'Playing ${audio.currentQueueIndex + 1} of ${audio.queueLength}',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        'Playing ${audio.currentQueueIndex + 1} of ${audio.queueLength}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ),
                   const SizedBox(height: 32),
                   Row(
