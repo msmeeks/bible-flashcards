@@ -1,0 +1,183 @@
+import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/verse_provider.dart';
+import 'review_show_screen.dart';
+
+enum _ReviewFormat { show, play }
+
+const List<int> _reviewCountChips = [5, 10, 20];
+
+class ReviewScreen extends StatefulWidget {
+  const ReviewScreen({super.key});
+
+  @override
+  State<ReviewScreen> createState() => _ReviewScreenState();
+}
+
+class _ReviewScreenState extends State<ReviewScreen> {
+  int _reviewCount = 5;
+  bool _includeVerseOfWeek = true;
+  _ReviewFormat _format = _ReviewFormat.show;
+
+  void _start(VerseProvider provider) {
+    if (_format != _ReviewFormat.show) return;
+
+    final verses = provider.getRandomMemorizedVerses(
+      _reviewCount,
+      includeVerseOfWeek: _includeVerseOfWeek,
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReviewShowScreen(verses: verses),
+        fullscreenDialog: true,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Review')),
+      body: Consumer<VerseProvider>(
+        builder: (context, provider, _) {
+          final memorizedCount = provider.memorizedVerses.length;
+
+          if (memorizedCount == 0) {
+            return const _EmptyReviewState();
+          }
+
+          final clampedCount = _reviewCount.clamp(1, memorizedCount);
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _SectionLabel(label: 'Number of verses'),
+                Slider(
+                  min: 1,
+                  max: memorizedCount.toDouble(),
+                  divisions: memorizedCount > 1 ? memorizedCount - 1 : null,
+                  value: clampedCount.toDouble(),
+                  label: '$clampedCount',
+                  onChanged: (value) =>
+                      setState(() => _reviewCount = value.round()),
+                ),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final chipCount in _reviewCountChips)
+                      if (chipCount <= memorizedCount)
+                        FilterChip(
+                          label: Text('$chipCount'),
+                          selected: clampedCount == chipCount,
+                          onSelected: (_) =>
+                              setState(() => _reviewCount = chipCount),
+                        ),
+                    FilterChip(
+                      label: const Text('All'),
+                      selected: clampedCount == memorizedCount,
+                      onSelected: (_) =>
+                          setState(() => _reviewCount = memorizedCount),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Include verse of the week'),
+                  value: _includeVerseOfWeek,
+                  onChanged: (value) =>
+                      setState(() => _includeVerseOfWeek = value),
+                ),
+                const SizedBox(height: 24),
+                const _SectionLabel(label: 'Format'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Show'),
+                      selected: _format == _ReviewFormat.show,
+                      onSelected: (_) =>
+                          setState(() => _format = _ReviewFormat.show),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Play'),
+                      selected: _format == _ReviewFormat.play,
+                      // Play has no functional path yet — selectable but inert.
+                      onSelected: null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton.icon(
+                    onPressed: () => _start(provider),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Start'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+    );
+  }
+}
+
+class _EmptyReviewState extends StatelessWidget {
+  const _EmptyReviewState();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Semantics(
+              label: 'No memorized verses yet',
+              child: Icon(
+                Symbols.menu_book_rounded,
+                size: 64,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No memorized verses yet',
+              style: tt.titleMedium?.copyWith(color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
