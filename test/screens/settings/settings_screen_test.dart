@@ -46,4 +46,14 @@ void main() {
       expect(find.byType(TimePickerDialog), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'Audio review toggle is no longer shown',
+    (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+
+      expect(find.text('Audio review'), findsNothing);
+    },
+  );
 }
