@@ -67,7 +67,7 @@ do_start() {
   if $RUN_APP; then
     echo "Launching app via flutter run..."
     cd "$(dirname "$0")/.."
-    flutter run
+    flutter run || true
   fi
 }
 
