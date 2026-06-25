@@ -77,17 +77,43 @@ double computeScore(String typed, String correct) {
 }
 
 /// Returns the word indices that should be blanked in a fill-blank question,
-/// selecting approximately every 3rd–5th word (step cycles 3→4→5→3→…).
+/// selecting approximately every 3rd–5th candidate word (step cycles
+/// 3→4→5→3→…). Standalone ':' separator tokens (see [splitAnswerTokens])
+/// are never blanked.
 List<int> blankIndices(List<String> words) {
+  final candidatePositions = <int>[
+    for (var i = 0; i < words.length; i++) if (words[i] != ':') i,
+  ];
+  if (candidatePositions.isEmpty) return [];
+
   final indices = <int>[];
   var step = 3;
   var nextBlank = step - 1;
-  for (var i = 0; i < words.length; i++) {
+  for (var i = 0; i < candidatePositions.length; i++) {
     if (i == nextBlank) {
-      indices.add(i);
+      indices.add(candidatePositions[i]);
       step = 3 + (indices.length % 3);
       nextBlank = i + step;
     }
   }
+  if (indices.isEmpty) {
+    indices.add(candidatePositions[candidatePositions.length ~/ 2]);
+  }
   return indices;
+}
+
+/// Splits answer text into fill-blank tokens, treating ':' as its own
+/// non-blankable separator token so "John 3:16" yields candidate words
+/// "John", "3", "16" with the colon preserved for rendering.
+List<String> splitAnswerTokens(String text) {
+  final tokens = <String>[];
+  for (final part in text.split(' ')) {
+    if (part.isEmpty) continue;
+    final segments = part.split(':');
+    for (var i = 0; i < segments.length; i++) {
+      if (segments[i].isNotEmpty) tokens.add(segments[i]);
+      if (i < segments.length - 1) tokens.add(':');
+    }
+  }
+  return tokens;
 }

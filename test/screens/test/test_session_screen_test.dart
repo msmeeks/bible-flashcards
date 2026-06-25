@@ -100,4 +100,47 @@ void main() {
       expect(find.text('Listening…'), findsNothing);
     },
   );
+
+  Widget wrapFillBlank(Verse verse) => MaterialApp(
+        home: TestSessionScreen(
+          verses: [verse],
+          testMode: TestMode.review,
+          selectedFormats: const {TestFormat.fillBlank},
+          selectedDirections: const {PromptDirection.textToRef},
+        ),
+      );
+
+  testWidgets(
+    'fill-blank renders at least one real blank for a 2-token reference',
+    (tester) async {
+      await tester.pumpWidget(wrapFillBlank(_verse()));
+      await tester.pump();
+
+      expect(find.byType(TextField), findsAtLeastNWidgets(1));
+    },
+  );
+
+  testWidgets(
+    'fill-blank shows no field labels or placeholder text',
+    (tester) async {
+      await tester.pumpWidget(wrapFillBlank(_verse()));
+      await tester.pump();
+
+      expect(find.textContaining('Blank '), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'after checking, no "Correct" or "Incorrect —" text is shown',
+    (tester) async {
+      await tester.pumpWidget(wrapFillBlank(_verse()));
+      await tester.pump();
+
+      await tester.tap(find.text('Check Answer'));
+      await tester.pump();
+
+      expect(find.text('Correct'), findsNothing);
+      expect(find.textContaining('Incorrect —'), findsNothing);
+    },
+  );
 }
