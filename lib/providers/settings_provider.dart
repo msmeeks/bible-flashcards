@@ -13,7 +13,6 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     // Delegate validation logic to AppSettings.fromMap to avoid duplication
     _settings = AppSettings.fromMap({
-      'audio_review_enabled': prefs.getBool('audio_review_enabled'),
       'audio_interrupt_enabled': prefs.getBool('audio_interrupt_enabled'),
       'audio_interrupt_probability':
           prefs.getDouble('audio_interrupt_probability'),
@@ -48,13 +47,14 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> _persist(AppSettings appSettings) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('audio_review_enabled', appSettings.audioReviewEnabled);
-    await prefs.setBool('audio_interrupt_enabled', appSettings.audioInterruptEnabled);
+    await prefs.setBool(
+        'audio_interrupt_enabled', appSettings.audioInterruptEnabled);
     await prefs.setDouble(
         'audio_interrupt_probability', appSettings.audioInterruptProbability);
-    await prefs.setInt(
-        'audio_interrupt_after_minutes', appSettings.audioInterruptAfterMinutes);
-    await prefs.setString('default_translation', appSettings.defaultTranslation);
+    await prefs.setInt('audio_interrupt_after_minutes',
+        appSettings.audioInterruptAfterMinutes);
+    await prefs.setString(
+        'default_translation', appSettings.defaultTranslation);
     await prefs.setString('theme_mode', appSettings.themeMode);
     await prefs.setString('notification_type', appSettings.notificationType);
     await prefs.setBool('show_on_lock_screen', appSettings.showOnLockScreen);
@@ -79,6 +79,7 @@ class SettingsProvider extends ChangeNotifier {
     if (appSettings.driveConsentAt != null) {
       await prefs.setString('drive_consent_at', appSettings.driveConsentAt!);
     }
-    await prefs.setInt('drive_consent_version', appSettings.driveConsentVersion);
+    await prefs.setInt(
+        'drive_consent_version', appSettings.driveConsentVersion);
   }
 }

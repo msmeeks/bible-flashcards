@@ -1,10 +1,10 @@
 # Audio
 
 ## Summary
-The audio feature lets the user hear verse recitations during other activities. It plays the reference, pauses for the user to mentally recite, then plays the text. An optional continuous audio review mode and a 50%-probability interruption feature reinforce passive memorization.
+The audio feature lets the user hear verse recitations during other activities. It plays the reference, pauses for the user to mentally recite, then plays the text. A 50%-probability interruption feature reinforces passive memorization. (The legacy continuous "Audio review" shuffled-loop mode was retired — see #48.)
 
 ## Users / Use Cases
-- **Solo user**: listens to verse audio while doing other tasks; enables audio review for passive review sessions; receives occasional audio interruptions as spaced-repetition prompts.
+- **Solo user**: listens to verse audio while doing other tasks; receives occasional audio interruptions as spaced-repetition prompts.
 
 ## Technologies
 - `flutter_tts` — text-to-speech synthesis for reference and verse text (no bundled audio assets required)
@@ -12,17 +12,16 @@ The audio feature lets the user hear verse recitations during other activities. 
 - Provider — `AudioProvider` exposes playback state to UI
 
 ## Technical Overview
-Playback is driven by `AudioService`, a TTS state machine that sequences: speak reference → timed pause → speak text. `AudioReviewService` wraps `AudioService` in a shuffled continuous loop, using a generation counter to prevent stale callbacks from a previous loop from triggering playback after a stop. `AudioInterruptService` runs a repeating timer that fires a one-verse interruption with 50% probability once a configurable threshold of elapsed time is reached.
+Playback is driven by `AudioService`, a TTS state machine that sequences: speak reference → timed pause → speak text. `AudioInterruptService` runs a repeating timer that fires a one-verse interruption with 50% probability once a configurable threshold of elapsed time is reached.
 
 ## Key Files
 | File | Purpose |
 |---|---|
 | `lib/features/audio/audio_service.dart` | TTS state machine: reference → pause → text |
-| `lib/features/audio/audio_review_service.dart` | Shuffled continuous loop with generation counter |
 | `lib/features/audio/audio_interrupt_service.dart` | Timer-based interruption, 50% probability |
 | `lib/features/audio/notification_controls.dart` | Notification construction and action handling |
 | `lib/providers/audio_provider.dart` | Exposes playback state and controls to UI |
-| `lib/features/settings/settings_screen.dart` | Toggles for review, interrupt, probability slider, theme |
+| `lib/features/settings/settings_screen.dart` | Toggles for interrupt, probability slider, theme |
 
 ## Technical Detail
 
@@ -54,11 +53,6 @@ When the state machine reaches `completed`:
 - Disabled navigation buttons (prev, rewind, forward) carry explicit `Semantics(enabled: false, button: true)`.
 - `Dismissible` wrapped in `Semantics` with a `CustomSemanticsAction(label: 'Dismiss player')` so screen readers can invoke stop.
 
-### AudioReviewService — Generation Counter
-Each call to `start()` increments an integer `_generation`. Every async callback (TTS completion, loop-advance) captures the generation value at dispatch time and checks it against the current value before proceeding. A stale callback (generation mismatch) is silently dropped. This prevents a stopped loop from inadvertently starting a new verse after the service has been torn down.
-
-The loop is shuffled: all verses in the pool are randomised once per pass; when the list is exhausted it is reshuffled for the next pass.
-
 ### AudioInterruptService — Timer
 - A repeating `Timer` fires every `checkInterval` (default 5 minutes).
 - No interruptions fire until `thresholdDuration` of continuous app use has elapsed (default 60 minutes, user-configurable in Settings).
@@ -80,7 +74,6 @@ Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the
 - No internet or microphone permissions required.
 
 ### Settings Exposed to User
-- Audio review toggle (on/off)
 - Interrupt toggle (on/off)
 - Interrupt probability slider (10%–90%, default 50%)
 - Interrupt threshold (30 min / 60 min / 90 min, default 60 min)
@@ -93,3 +86,4 @@ Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the
 | 2026-05-27 | Initial documentation |
 | 2026-05-27 | Updated with full implementation: replaced just_audio/asset clips with flutter_tts state machine, documented AudioReviewService generation counter, AudioInterruptService timer logic, notification VISIBILITY_PRIVATE decision, settings screen inventory |
 | 2026-06-10 | Bug fixes: isCompleted getter; resume() guard; _currentVerse kept on completed/nulled on idle; player bar play button disabled + accessible; Symbols.* icons; Dismissible semantics |
+| 2026-06-24 | Retired legacy continuous "Audio review" shuffled-loop mode and `AudioReviewService` entirely (#48); `audioReviewEnabled` removed from settings model/SharedPreferences |
