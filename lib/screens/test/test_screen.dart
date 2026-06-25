@@ -12,11 +12,15 @@ class TestScreen extends StatefulWidget {
   State<TestScreen> createState() => _TestScreenState();
 }
 
+const List<int> _reviewCountChips = [5, 10, 20];
+
 class _TestScreenState extends State<TestScreen> {
   TestMode _mode = TestMode.verseOfWeek;
   final Set<TestFormat> _selectedFormats = TestFormat.values.toSet();
   final Set<PromptDirection> _selectedDirections = PromptDirection.values.toSet();
   String? _prerequisiteError;
+  int _reviewCount = 5;
+  bool _includeVerseOfWeek = true;
 
   void _startTest(VerseProvider provider) {
     if (_selectedFormats.isEmpty) {
@@ -41,11 +45,10 @@ class _TestScreenState extends State<TestScreen> {
         return;
       }
     } else {
-      if (provider.memorizedVerses.length < 5) {
+      if (provider.memorizedVerses.isEmpty) {
         setState(() {
           _prerequisiteError =
-              'You need at least 5 memorized verses for Review mode. '
-              'You have ${provider.memorizedVerses.length}.';
+              'You need at least 1 memorized verse for Review mode.';
         });
         return;
       }
@@ -55,7 +58,10 @@ class _TestScreenState extends State<TestScreen> {
 
     final verses = _mode == TestMode.verseOfWeek
         ? [provider.verseOfWeek!]
-        : provider.getRandomMemorizedVerses(5);
+        : provider.getRandomMemorizedVerses(
+            _reviewCount,
+            includeVerseOfWeek: _includeVerseOfWeek,
+          );
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -92,7 +98,7 @@ class _TestScreenState extends State<TestScreen> {
                     ),
                     ButtonSegment(
                       value: TestMode.review,
-                      label: Text('Review (5 verses)'),
+                      label: Text('Review'),
                       icon: Icon(Icons.refresh),
                     ),
                   ],
@@ -104,6 +110,18 @@ class _TestScreenState extends State<TestScreen> {
                     });
                   },
                 ),
+                if (_mode == TestMode.review) ...[
+                  const SizedBox(height: 24),
+                  _ReviewControls(
+                    memorizedCount: provider.memorizedVerses.length,
+                    count: _reviewCount,
+                    includeVerseOfWeek: _includeVerseOfWeek,
+                    onCountChanged: (value) =>
+                        setState(() => _reviewCount = value),
+                    onIncludeVerseOfWeekChanged: (value) =>
+                        setState(() => _includeVerseOfWeek = value),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 const _SectionLabel(label: 'Format'),
                 const SizedBox(height: 8),
@@ -222,6 +240,70 @@ class _SectionLabel extends StatelessWidget {
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
+    );
+  }
+}
+
+class _ReviewControls extends StatelessWidget {
+  const _ReviewControls({
+    required this.memorizedCount,
+    required this.count,
+    required this.includeVerseOfWeek,
+    required this.onCountChanged,
+    required this.onIncludeVerseOfWeekChanged,
+  });
+
+  final int memorizedCount;
+  final int count;
+  final bool includeVerseOfWeek;
+  final ValueChanged<int> onCountChanged;
+  final ValueChanged<bool> onIncludeVerseOfWeekChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (memorizedCount == 0) {
+      return const _SectionLabel(label: 'No memorized verses yet');
+    }
+
+    final clampedCount = count.clamp(1, memorizedCount);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionLabel(label: 'Number of verses'),
+        Slider(
+          min: 1,
+          max: memorizedCount.toDouble(),
+          divisions: memorizedCount > 1 ? memorizedCount - 1 : null,
+          value: clampedCount.toDouble(),
+          label: '$clampedCount',
+          onChanged: (value) => onCountChanged(value.round()),
+        ),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final chipCount in _reviewCountChips)
+              if (chipCount <= memorizedCount)
+                FilterChip(
+                  label: Text('$chipCount'),
+                  selected: clampedCount == chipCount,
+                  onSelected: (_) => onCountChanged(chipCount),
+                ),
+            FilterChip(
+              label: const Text('All'),
+              selected: clampedCount == memorizedCount,
+              onSelected: (_) => onCountChanged(memorizedCount),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Include verse of the week'),
+          value: includeVerseOfWeek,
+          onChanged: onIncludeVerseOfWeekChanged,
+        ),
+      ],
     );
   }
 }
