@@ -53,6 +53,7 @@ void main() {
       await tester.pumpWidget(_wrap());
       await tester.pump();
 
+      expect(find.text('Daily reminder'), findsOneWidget);
       expect(find.text('Audio review'), findsNothing);
     },
   );

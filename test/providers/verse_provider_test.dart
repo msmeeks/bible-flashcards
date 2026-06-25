@@ -122,5 +122,45 @@ void main() {
       expect(result.length, 2);
       expect(result.any((v) => v.id == 'vow'), isFalse);
     });
+
+    group('boundary', () {
+      test('count=0 returns empty list regardless of verse-of-week', () {
+        final provider = VerseProvider(DatabaseHelper());
+        final vow = _verse('vow', isVerseOfWeek: true);
+        final pool = [vow, _verse('a'), _verse('b')];
+        provider.debugSetVerses(pool);
+
+        final result =
+            provider.getRandomMemorizedVerses(0, includeVerseOfWeek: true);
+
+        expect(result, isEmpty);
+      });
+
+      test('count=1 returns exactly one verse', () {
+        final provider = VerseProvider(DatabaseHelper());
+        final pool = [_verse('a'), _verse('b'), _verse('c')];
+        provider.debugSetVerses(pool);
+
+        final result = provider.getRandomMemorizedVerses(1);
+
+        expect(result.length, 1);
+      });
+
+      test('count=1 with includeVerseOfWeek returns VoW as the single verse',
+          () {
+        final provider = VerseProvider(DatabaseHelper());
+        final vow = _verse('vow', isVerseOfWeek: true);
+        final pool = [vow, _verse('a'), _verse('b')];
+        provider.debugSetVerses(pool);
+
+        final result = provider.getRandomMemorizedVerses(
+          1,
+          includeVerseOfWeek: true,
+        );
+
+        expect(result.length, 1);
+        expect(result.first.isVerseOfWeek, isTrue);
+      });
+    });
   });
 }

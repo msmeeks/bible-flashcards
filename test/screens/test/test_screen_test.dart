@@ -129,4 +129,102 @@ void main() {
       expect(session.verses.any((v) => v.id == 'vow'), isFalse);
     },
   );
+
+  testWidgets(
+    'start with no formats selected shows error',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('vow', isVerseOfWeek: true)]);
+
+      await tester.pumpWidget(_wrap(provider));
+
+      for (final label in ['Recite', 'Type', 'Fill Blanks']) {
+        final finder = find.widgetWithText(FilterChip, label);
+        if (finder.evaluate().isNotEmpty) {
+          await tester.tap(finder);
+          await tester.pump();
+        }
+      }
+
+      await tester.tap(find.text('Start Test'));
+      await tester.pump();
+
+      expect(find.text('Select at least one format.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'start with no directions selected shows error',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('vow', isVerseOfWeek: true)]);
+
+      await tester.pumpWidget(_wrap(provider));
+
+      await tester.tap(find.text('Reference → Text'));
+      await tester.pump();
+      await tester.tap(find.text('Text → Reference'));
+      await tester.pump();
+
+      await tester.tap(find.text('Start Test'));
+      await tester.pump();
+
+      expect(
+        find.text('Select at least one prompt direction.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'verse-of-week mode with no verse shows error',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([]);
+
+      await tester.pumpWidget(_wrap(provider));
+
+      await tester.tap(find.text('Start Test'));
+      await tester.pump();
+
+      expect(
+        find.text('No verse of the week is set. Go to Home to set one.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'verse-of-week mode with verse set navigates to session',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('vow', isVerseOfWeek: true)]);
+
+      await tester.pumpWidget(_wrap(provider));
+
+      await tester.tap(find.text('Start Test'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TestSessionScreen), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'review mode with no memorized verses shows error',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([]);
+
+      await tester.pumpWidget(_wrap(provider));
+      await _selectReviewMode(tester);
+
+      await tester.tap(find.text('Start Test'));
+      await tester.pump();
+
+      expect(
+        find.text('You need at least 1 memorized verse for Review mode.'),
+        findsOneWidget,
+      );
+    },
+  );
 }
