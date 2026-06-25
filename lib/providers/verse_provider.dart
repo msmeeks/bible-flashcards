@@ -99,27 +99,26 @@ class VerseProvider extends ChangeNotifier {
     final vow = verseOfWeek;
     final vowEligible = includeVerseOfWeek && vow != null && vow.isMemorized;
 
-    var pool = memorizedVerses.toList();
-    if (!includeVerseOfWeek) {
-      pool = pool.where((v) => !v.isVerseOfWeek).toList();
-    }
+    final pool = includeVerseOfWeek
+        ? memorizedVerses.toList()
+        : memorizedVerses.where((v) => !v.isVerseOfWeek).toList();
 
     pool.shuffle(rng);
-    final selected = pool.length <= count ? pool : pool.sublist(0, count);
+    final result =
+        (pool.length <= count ? pool : pool.sublist(0, count)).toList();
 
-    if (vowEligible && !selected.any((v) => v.id == vow.id)) {
-      if (selected.isEmpty) {
-        selected.add(vow);
-      } else {
-        selected[rng.nextInt(selected.length)] = vow;
-      }
+    if (vowEligible && !result.any((v) => v.id == vow.id)) {
+      result[rng.nextInt(result.length)] = vow;
     }
 
-    return selected;
+    return result;
   }
 
   @visibleForTesting
   void debugSetVerses(List<Verse> verses) {
-    _verses = verses;
+    assert(() {
+      _verses = verses;
+      return true;
+    }(), 'debugSetVerses is only available in debug/test builds');
   }
 }

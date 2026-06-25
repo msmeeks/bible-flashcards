@@ -2,65 +2,12 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:bible_flashcards/models/verse.dart';
 import 'package:bible_flashcards/providers/audio_provider.dart';
 import 'package:bible_flashcards/services/audio_service.dart';
 import 'package:bible_flashcards/services/notification_service.dart';
 
-class FakeAudioService extends AudioService {
-  final StreamController<AudioPlaybackState> _controller =
-      StreamController<AudioPlaybackState>.broadcast();
-  final List<Verse> playedVerses = [];
-  int stopCalls = 0;
-  int pauseCalls = 0;
-  int resumeCalls = 0;
-
-  @override
-  Stream<AudioPlaybackState> get playbackStateStream => _controller.stream;
-
-  @override
-  Future<void> playVerse(Verse verse) async {
-    playedVerses.add(verse);
-  }
-
-  @override
-  Future<void> stop() async {
-    stopCalls++;
-    _controller.add(AudioPlaybackState.idle);
-  }
-
-  @override
-  Future<void> pause() async {
-    pauseCalls++;
-  }
-
-  @override
-  Future<void> resume() async {
-    resumeCalls++;
-  }
-
-  void emit(AudioPlaybackState state) => _controller.add(state);
-
-  @override
-  void dispose() {
-    unawaited(_controller.close());
-  }
-}
-
-class FakeNotificationService extends NotificationService {
-  int showCalls = 0;
-  int cancelCalls = 0;
-
-  @override
-  Future<void> showPlaybackNotification() async {
-    showCalls++;
-  }
-
-  @override
-  Future<void> cancelNotification() async {
-    cancelCalls++;
-  }
-}
+import '../helpers/fake_audio_service.dart';
+import '../helpers/verse_factory.dart';
 
 /// A [NotificationService] whose [showPlaybackNotification] suspends until
 /// the test explicitly completes [gate] — used to land inside the await
@@ -81,15 +28,6 @@ class _DeferredNotificationService extends NotificationService {
   }
 }
 
-Verse _verse(String id) => Verse(
-      id: id,
-      reference: 'Ref $id',
-      text: 'Text $id',
-      translation: 'ESV',
-      packId: 'pack',
-      addedAt: DateTime(2026, 1, 1),
-    );
-
 Future<void> _flush() => Future<void>.delayed(Duration.zero);
 
 void main() {
@@ -103,7 +41,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      final verse = _verse('a');
+      final verse = makeVerse('a');
 
       await provider.playVerse(verse);
 
@@ -120,7 +58,7 @@ void main() {
         audioService: audio,
       );
 
-      await provider.playVerse(_verse('a'));
+      await provider.playVerse(makeVerse('a'));
 
       expect(provider.queueLength, 1);
       expect(provider.currentQueueIndex, 0);
@@ -135,7 +73,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      final verses = [_verse('a'), _verse('b'), _verse('c')];
+      final verses = [makeVerse('a'), makeVerse('b'), makeVerse('c')];
 
       await provider.playQueue(verses);
 
@@ -152,7 +90,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      final verses = [_verse('a'), _verse('b'), _verse('c')];
+      final verses = [makeVerse('a'), makeVerse('b'), makeVerse('c')];
 
       await provider.playQueue(verses);
       audio.emit(AudioPlaybackState.completed);
@@ -171,7 +109,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      final verses = [_verse('a'), _verse('b')];
+      final verses = [makeVerse('a'), makeVerse('b')];
 
       await provider.playQueue(verses);
       audio.emit(AudioPlaybackState.completed);
@@ -193,7 +131,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      final verses = [_verse('a'), _verse('b'), _verse('c')];
+      final verses = [makeVerse('a'), makeVerse('b'), makeVerse('c')];
 
       await provider.playQueue(verses);
       await provider.stop();
@@ -218,7 +156,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      final verse = _verse('a');
+      final verse = makeVerse('a');
 
       // playQueue's await suspends inside _playCurrent at the notification
       // await — it does not complete until we finish the gate below.
@@ -248,7 +186,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      await provider.playVerse(_verse('a'));
+      await provider.playVerse(makeVerse('a'));
 
       audio.emit(AudioPlaybackState.speakingReference);
       await _flush();
@@ -264,7 +202,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      await provider.playVerse(_verse('a'));
+      await provider.playVerse(makeVerse('a'));
 
       audio.emit(AudioPlaybackState.pausing);
       await _flush();
@@ -280,7 +218,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      await provider.playVerse(_verse('a'));
+      await provider.playVerse(makeVerse('a'));
 
       audio.emit(AudioPlaybackState.speakingText);
       await _flush();
@@ -297,7 +235,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      await provider.playVerse(_verse('a'));
+      await provider.playVerse(makeVerse('a'));
 
       audio.emit(AudioPlaybackState.error);
       await _flush();
@@ -331,7 +269,7 @@ void main() {
         notificationService: notifications,
         audioService: audio,
       );
-      await provider.playVerse(_verse('a'));
+      await provider.playVerse(makeVerse('a'));
       audio.emit(AudioPlaybackState.completed);
       await _flush();
       expect(provider.isCompleted, isTrue);
