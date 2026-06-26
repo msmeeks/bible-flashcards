@@ -67,7 +67,12 @@ do_start() {
   if $RUN_APP; then
     echo "Launching app via flutter run..."
     cd "$(dirname "$0")/.."
-    flutter run || true
+    SECRETS_FLAG=""
+    if [ -f secrets.local ]; then
+      SECRETS_FLAG="--dart-define-from-file=secrets.local"
+    fi
+    # shellcheck disable=SC2086
+    flutter run $SECRETS_FLAG || true
   fi
 }
 
