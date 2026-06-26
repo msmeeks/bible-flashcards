@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -20,12 +21,17 @@ class TestSessionScreen extends StatefulWidget {
     required this.testMode,
     required this.selectedFormats,
     required this.selectedDirections,
+    this.speechService,
   });
 
   final List<Verse> verses;
   final TestMode testMode;
   final Set<TestFormat> selectedFormats;
   final Set<PromptDirection> selectedDirections;
+
+  // Lets tests inject a fake recognizer; production code omits this and
+  // gets a real SpeechRecognitionService (see initState).
+  final SpeechRecognitionService? speechService;
 
   @override
   State<TestSessionScreen> createState() => _TestSessionScreenState();
@@ -55,13 +61,20 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   List<bool> _blankCorrectness = [];
 
   // Recite mode voice state
-  final SpeechRecognitionService _speechService = SpeechRecognitionService();
+  late final SpeechRecognitionService _speechService;
   bool _isListening = false;
   bool _micBusy = false;
   int? _listeningVerseIndex;
   bool _showingReciteScore = false;
   double? _lastReciteScore;
   String _micAnnouncement = '';
+  Timer? _micTimeoutTimer;
+
+  // Safety net for a wedged speech_to_text plugin: on-device recognition
+  // can report "started" and then never call onResult/onStatus/onError
+  // (observed on the dev emulator). Without this, _isListening would never
+  // clear and the mic button would stay stuck on "Listening" forever.
+  static const _micTimeoutDuration = Duration(seconds: 15);
 
   // Custom book-name variants for lenient reference-answer scoring (#30).
   Map<String, String> _customVariantLookup = const {};
@@ -82,6 +95,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   @override
   void initState() {
     super.initState();
+    _speechService = widget.speechService ?? SpeechRecognitionService();
     final rng = Random();
     final formats = widget.selectedFormats.toList();
     final directions = widget.selectedDirections.toList();
@@ -116,7 +130,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   }
 
   void _initBlankState() {
-    _currentBlankWords = _answerText.split(' ');
+    _currentBlankWords = splitAnswerTokens(_answerText);
     _currentBlankIndices = blankIndices(_currentBlankWords);
     _blankCorrectness = [];
     _blankControllers = List.generate(
@@ -144,14 +158,41 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     _checkFocusNode.dispose();
     _retryFocusNode.dispose();
     _disposeBlankControllers();
+    _cancelMicTimeout();
     _speechService.dispose();
     super.dispose();
+  }
+
+  void _cancelMicTimeout() {
+    _micTimeoutTimer?.cancel();
+    _micTimeoutTimer = null;
+  }
+
+  void _startMicTimeout(int verseIndex) {
+    _cancelMicTimeout();
+    _micTimeoutTimer = Timer(_micTimeoutDuration, () {
+      _micTimeoutTimer = null;
+      if (!mounted || _listeningVerseIndex != verseIndex) return;
+      setState(() {
+        _isListening = false;
+        _listeningVerseIndex = null;
+        _micAnnouncement = "Didn't catch that — try again or self-rate below.";
+      });
+      // Best-effort stop; a hung native stop() must not re-wedge the UI.
+      unawaited(
+        _speechService.stopListening().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () {},
+        ),
+      );
+    });
   }
 
   Future<void> _recordAndAdvance(double accuracy) async {
     if (_isListening) {
       _isListening = false;
       _listeningVerseIndex = null;
+      _cancelMicTimeout();
       await _speechService.cancel();
       if (!mounted) return;
     }
@@ -208,6 +249,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
   Future<void> _onMicPressed() async {
     if (_isListening) {
+      _cancelMicTimeout();
       await _speechService.stopListening();
       if (mounted) {
         setState(() {
@@ -249,16 +291,18 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       _lastReciteScore = null;
       _micAnnouncement = 'Listening';
     });
+    _startMicTimeout(verseIndex);
 
     final started = await _speechService.listen(
       onTranscript: (transcript, isFinal) {
-        if (!mounted || !isFinal || _listeningVerseIndex != verseIndex) {
-          return;
-        }
+        if (!mounted || _listeningVerseIndex != verseIndex) return;
+        _startMicTimeout(verseIndex);
+        if (!isFinal) return;
         _onReciteTranscriptFinal(transcript, verseIndex);
       },
       onStopped: () {
         if (!mounted || _listeningVerseIndex != verseIndex) return;
+        _cancelMicTimeout();
         setState(() {
           _isListening = false;
           _listeningVerseIndex = null;
@@ -272,6 +316,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
     _micBusy = false;
     if (!started && mounted) {
+      _cancelMicTimeout();
       setState(() {
         _isListening = false;
         _listeningVerseIndex = null;
@@ -310,6 +355,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   void _onReciteTranscriptFinal(String transcript, int verseIndex) {
     // _answerText reflects the verse at verseIndex since the caller already
     // confirmed _listeningVerseIndex == verseIndex == _currentIndex.
+    _cancelMicTimeout();
     final score = _scoreAnswer(transcript);
     // Transcript is discarded immediately after scoring; never persisted.
     setState(() {
@@ -619,15 +665,15 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                 focusNode: _blankFocusNodes[blankIdx],
                 decoration: InputDecoration(
                   labelText: 'Blank ${blankIdx + 1}',
+                  floatingLabelBehavior: FloatingLabelBehavior.never,
                   isDense: true,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   errorText: (isCorrect == false)
-                      ? 'Incorrect — correct: ${_currentBlankWords[i]}'
+                      ? _currentBlankWords[i]
                       : null,
                   errorStyle: TextStyle(color: cs.onErrorContainer),
                   errorMaxLines: 2,
-                  helperText: (isCorrect == true) ? 'Correct' : null,
                   helperStyle: TextStyle(color: cs.onSuccessContainer),
                   suffixIcon: isCorrect == false
                       ? Icon(Icons.close, color: cs.onErrorContainer, size: 16)
@@ -654,7 +700,12 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
           ),
         );
       }
-      spans.add(const SizedBox(width: 4));
+      final isColon = _currentBlankWords[i] == ':';
+      final nextIsColon = i + 1 < _currentBlankWords.length &&
+          _currentBlankWords[i + 1] == ':';
+      if (!isColon && !nextIsColon) {
+        spans.add(const SizedBox(width: 4));
+      }
     }
 
     return Column(

@@ -5,7 +5,6 @@ class AppSettings {
   // on the nullable dailyNotificationTime field.
   static const Object _sentinel = Object();
 
-  final bool audioReviewEnabled;
   final bool audioInterruptEnabled;
   final double audioInterruptProbability; // default 0.5
   final int audioInterruptAfterMinutes; // default 60
@@ -22,7 +21,6 @@ class AppSettings {
   final int driveConsentVersion; // disclosure version shown at consent time
 
   const AppSettings({
-    this.audioReviewEnabled = false,
     this.audioInterruptEnabled = false,
     this.audioInterruptProbability = 0.5,
     this.audioInterruptAfterMinutes = 60,
@@ -39,7 +37,6 @@ class AppSettings {
   });
 
   AppSettings copyWith({
-    bool? audioReviewEnabled,
     bool? audioInterruptEnabled,
     double? audioInterruptProbability,
     int? audioInterruptAfterMinutes,
@@ -56,7 +53,6 @@ class AppSettings {
     int? driveConsentVersion,
   }) {
     return AppSettings(
-      audioReviewEnabled: audioReviewEnabled ?? this.audioReviewEnabled,
       audioInterruptEnabled:
           audioInterruptEnabled ?? this.audioInterruptEnabled,
       audioInterruptProbability:
@@ -81,7 +77,6 @@ class AppSettings {
 
   Map<String, dynamic> toMap() {
     return {
-      'audio_review_enabled': audioReviewEnabled,
       'audio_interrupt_enabled': audioInterruptEnabled,
       'audio_interrupt_probability': audioInterruptProbability,
       'audio_interrupt_after_minutes': audioInterruptAfterMinutes,
@@ -123,7 +118,6 @@ class AppSettings {
         validCadences.contains(cadenceRaw) ? cadenceRaw : 'weekly';
 
     return AppSettings(
-      audioReviewEnabled: map['audio_review_enabled'] as bool? ?? false,
       audioInterruptEnabled: map['audio_interrupt_enabled'] as bool? ?? false,
       audioInterruptProbability:
           (map['audio_interrupt_probability'] as num?)?.toDouble() ?? 0.5,
@@ -132,8 +126,7 @@ class AppSettings {
       defaultTranslation: map['default_translation'] as String? ?? 'ESV',
       themeMode: map['theme_mode'] as String? ?? 'system',
       dailyNotificationTime: time,
-      notificationType:
-          map['notification_type'] as String? ?? 'verseOfWeek',
+      notificationType: map['notification_type'] as String? ?? 'verseOfWeek',
       showOnLockScreen: map['show_on_lock_screen'] as bool? ?? false,
       driveBackupEnabled: map['drive_backup_enabled'] as bool? ?? false,
       backupCadence: backupCadence,

@@ -26,6 +26,15 @@ class AudioProvider extends ChangeNotifier {
   bool _isPlaying = false;
   Verse? _currentVerse;
   AudioPlaybackState _playbackState = AudioPlaybackState.idle;
+  List<Verse> _queue = [];
+  int _currentIndex = 0;
+
+  // Incremented on every playQueue()/playVerse()/stop() call. Captured by
+  // _playCurrent() at invocation time so that if stop() fires while
+  // _playCurrent() is suspended awaiting the notification, the resumed call
+  // can detect the generation mismatch and bail out instead of resurrecting
+  // a stale verse.
+  int _generation = 0;
 
   // Position/duration are retained for widget API compatibility.
   // TTS does not expose real elapsed time.
@@ -38,6 +47,13 @@ class AudioProvider extends ChangeNotifier {
   Duration get position => _position;
   Duration get duration => _duration;
   AudioPlaybackState get playbackState => _playbackState;
+
+  /// Number of verses in the current playback queue (0 when idle, 1 for
+  /// single-verse playback).
+  int get queueLength => _queue.length;
+
+  /// Index of the verse currently playing within the queue.
+  int get currentQueueIndex => _currentIndex;
 
   /// Human-readable label for the current playback phase, shown in the player bar.
   String get playbackStateLabel => switch (_playbackState) {
@@ -54,13 +70,17 @@ class AudioProvider extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   /// Begins TTS playback of [verse] and shows the persistent playback notification.
-  Future<void> playVerse(Verse verse) async {
-    _currentVerse = verse;
-    _isPlaying = true;
-    notifyListeners();
-    await _notifications.showPlaybackNotification();
-    // Playback state stream drives subsequent UI updates.
-    unawaited(_audio.playVerse(verse));
+  ///
+  /// Modeled internally as a one-element queue.
+  Future<void> playVerse(Verse verse) => playQueue([verse]);
+
+  /// Begins TTS playback of [verses] in order, auto-advancing to the next
+  /// verse when each one completes. Shows the persistent playback notification.
+  Future<void> playQueue(List<Verse> verses) async {
+    _generation++;
+    _queue = verses;
+    _currentIndex = 0;
+    await _playCurrent(_generation);
   }
 
   /// Pauses TTS (stops the current utterance; resumes from current phase).
@@ -83,16 +103,33 @@ class AudioProvider extends ChangeNotifier {
 
   /// Stops all playback and dismisses the persistent notification.
   Future<void> stop() async {
+    _generation++;
     await _audio.stop();
     await _notifications.cancelNotification();
     _isPlaying = false;
     _currentVerse = null;
+    _queue = [];
+    _currentIndex = 0;
     notifyListeners();
   }
 
   // ---------------------------------------------------------------------------
   // Private
   // ---------------------------------------------------------------------------
+
+  Future<void> _playCurrent(int gen) async {
+    if (_currentIndex >= _queue.length) return;
+    final verse = _queue[_currentIndex];
+    _currentVerse = verse;
+    _isPlaying = true;
+    notifyListeners();
+    await _notifications.showPlaybackNotification();
+    // stop() (or a newer playQueue/playVerse call) fired while we were
+    // suspended above — do not resurrect a stale verse.
+    if (_generation != gen) return;
+    // Playback state stream drives subsequent UI updates.
+    unawaited(_audio.playVerse(verse));
+  }
 
   void _onPlaybackState(AudioPlaybackState state) {
     _playbackState = state;
@@ -102,6 +139,11 @@ class AudioProvider extends ChangeNotifier {
       case AudioPlaybackState.speakingText:
         _isPlaying = true;
       case AudioPlaybackState.completed:
+        if (_currentIndex + 1 < _queue.length) {
+          _currentIndex++;
+          unawaited(_playCurrent(_generation));
+          return;
+        }
         _isPlaying = false;
         // Keep _currentVerse so bar stays visible with disabled play button.
         unawaited(_notifications.cancelNotification());

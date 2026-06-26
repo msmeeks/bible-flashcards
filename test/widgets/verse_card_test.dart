@@ -109,6 +109,19 @@ void main() {
     });
   });
 
+  group('confidenceFuture', () {
+    testWidgets('resolves to weak accuracy shows Weak chip', (tester) async {
+      await tester.pumpWidget(_wrap(VerseCard(
+        verse: _verse(memorized: true),
+        confidenceFuture: Future.value(0.5),
+      )));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Weak'), findsOneWidget);
+      expect(find.text('Memorized'), findsNothing);
+    });
+  });
+
   group('Semantics', () {
     testWidgets('outer semantics is a button with label containing status',
         (tester) async {

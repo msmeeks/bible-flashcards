@@ -119,6 +119,11 @@ Screen edge insets: 16dp left/right. No arbitrary pixel values.
 - `FloatingActionButton` — one per screen max (Add Verse)
 - **Never use `ElevatedButton`**
 
+### Chips
+- `ChoiceChip` — mutually-exclusive single-select (e.g. Show/Play format picker)
+- `FilterChip` — multi-select or independent toggle presets (e.g. test format, direction, count pickers)
+- Wrap a `Wrap` of preset chips in `Semantics(label: ..., explicitChildNodes: true)` so screen readers announce a group label before the individual chips.
+
 ### Input Fields
 - MD3 `TextField` with `filled` decoration. Fill: `surfaceVariant`.
 - Type-the-verse: `headlineSmall` style, `maxLines: null`.
@@ -139,14 +144,15 @@ Screen edge insets: 16dp left/right. No arbitrary pixel values.
 
 ## 8. Navigation
 
-**MD3 `NavigationBar`** (not legacy `BottomNavigationBar`). 4 destinations:
+**MD3 `NavigationBar`** (not legacy `BottomNavigationBar`). 5 destinations:
 
 | Label | Icon | Screen |
 |---|---|---|
-| Home | `Icons.home` | Verse of the week + quick actions |
-| Verses | `Icons.menu_book` | Memorized + available lists (TabBar within) |
-| Test | `Icons.quiz` | Test mode selection + session |
-| Settings | `Icons.settings` | App preferences |
+| Home | `Symbols.home_rounded` | Verse of the week + quick actions |
+| Verses | `Symbols.menu_book_rounded` | Memorized + available lists (TabBar within) |
+| Review | `Symbols.repeat_rounded` | Count/verse-of-week setup + Show/Play presentation |
+| Test | `Symbols.quiz_rounded` | Test mode selection + session |
+| Settings | `Symbols.settings_rounded` | App preferences |
 
 Active indicator: MD3 pill (`primaryContainer` bg, `onPrimaryContainer` icon+label). No badges.
 Audio player bar sits above `NavigationBar` inside the `Scaffold` body.

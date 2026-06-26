@@ -21,8 +21,7 @@ class VerseProvider extends ChangeNotifier {
   List<Verse> get availableVerses =>
       _verses.where((v) => !v.isMemorized).toList();
 
-  Verse? get verseOfWeek =>
-      _verses.where((v) => v.isVerseOfWeek).firstOrNull;
+  Verse? get verseOfWeek => _verses.where((v) => v.isVerseOfWeek).firstOrNull;
 
   Map<String, String> get packNames => _packNames;
 
@@ -81,17 +80,47 @@ class VerseProvider extends ChangeNotifier {
   Future<void> unmarkMemorized(String id) async {
     final index = _verses.indexWhere((v) => v.id == id);
     if (index == -1) return;
-    final updated = _verses[index].copyWith(isMemorized: false, clearMemorizedAt: true);
+    final updated =
+        _verses[index].copyWith(isMemorized: false, clearMemorizedAt: true);
     await _db.unmarkMemorizedVerse(updated);
     await loadVerses();
   }
 
   /// Returns up to [count] randomly chosen memorized verses.
-  List<Verse> getRandomMemorizedVerses(int count) {
-    final pool = memorizedVerses.toList();
-    if (pool.length <= count) return pool;
+  ///
+  /// When [includeVerseOfWeek] is true and the verse-of-week is memorized,
+  /// it always occupies one of the returned slots. When false, the
+  /// verse-of-week is excluded from the result entirely.
+  List<Verse> getRandomMemorizedVerses(
+    int count, {
+    bool includeVerseOfWeek = false,
+  }) {
     final rng = Random();
+    final vow = verseOfWeek;
+    final vowEligible = includeVerseOfWeek && vow != null && vow.isMemorized;
+
+    final pool = includeVerseOfWeek
+        ? memorizedVerses.toList()
+        : memorizedVerses.where((v) => !v.isVerseOfWeek).toList();
+
+    if (count == 0) return [];
+
     pool.shuffle(rng);
-    return pool.sublist(0, count);
+    final result =
+        (pool.length <= count ? pool : pool.sublist(0, count)).toList();
+
+    if (vowEligible && !result.any((v) => v.id == vow.id)) {
+      result[rng.nextInt(result.length)] = vow;
+    }
+
+    return result;
+  }
+
+  @visibleForTesting
+  void debugSetVerses(List<Verse> verses) {
+    assert(() {
+      _verses = verses;
+      return true;
+    }(), 'debugSetVerses is only available in debug/test builds');
   }
 }

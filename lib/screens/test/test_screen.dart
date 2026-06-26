@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/verse_provider.dart';
+import '../../widgets/review_count_controls.dart';
 import 'test_enums.dart';
 import 'test_session_screen.dart';
 
@@ -17,6 +18,8 @@ class _TestScreenState extends State<TestScreen> {
   final Set<TestFormat> _selectedFormats = TestFormat.values.toSet();
   final Set<PromptDirection> _selectedDirections = PromptDirection.values.toSet();
   String? _prerequisiteError;
+  int _reviewCount = 5;
+  bool _includeVerseOfWeek = true;
 
   void _startTest(VerseProvider provider) {
     if (_selectedFormats.isEmpty) {
@@ -41,11 +44,10 @@ class _TestScreenState extends State<TestScreen> {
         return;
       }
     } else {
-      if (provider.memorizedVerses.length < 5) {
+      if (provider.memorizedVerses.isEmpty) {
         setState(() {
           _prerequisiteError =
-              'You need at least 5 memorized verses for Review mode. '
-              'You have ${provider.memorizedVerses.length}.';
+              'You need at least 1 memorized verse for Review mode.';
         });
         return;
       }
@@ -55,7 +57,10 @@ class _TestScreenState extends State<TestScreen> {
 
     final verses = _mode == TestMode.verseOfWeek
         ? [provider.verseOfWeek!]
-        : provider.getRandomMemorizedVerses(5);
+        : provider.getRandomMemorizedVerses(
+            _reviewCount,
+            includeVerseOfWeek: _includeVerseOfWeek,
+          );
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -81,7 +86,7 @@ class _TestScreenState extends State<TestScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const _SectionLabel(label: 'Mode'),
+                const SectionLabel('Mode'),
                 const SizedBox(height: 8),
                 SegmentedButton<TestMode>(
                   segments: const [
@@ -92,7 +97,7 @@ class _TestScreenState extends State<TestScreen> {
                     ),
                     ButtonSegment(
                       value: TestMode.review,
-                      label: Text('Review (5 verses)'),
+                      label: Text('Review'),
                       icon: Icon(Icons.refresh),
                     ),
                   ],
@@ -104,8 +109,20 @@ class _TestScreenState extends State<TestScreen> {
                     });
                   },
                 ),
+                if (_mode == TestMode.review) ...[
+                  const SizedBox(height: 24),
+                  ReviewCountControls(
+                    memorizedCount: provider.memorizedVerses.length,
+                    count: _reviewCount,
+                    includeVerseOfWeek: _includeVerseOfWeek,
+                    onCountChanged: (value) =>
+                        setState(() => _reviewCount = value),
+                    onVowChanged: (value) =>
+                        setState(() => _includeVerseOfWeek = value),
+                  ),
+                ],
                 const SizedBox(height: 24),
-                const _SectionLabel(label: 'Format'),
+                const SectionLabel('Format'),
                 const SizedBox(height: 8),
                 Semantics(
                   label: 'Format — select one or more',
@@ -151,7 +168,7 @@ class _TestScreenState extends State<TestScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const _SectionLabel(label: 'Prompt direction'),
+                const SectionLabel('Prompt direction'),
                 const SizedBox(height: 8),
                 Semantics(
                   label: 'Prompt direction — select one or more',
@@ -206,22 +223,6 @@ class _TestScreenState extends State<TestScreen> {
           );
         },
       ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
     );
   }
 }

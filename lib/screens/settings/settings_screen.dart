@@ -8,7 +8,6 @@ import '../../providers/settings_provider.dart';
 import '../../providers/tracking_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../services/audio_interrupt_service.dart';
-import '../../services/audio_review_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/notification_service.dart';
 import 'book_variants_screen.dart';
@@ -23,13 +22,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  AudioReviewService? _reviewService;
   AudioInterruptService? _interruptService;
   final FocusNode _reminderFocusNode = FocusNode();
 
   @override
   void dispose() {
-    _reviewService?.stopReview();
     _interruptService?.stopTracking();
     _reminderFocusNode.dispose();
     super.dispose();
@@ -50,18 +47,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Audio
           // ----------------------------------------------------------------
           _SectionHeader(label: 'Audio', textTheme: tt),
-          SwitchListTile(
-            title: const Text('Audio review'),
-            subtitle: const Text(
-              'Continuously play memorized verses in the background',
-            ),
-            value: settings.audioReviewEnabled,
-            onChanged: (value) => _onAudioReviewChanged(
-              context,
-              settingsProvider,
-              value,
-            ),
-          ),
           SwitchListTile(
             title: const Text('Interrupt audio for verse reminders'),
             subtitle: const Text(
@@ -189,7 +174,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Symbols.history_rounded),
             title: const Text('Test history'),
             subtitle: const Text('View past test results'),
-            trailing: const Icon(Symbols.chevron_right_rounded, semanticLabel: ''),
+            trailing:
+                const Icon(Symbols.chevron_right_rounded, semanticLabel: ''),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const TestHistoryScreen(),
@@ -222,7 +208,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Book Name Variants'),
             subtitle: const Text(
                 'Custom abbreviations recognized in reference test answers'),
-            trailing: const Icon(Symbols.chevron_right_rounded, semanticLabel: ''),
+            trailing:
+                const Icon(Symbols.chevron_right_rounded, semanticLabel: ''),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const BookVariantsScreen(),
@@ -251,56 +238,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Audio review
-  // ---------------------------------------------------------------------------
-
-  Future<void> _onAudioReviewChanged(
-    BuildContext context,
-    SettingsProvider settingsProvider,
-    bool enabled,
-  ) async {
-    if (enabled) {
-      final verseProvider = context.read<VerseProvider>();
-      final verses = verseProvider.memorizedVerses;
-      if (verses.isEmpty) {
-        if (context.mounted) {
-          await showDialog<void>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Cannot enable'),
-              content: const Text(
-                'No memorized verses — mark verses as memorized first',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        }
-        return;
-      }
-
-      final verseOfWeek = verseProvider.verseOfWeek;
-      final verseOfWeekId = verseOfWeek?.id ?? verses.first.id;
-
-      _reviewService ??= AudioReviewService(AudioService());
-      _reviewService!.startReview(verses, verseOfWeekId: verseOfWeekId);
-
-      await settingsProvider.update(
-        settingsProvider.settings.copyWith(audioReviewEnabled: true),
-      );
-    } else {
-      await _reviewService?.stopReview();
-      await settingsProvider.update(
-        settingsProvider.settings.copyWith(audioReviewEnabled: false),
-      );
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -468,7 +405,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final updated = settingsProvider.settings.copyWith(
       dailyNotificationTime: null,
     );
-    await settingsProvider.update(updated, announcement: 'Daily reminder turned off');
+    await settingsProvider.update(updated,
+        announcement: 'Daily reminder turned off');
     await notifService.cancelDailyNotification();
   }
 

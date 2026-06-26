@@ -76,8 +76,12 @@ void main() {
       expect(blankIndices([]), isEmpty);
     });
 
-    test('fewer than 3 words → no blanks', () {
-      expect(blankIndices(['the', 'world']), isEmpty);
+    test('fewer than 3 words → still guarantees at least one blank', () {
+      expect(blankIndices(['the', 'world']), isNotEmpty);
+    });
+
+    test('single word → blanks that word', () {
+      expect(blankIndices(['grace']), [0]);
     });
 
     test('exactly 3 words → first blank at index 2', () {
@@ -118,6 +122,32 @@ void main() {
       final words = List.generate(20, (i) => 'w$i');
       final indices = blankIndices(words);
       expect(indices.toSet().length, indices.length);
+    });
+
+    test('colon tokens are never blanked', () {
+      final words = ['John', '3', ':', '16'];
+      final indices = blankIndices(words);
+      expect(indices, isNot(contains(2)));
+      expect(indices, isNotEmpty);
+    });
+  });
+
+  group('splitAnswerTokens', () {
+    test('empty string returns empty list', () {
+      expect(splitAnswerTokens(''), isEmpty);
+    });
+
+    test('plain verse text splits on whitespace only', () {
+      expect(splitAnswerTokens('for God so loved'),
+          ['for', 'God', 'so', 'loved']);
+    });
+
+    test('two-token reference splits chapter:verse on the colon', () {
+      expect(splitAnswerTokens('John 3:16'), ['John', '3', ':', '16']);
+    });
+
+    test('numbered-book reference splits chapter:verse on the colon', () {
+      expect(splitAnswerTokens('1 John 1:12'), ['1', 'John', '1', ':', '12']);
     });
   });
 
