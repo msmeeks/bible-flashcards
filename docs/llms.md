@@ -4,7 +4,7 @@ Load this file first. Then load only the specific doc files relevant to your tas
 
 ## Project docs
 - [overview.md](overview.md) — project purpose, users, roles, architecture, tech stack
-- [features/verse-management.md](features/verse-management.md) — encrypted SQLite, Navigator packs (DB v2 packs table, pack names), VerseCard FlashcardState 3-state cycle, memorized list, home/verses/add/detail screens
+- [features/verse-management.md](features/verse-management.md) — encrypted SQLite, Navigator packs (DB v2 packs table, pack names), VerseCard FlashcardState 3-state cycle, memorized list, home/verses/add/detail screens, ESV verse lookup (EsvLookupService, 500-verse cap, isolated consent)
 - [features/test-modes.md](features/test-modes.md) — test setup/session/results flow, LCS scoring, fill-blank algorithm, opt-in on-device speech-to-text for recite mode, privacy decision on typed/voice input
 - [features/review-screen.md](features/review-screen.md) — Review nav tab, count/verse-of-week setup controls, Show presentation with fixed-session verse list and tap-to-reveal
 - [features/audio.md](features/audio.md) — flutter_tts state machine, AudioInterruptService timer, audio notification bodies

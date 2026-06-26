@@ -124,7 +124,11 @@ class AppSettings {
               .clamp(0.0, 1.0),
       audioInterruptAfterMinutes:
           map['audio_interrupt_after_minutes'] as int? ?? 60,
-      defaultTranslation: map['default_translation'] as String? ?? 'ESV',
+      defaultTranslation: () {
+        const validTranslations = {'BSB', 'KJV', 'WEB', 'ESV'};
+        final raw = map['default_translation'] as String? ?? 'ESV';
+        return validTranslations.contains(raw) ? raw : 'ESV';
+      }(),
       themeMode: map['theme_mode'] as String? ?? 'system',
       dailyNotificationTime: time,
       notificationType: map['notification_type'] as String? ?? 'verseOfWeek',

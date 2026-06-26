@@ -121,6 +121,23 @@ void main() {
       final s = AppSettings.fromMap({'audio_interrupt_probability': -1.0});
       expect(s.audioInterruptProbability, 0.0);
     });
+
+    test('defaultTranslation accepts each allowed value', () {
+      for (final t in ['BSB', 'KJV', 'WEB', 'ESV']) {
+        final s = AppSettings.fromMap({'default_translation': t});
+        expect(s.defaultTranslation, t);
+      }
+    });
+
+    test('defaultTranslation falls back to ESV for unrecognized value', () {
+      final s = AppSettings.fromMap({'default_translation': 'NIV'});
+      expect(s.defaultTranslation, 'ESV');
+    });
+
+    test('missing default_translation defaults to ESV', () {
+      final s = AppSettings.fromMap({});
+      expect(s.defaultTranslation, 'ESV');
+    });
   });
 
   group('AppSettings.copyWith', () {

@@ -12,6 +12,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/test_result.dart';
 import '../models/verse.dart';
+import '../services/bible_lookup_service.dart' show LookupException;
 import '../utils/book_name_variants.dart'
     show bookDisplayNames, maxCustomVariants, maxVariantLength, normalizeBookNameKey;
 
@@ -272,6 +273,26 @@ class DatabaseHelper {
       verse.toMap(),
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
+  }
+
+  /// Inserts an ESV verse, enforcing Crossway's 500-verse storage cap
+  /// atomically inside a transaction to prevent double-save races.
+  Future<void> insertEsvVerse(Verse verse, {int cap = 500}) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      final rows = await txn.rawQuery(
+        "SELECT COUNT(*) AS c FROM verses WHERE translation = 'ESV'",
+      );
+      final count = rows.first['c'] as int;
+      if (count >= cap) {
+        throw const LookupException('ESV verse limit reached (500).');
+      }
+      await txn.insert(
+        'verses',
+        verse.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    });
   }
 
   Future<void> updateVerse(Verse verse) async {

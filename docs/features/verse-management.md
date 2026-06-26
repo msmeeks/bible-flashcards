@@ -73,7 +73,18 @@ Both branches of `_VerseOfWeekSection` (verse present and verse absent) wrap the
 Exactly one verse is flagged `is_verse_of_week = 1` at any time. Setting a new verse of the week clears the previous flag. The current verse is surfaced prominently on the home screen.
 
 ### Adding Custom Verses
-Users can enter a reference and text manually. Custom verses are stored in the same table with no pack membership. Bible version must be specified at entry. `insertVerse` uses `ConflictAlgorithm.ignore` so duplicate inserts are silently dropped (same behaviour as seed inserts).
+Users can enter a reference and text manually. Custom verses are stored in the same table with no pack membership. Bible version must be specified at entry. `insertVerse` uses `ConflictAlgorithm.ignore` so duplicate inserts are silently dropped (same behaviour as seed inserts). `VerseProvider.addCustomVerse` routes to `DatabaseHelper.insertEsvVerse` when `translation == 'ESV'`, else to `insertVerse` (see "ESV Verse Lookup" below).
+
+### ESV Verse Lookup
+Mirrors the `BibleLookupService` pattern (`docs/features/web-lookup.md`) but targets `api.esv.org` (Crossway's ESV API) instead of `bible.helloao.org`, and is gated by an API key plus a hard 500-verse storage cap per Crossway's API terms.
+
+`EsvLookupService` (`lib/services/esv_lookup_service.dart`) authenticates via `Authorization: Token <key>` header; the key comes from `String.fromEnvironment('ESV_API_KEY')`, injected at build time via `--dart-define-from-file=secrets.local`. The instance-level `isAvailable` getter reflects whether the key is non-empty — the UI hides the ESV option entirely when false, since there is no key to fall back on. Reference parsing reuses the shared `bookNameToUsfm`/`bookDisplayNames` table from `lib/utils/book_name_variants.dart` (same source as `BibleLookupService`). SSRF guard, 50-entry LRU cache, 10s timeout, and `LookupException` error surface (timeout / 404 / non-200 / bad JSON) all match `BibleLookupService` exactly.
+
+Storage enforces the 500-verse cap server-side of the app, not just in the UI: `DatabaseHelper.insertEsvVerse(Verse verse, {int cap = 500})` runs a single transaction that counts existing rows where `translation = 'ESV'` and throws `LookupException` if at cap *before* inserting — so a race between two concurrent adds can't push the count over. `VerseProvider.esvVerseCount` exposes the live count for UI checks.
+
+On the Add Verse screen, ESV is a separate `ActionChip` below the BSB/KJV/WEB `SegmentedButton` (not a peer segment) labeled "ESV · Personal use · 500-verse cap", and is omitted entirely when `EsvLookupService.isAvailable` is false. Consent is isolated from the bible.helloao.org flow: a separate key `esv_lookup_consent_v1` (vs. `bible_lookup_consent_v1`) and its own dialog naming `api.esv.org` and disclosing the cap. Before firing a lookup, the screen checks `esvVerseCount >= 500` and shows a non-blocking advisory (`cs.warningContainer`) without making a network call; a second check at save time blocks with `cs.errorContainer` if the cap was reached in the meantime. `AppSettings.fromMap` (`lib/models/settings.dart`) validates `defaultTranslation` against an allowlist (`BSB`, `KJV`, `WEB`, `ESV`), falling back to `ESV` for unrecognized/tampered values — same pattern used for `backupCadence`.
+
+`meta/PRIVACY.md` documents api.esv.org/Crossway as a data recipient under its own section.
 
 ### Unmarking a Memorized Verse
 `VerseProvider.unmarkMemorized(id)` sets `isMemorized: false` and clears `memorizedAt`, then delegates to `DatabaseHelper.unmarkMemorizedVerse()`. That method runs a single SQLite transaction that:
@@ -92,3 +103,4 @@ From the available list, tapping a verse and confirming sets it as the verse of 
 | 2026-05-27 | Updated with full implementation: encryption details, DatabaseHelper singleton, screen/route table, Provider integration |
 | 2026-06-10 | Bug fixes: unmarkMemorized() wired end-to-end (VerseDetailScreen → VerseProvider → DatabaseHelper atomic txn + test-history purge); insertVerse ConflictAlgorithm.ignore |
 | 2026-06-12 | FlashcardState enum + VerseCard 3-state tap cycle; pack names via DB v2 packs table + getPackNames(); VersePack verseIds now JSON (was CSV); Semantics(header: true) on heading; VerseDetailScreen uses FlashcardState.both; corrected key file paths |
+| 2026-06-26 | ESV verse lookup (#67): EsvLookupService (api.esv.org, key-gated, 500-verse cap), DatabaseHelper.insertEsvVerse atomic cap check, VerseProvider.esvVerseCount + addCustomVerse routing, AppSettings defaultTranslation allowlist, Add Verse screen ESV chip + isolated consent flow |

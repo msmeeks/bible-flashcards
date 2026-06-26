@@ -17,7 +17,45 @@ Verse _verse(String id, {bool isMemorized = true, bool isVerseOfWeek = false}) {
   );
 }
 
+Verse _verseWithTranslation(String id, String translation) {
+  return Verse(
+    id: id,
+    reference: 'Ref $id',
+    text: 'Text $id',
+    translation: translation,
+    packId: 'pack1',
+    isMemorized: true,
+    isVerseOfWeek: false,
+    addedAt: DateTime(2024, 1, 1),
+  );
+}
+
 void main() {
+  group('VerseProvider.esvVerseCount', () {
+    test('is 0 when no ESV verses are stored', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([
+        _verseWithTranslation('a', 'BSB'),
+        _verseWithTranslation('b', 'KJV'),
+      ]);
+
+      expect(provider.esvVerseCount, 0);
+    });
+
+    test('counts only ESV-translation verses, ignoring BSB/KJV/WEB', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([
+        _verseWithTranslation('a', 'ESV'),
+        _verseWithTranslation('b', 'BSB'),
+        _verseWithTranslation('c', 'ESV'),
+        _verseWithTranslation('d', 'KJV'),
+        _verseWithTranslation('e', 'WEB'),
+      ]);
+
+      expect(provider.esvVerseCount, 2);
+    });
+  });
+
   group('VerseProvider.getRandomMemorizedVerses', () {
     test('returns full pool when count exceeds pool size', () {
       final provider = VerseProvider(DatabaseHelper());

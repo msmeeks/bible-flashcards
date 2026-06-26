@@ -23,6 +23,8 @@ class VerseProvider extends ChangeNotifier {
 
   Verse? get verseOfWeek => _verses.where((v) => v.isVerseOfWeek).firstOrNull;
 
+  int get esvVerseCount => _verses.where((v) => v.translation == 'ESV').length;
+
   Map<String, String> get packNames => _packNames;
 
   bool get isLoading => _isLoading;
@@ -73,7 +75,11 @@ class VerseProvider extends ChangeNotifier {
   }
 
   Future<void> addCustomVerse(Verse verse) async {
-    await _db.insertVerse(verse);
+    if (verse.translation == 'ESV') {
+      await _db.insertEsvVerse(verse);
+    } else {
+      await _db.insertVerse(verse);
+    }
     await loadVerses();
   }
 
