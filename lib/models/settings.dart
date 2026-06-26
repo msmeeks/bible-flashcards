@@ -120,7 +120,8 @@ class AppSettings {
     return AppSettings(
       audioInterruptEnabled: map['audio_interrupt_enabled'] as bool? ?? false,
       audioInterruptProbability:
-          (map['audio_interrupt_probability'] as num?)?.toDouble() ?? 0.5,
+          ((map['audio_interrupt_probability'] as num?)?.toDouble() ?? 0.5)
+              .clamp(0.0, 1.0),
       audioInterruptAfterMinutes:
           map['audio_interrupt_after_minutes'] as int? ?? 60,
       defaultTranslation: map['default_translation'] as String? ?? 'ESV',

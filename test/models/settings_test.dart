@@ -63,7 +63,8 @@ void main() {
         showOnLockScreen: true,
       );
       final restored = AppSettings.fromMap(original.toMap());
-      expect(restored.dailyNotificationTime, const TimeOfDay(hour: 8, minute: 30));
+      expect(
+          restored.dailyNotificationTime, const TimeOfDay(hour: 8, minute: 30));
       expect(restored.notificationType, 'reviewVerse');
       expect(restored.showOnLockScreen, isTrue);
     });
@@ -98,7 +99,8 @@ void main() {
         dailyNotificationTime: TimeOfDay(hour: 0, minute: 0),
       );
       final restored = AppSettings.fromMap(original.toMap());
-      expect(restored.dailyNotificationTime, const TimeOfDay(hour: 0, minute: 0));
+      expect(
+          restored.dailyNotificationTime, const TimeOfDay(hour: 0, minute: 0));
     });
 
     test('end-of-day boundary round-trips correctly', () {
@@ -106,7 +108,18 @@ void main() {
         dailyNotificationTime: TimeOfDay(hour: 23, minute: 59),
       );
       final restored = AppSettings.fromMap(original.toMap());
-      expect(restored.dailyNotificationTime, const TimeOfDay(hour: 23, minute: 59));
+      expect(restored.dailyNotificationTime,
+          const TimeOfDay(hour: 23, minute: 59));
+    });
+
+    test('audioInterruptProbability above 1.0 is clamped to 1.0', () {
+      final s = AppSettings.fromMap({'audio_interrupt_probability': 5.0});
+      expect(s.audioInterruptProbability, 1.0);
+    });
+
+    test('audioInterruptProbability below 0.0 is clamped to 0.0', () {
+      final s = AppSettings.fromMap({'audio_interrupt_probability': -1.0});
+      expect(s.audioInterruptProbability, 0.0);
     });
   });
 
@@ -124,7 +137,8 @@ void main() {
         dailyNotificationTime: TimeOfDay(hour: 9, minute: 0),
       );
       final updated = original.copyWith(notificationType: 'reviewVerse');
-      expect(updated.dailyNotificationTime, const TimeOfDay(hour: 9, minute: 0));
+      expect(
+          updated.dailyNotificationTime, const TimeOfDay(hour: 9, minute: 0));
     });
 
     test('unset fields retain original values', () {

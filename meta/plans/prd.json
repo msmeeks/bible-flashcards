@@ -5,23 +5,30 @@
   "plans": [
     {
       "file": "feat-reference-scoring-normalization.md",
-      "issues": [43, 44],
+      "issues": [
+        43,
+        44
+      ],
       "size": "S",
       "status": "pending",
-      "attempts": 0,
+      "attempts": 1,
       "blocked_by": []
     },
     {
       "file": "refactor-audio-interrupt-probability.md",
-      "issues": [42],
+      "issues": [
+        42
+      ],
       "size": "S",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 1,
       "blocked_by": []
     },
     {
       "file": "feat-auto-verse-of-week.md",
-      "issues": [45],
+      "issues": [
+        45
+      ],
       "size": "M",
       "status": "pending",
       "attempts": 0,
@@ -29,7 +36,9 @@
     },
     {
       "file": "feat-esv-lookup.md",
-      "issues": [67],
+      "issues": [
+        67
+      ],
       "size": "M",
       "status": "pending",
       "attempts": 0,
@@ -37,27 +46,39 @@
     },
     {
       "file": "feat-esv-attribution.md",
-      "issues": [68],
+      "issues": [
+        68
+      ],
       "size": "M",
       "status": "pending",
       "attempts": 0,
-      "blocked_by": ["feat-esv-lookup.md"]
+      "blocked_by": [
+        "feat-esv-lookup.md"
+      ]
     },
     {
       "file": "feat-esv-settings.md",
-      "issues": [69],
+      "issues": [
+        69
+      ],
       "size": "S",
       "status": "pending",
       "attempts": 0,
-      "blocked_by": ["feat-esv-lookup.md"]
+      "blocked_by": [
+        "feat-esv-lookup.md"
+      ]
     },
     {
       "file": "feat-esv-audio.md",
-      "issues": [70],
+      "issues": [
+        70
+      ],
       "size": "L",
       "status": "pending",
       "attempts": 0,
-      "blocked_by": ["feat-esv-lookup.md"]
+      "blocked_by": [
+        "feat-esv-lookup.md"
+      ]
     }
   ]
 }

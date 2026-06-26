@@ -75,7 +75,7 @@ Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the
 
 ### Settings Exposed to User
 - Interrupt toggle (on/off)
-- Interrupt probability slider (10%–90%, default 50%)
+- Verse-of-week probability slider (10%–90%, default 50%) — controls how often the verse of the week is selected during interrupts
 - Interrupt threshold (30 min / 60 min / 90 min, default 60 min)
 - Theme selector (light / dark / system)
 - Test history list and "Clear History" action
@@ -87,3 +87,4 @@ Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the
 | 2026-05-27 | Updated with full implementation: replaced just_audio/asset clips with flutter_tts state machine, documented AudioReviewService generation counter, AudioInterruptService timer logic, notification VISIBILITY_PRIVATE decision, settings screen inventory |
 | 2026-06-10 | Bug fixes: isCompleted getter; resume() guard; _currentVerse kept on completed/nulled on idle; player bar play button disabled + accessible; Symbols.* icons; Dismissible semantics |
 | 2026-06-24 | Retired legacy continuous "Audio review" shuffled-loop mode and `AudioReviewService` entirely (#48); `audioReviewEnabled` removed from settings model/SharedPreferences |
+| 2026-06-26 | Repurposed interrupt probability slider to control verse-of-week selection weight; interrupts now always fire once the threshold is crossed (#42) |

@@ -60,8 +60,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           ListTile(
-            title: const Text('Interrupt probability'),
-            subtitle: const Text('How often to interrupt with a verse'),
+            title: const Text('Verse-of-week probability'),
+            subtitle: const Text(
+                'How often the verse of the week is chosen vs. a random memorized verse'),
             trailing: MergeSemantics(
               child: Text(
                 '${(settings.audioInterruptProbability * 100).round()}%',
@@ -314,7 +315,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             return AlertDialog(
-              title: const Text('Interrupt probability'),
+              title: const Text('Verse-of-week probability'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

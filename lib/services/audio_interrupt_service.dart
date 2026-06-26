@@ -1,9 +1,27 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 import '../models/verse.dart';
 import 'audio_service.dart';
 import 'notification_service.dart';
+
+/// Picks the verse for an interrupt: [verseOfWeek] with weight [probability],
+/// otherwise a random pick from [memorizedVerses].
+@visibleForTesting
+Verse? pickVerseForInterrupt({
+  required Random random,
+  required double probability,
+  required Verse? verseOfWeek,
+  required List<Verse> memorizedVerses,
+}) {
+  if (verseOfWeek != null && random.nextDouble() < probability) {
+    return verseOfWeek;
+  }
+  if (memorizedVerses.isEmpty) return verseOfWeek;
+  return memorizedVerses[random.nextInt(memorizedVerses.length)];
+}
 
 /// Tracks cumulative audio playback and interrupts with a memorized verse
 /// once the configured [threshold] is exceeded.
@@ -89,12 +107,6 @@ class AudioInterruptService {
 
     if (total < _threshold) return;
 
-    // Threshold exceeded — probabilistic trigger.
-    if (_rng.nextDouble() >= _interruptProbability) {
-      _resetAccumulator();
-      return;
-    }
-
     final verse = _pickVerse();
     if (verse == null) {
       _resetAccumulator();
@@ -112,11 +124,12 @@ class AudioInterruptService {
   }
 
   Verse? _pickVerse() {
-    final vow = _verseOfWeek;
-    // 50% verse-of-week, 50% random memorized.
-    if (vow != null && _rng.nextBool()) return vow;
-    if (_memorizedVerses.isEmpty) return vow;
-    return _memorizedVerses[_rng.nextInt(_memorizedVerses.length)];
+    return pickVerseForInterrupt(
+      random: _rng,
+      probability: _interruptProbability,
+      verseOfWeek: _verseOfWeek,
+      memorizedVerses: _memorizedVerses,
+    );
   }
 
   void _resetAccumulator() {
