@@ -7,7 +7,7 @@ Load this file first. Then load only the specific doc files relevant to your tas
 - [features/verse-management.md](features/verse-management.md) — encrypted SQLite, Navigator packs (DB v2 packs table, pack names), VerseCard FlashcardState 3-state cycle, memorized list, home/verses/add/detail screens, ESV verse lookup (EsvLookupService, 500-verse cap, isolated consent), auto-advance verse of the week (Sunday/ISO-week guard)
 - [features/test-modes.md](features/test-modes.md) — test setup/session/results flow, LCS scoring, fill-blank algorithm, opt-in on-device speech-to-text for recite mode, privacy decision on typed/voice input
 - [features/review-screen.md](features/review-screen.md) — Review nav tab, count/verse-of-week setup controls, Show presentation with fixed-session verse list and tap-to-reveal
-- [features/audio.md](features/audio.md) — flutter_tts state machine, AudioInterruptService timer, audio notification bodies
+- [features/audio.md](features/audio.md) — flutter_tts state machine, ESV real-recording playback via EsvAudioCacheService (two-request redirect pattern, SHA-256 cache keys), AudioInterruptService timer, audio notification bodies
 - [features/notifications.md](features/notifications.md) — daily reminder scheduling, timezone init, lock-screen toggle, notification channels, SCHEDULE_EXACT_ALARM
 - [features/web-lookup.md](features/web-lookup.md) — BibleLookupService HTTP fetch, reference parsing, consent dialog, preview card, importPackFromJson batch import
 - [features/tracking.md](features/tracking.md) — engagement_log schema, TrackingProvider streak/chart computations, HistoryScreen charts + table toggle, first-launch consent, Settings clear

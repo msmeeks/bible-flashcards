@@ -77,6 +77,9 @@ dependencies:
   # pulled in transitively by share_plus before)
   url_launcher: ^6.3.0
 
+  # Local MP3 playback for ESV audio recordings
+  audioplayers: ^6.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -16,6 +16,7 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 | Engagement log (date, event type, aggregate count) | Local SQLite (`engagement_log`) | Streak & activity history display | 90 days auto-purge; user-clearable via Settings → Activity History |
 | Export file (JSON snapshot of above) | App internal storage (temporary) | User-initiated data transfer | Deleted immediately after share |
 | Drive backup (same JSON, encrypted in transit) | Google Drive `appdata` folder | Optional cloud backup | Until user deletes backup from app or removes app access in Google account settings |
+| ESV verse audio cache (MP3 files) | App cache dir (`getApplicationCacheDirectory()/esv_audio/`) | Audio playback for ESV verses | Evicted once cache exceeds 250 files (oldest first); also subject to OS cache eviction under storage pressure; excluded from Android Auto Backup |
 
 ### engagement_log schema
 - `date` — calendar date only (`YYYY-MM-DD`), no time component
@@ -65,6 +66,17 @@ This feature is **off by default** and only appears in builds compiled with an E
 - **Encryption in transit:** HTTPS-only; cleartext is blocked at the OS level
 - **Consent dialog disclosure:** Names `api.esv.org` as the recipient and states the 500-verse cap before the first ESV lookup fires
 
+## ESV Audio Playback (Optional)
+
+This feature plays the real Crossway recording for ESV verses during the text phase of audio playback; it only activates for verses already saved with translation `ESV` (i.e. after ESV Verse Lookup above has been used and consented to).
+
+- **What is transmitted:** The verse reference and the user's IP address, sent twice across two requests — first to `api.esv.org` (with the `Authorization` API key header) to resolve the audio location, then to the CDN host (`audio.esv.org`) to fetch the MP3, **without** the API key header
+- **Destination:** `api.esv.org` to resolve, `audio.esv.org` (Crossway's CDN) to fetch the recording; the CDN host is allowlisted in code so a redirect can never silently retarget another host
+- **Data processor:** Crossway, same processor as ESV Verse Lookup
+- **Consent record:** Reuses the `esv_lookup_consent_v1` preference key — by the time a user has ESV verses saved, they have already consented to send the same Bible reference to Crossway via text lookup, so a separate audio consent prompt is not shown
+- **Local cache:** Fetched MP3s are cached on-device under `esv_audio/`, keyed by the SHA-256 hash of the lowercased, trimmed reference (never the raw reference string, to rule out path traversal). Capped at 250 files; oldest files are evicted first
+- **Offline/error behavior:** Any cache or network failure falls back to on-device text-to-speech silently — no error is shown to the user, and no partial data is transmitted
+
 ## Cloud Backup (Optional)
 
 This feature is **off by default**. Enabling it requires explicit consent.
@@ -95,7 +107,7 @@ No camera, contacts, or storage permissions are requested.
 
 ## Network Requests
 
-Verse lookup sends HTTPS requests to `bible.helloao.org` (a free public Bible API). ESV verse lookup, when available and enabled, sends HTTPS requests to `api.esv.org` (Crossway). Drive backup, when enabled, sends requests to Google's servers. No other external hosts are contacted.
+Verse lookup sends HTTPS requests to `bible.helloao.org` (a free public Bible API). ESV verse lookup, when available and enabled, sends HTTPS requests to `api.esv.org` (Crossway). ESV audio playback additionally sends HTTPS requests to `api.esv.org` and `audio.esv.org` (Crossway's CDN, allowlisted in code). Drive backup, when enabled, sends requests to Google's servers. No other external hosts are contacted.
 
 - Requests are user-initiated (tap Search, or explicitly enable Drive backup); the app never auto-fetches.
 - The user's IP address is visible to the remote host (`bible.helloao.org` or Google) for each request.

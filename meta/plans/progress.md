@@ -1,5 +1,76 @@
 # Progress Log
 
+## 2026-06-26 — feat-esv-audio.md (#70)
+
+Implemented ESV audio playback — the last pending plan, previously skipped
+multiple times for needing a live API response to discover the real CDN
+hostname. A prior attempt (uncommitted, found already in the working tree at
+the start of this run) had built most of `EsvAudioCacheService` and its test
+file but left two defects: the test file was missing the `path` package
+import (compile error) and a raw network exception during the redirect
+resolve call was not wrapped in `EsvAudioException` (one failing test).
+Fixed both, then implemented the `AudioService` integration the prior attempt
+hadn't started yet.
+
+- `lib/services/esv_audio_cache_service.dart`: fixed — `_resolveCdnUri` now
+  wraps any exception from `_client.send`/`http.Response.fromStream` in
+  `EsvAudioException` instead of letting it propagate raw. Service was
+  otherwise already correct: two-request pattern (auth header sent only to
+  `api.esv.org`, never forwarded to the `audio.esv.org` redirect target),
+  SHA-256 cache-key filenames (no path traversal via raw reference), 250-file
+  eviction, in-flight fetch deduplication, and `EsvAudioConsentRequired`
+  gated on the existing `esv_lookup_consent_v1` flag (audio reuses text
+  lookup's consent rather than prompting twice for the same recipient/data).
+  CDN host allowlisted to `audio.esv.org` — not independently re-verified
+  against a live API response in this environment (no network/API-key
+  access), same documented limitation as the prior skip decisions.
+- `lib/services/audio_service.dart`: added an ESV branch in the text phase.
+  `_speakTextPhase(verse)` calls `EsvAudioCacheService.getAudioPath` for
+  `verse.translation == 'ESV'` and plays the result via `audioplayers`
+  (`_playMp3AndWait`, `DeviceFileSource`); any exception (offline, fetch
+  failure, consent not yet granted) falls back to TTS silently, matching the
+  plan's "no error shown to user" requirement. `stop()`/`pause()` now also
+  stop the active `AudioPlayer`; because `AudioPlayer.stop()` doesn't fire
+  `onPlayerComplete` the way TTS's cancel handler resolves its completer, I
+  added a tracked `_playerCompleter` that `_stopActivePlayer` resolves
+  manually so a paused/stopped MP3 playback doesn't hang `_speakTextPhase`
+  forever. `resume()` restarts the current text phase from the beginning for
+  ESV audio, same restart-from-beginning behavior already accepted for TTS
+  resume.
+- `EsvAudioCacheService` is constructor-injectable on `AudioService` (mirrors
+  the existing `audioService` injection pattern on `AudioProvider`) but I did
+  not add direct unit tests for the new `AudioService` branches: every
+  existing test that touches `AudioService` (`audio_provider_test.dart`,
+  `review_play_screen_test.dart`, `review_screen_test.dart`,
+  `audio_player_bar_test.dart`) substitutes the entire class with
+  `FakeAudioService` rather than exercising the real TTS/audioplayers state
+  machine, because `flutter_tts` and `audioplayers` both require platform
+  channels with no existing mock harness in this repo. Added the feature at
+  the same untested boundary already accepted for that class's existing TTS
+  logic, rather than building new platform-channel mocking infrastructure
+  out of scope for this plan.
+- `pubspec.yaml`: `audioplayers: ^6.0.0` (already present from the prior
+  attempt).
+- `meta/PRIVACY.md`: new "ESV Audio Playback (Optional)" section (two-request
+  transmission detail, CDN allowlist, shared consent key, cache key/eviction
+  policy, silent-fallback behavior) and a new data-table row for the audio
+  cache directory.
+- `android/app/src/main/AndroidManifest.xml`: updated the `INTERNET`
+  permission comment to name `api.esv.org`/`audio.esv.org`.
+- `docs/features/audio.md` and `docs/llms.md`: documented the ESV branch,
+  two-request pattern, and consent reuse.
+- `test/services/esv_audio_cache_service_test.dart`: fixed missing `path`
+  import; all 9 cases pass (cache miss/hit, auth-not-forwarded, network
+  failure wrapping, non-redirect status, SSRF host guard, path-traversal-safe
+  filenames, in-flight dedup, eviction).
+
+`flutter test` passes (344 passed; same 1 pre-existing unrelated failure in
+`test/widget_test.dart` noted in every prior entry). `flutter analyze` clean
+(same pre-existing deprecation infos and `widget_test.dart` issue).
+
+This was the last pending plan — all entries in `meta/plans/prd.json` are now
+`done`.
+
 ## 2026-06-26 — refactor-audio-interrupt-probability.md (#42)
 
 Repurposed the audio interrupt probability slider so it controls how often the

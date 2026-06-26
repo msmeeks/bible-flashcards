@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../models/verse.dart';
+import 'esv_audio_cache_service.dart';
 
 /// Playback state emitted by [AudioService.playbackStateStream].
 enum AudioPlaybackState {
@@ -22,9 +24,14 @@ enum AudioPlaybackState {
 /// [flutter_tts] has no native pause; pause is simulated by stopping and
 /// re-queuing the remaining text segment.
 class AudioService {
-  AudioService() : _tts = FlutterTts();
+  AudioService({EsvAudioCacheService? esvAudio})
+      : _tts = FlutterTts(),
+        _esvAudio = esvAudio ?? EsvAudioCacheService();
 
   final FlutterTts _tts;
+  final EsvAudioCacheService _esvAudio;
+  AudioPlayer? _activePlayer;
+  Completer<void>? _playerCompleter;
   bool _initialized = false;
 
   final StreamController<AudioPlaybackState> _stateController =
@@ -89,7 +96,7 @@ class AudioService {
     _emit(AudioPlaybackState.speakingText);
     _pausedPhase = _PlayPhase.text;
 
-    await _speakAndWait(verse.text);
+    await _speakTextPhase(verse);
     if (_isStopped) return;
 
     _pausedPhase = _PlayPhase.none;
@@ -102,14 +109,17 @@ class AudioService {
     _isStopped = true;
     _pausedPhase = _PlayPhase.none;
     _pausedVerse = null;
+    await _stopActivePlayer();
     await _tts.stop();
     _emit(AudioPlaybackState.idle);
   }
 
-  /// Pauses playback. Stops TTS and records phase for [resume].
+  /// Pauses playback. Stops TTS/audio and records phase for [resume].
   Future<void> pause() async {
-    // Stopping TTS will cause the _speakAndWait completer to resolve early.
-    // _isStopped stays false so resume can continue.
+    // Stopping playback will cause the _speakAndWait/_playMp3AndWait
+    // completer to resolve early. _isStopped stays false so resume can
+    // continue.
+    await _stopActivePlayer();
     await _tts.stop();
   }
 
@@ -130,7 +140,7 @@ class AudioService {
         if (_isStopped) return;
         _emit(AudioPlaybackState.speakingText);
         _pausedPhase = _PlayPhase.text;
-        await _speakAndWait(verse.text);
+        await _speakTextPhase(verse);
         if (_isStopped) return;
         _pausedPhase = _PlayPhase.none;
         _pausedVerse = null;
@@ -144,7 +154,7 @@ class AudioService {
         if (_isStopped) return;
         _emit(AudioPlaybackState.speakingText);
         _pausedPhase = _PlayPhase.text;
-        await _speakAndWait(verse.text);
+        await _speakTextPhase(verse);
         if (_isStopped) return;
         _pausedPhase = _PlayPhase.none;
         _pausedVerse = null;
@@ -152,7 +162,7 @@ class AudioService {
 
       case _PlayPhase.text:
         _emit(AudioPlaybackState.speakingText);
-        await _speakAndWait(verse.text);
+        await _speakTextPhase(verse);
         if (_isStopped) return;
         _pausedPhase = _PlayPhase.none;
         _pausedVerse = null;
@@ -165,6 +175,7 @@ class AudioService {
 
   void dispose() {
     _isStopped = true;
+    _activePlayer?.dispose();
     _tts.stop();
     _stateController.close();
   }
@@ -172,6 +183,52 @@ class AudioService {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  /// Plays the text phase: real ESV recording when available, TTS otherwise.
+  /// Cache/network failures fall back to TTS silently — no error shown.
+  Future<void> _speakTextPhase(Verse verse) async {
+    if (verse.translation == 'ESV') {
+      try {
+        final audioPath = await _esvAudio.getAudioPath(verse.reference);
+        if (_isStopped) return;
+        await _playMp3AndWait(audioPath);
+        return;
+      } catch (_) {
+        if (_isStopped) return;
+      }
+    }
+    await _speakAndWait(verse.text);
+  }
+
+  Future<void> _playMp3AndWait(String path) async {
+    final player = AudioPlayer();
+    _activePlayer = player;
+    final completer = Completer<void>();
+    _playerCompleter = completer;
+    final subscription = player.onPlayerComplete.listen((_) {
+      if (!completer.isCompleted) completer.complete();
+    });
+    try {
+      await player.play(DeviceFileSource(path));
+      await completer.future;
+    } finally {
+      await subscription.cancel();
+      if (identical(_activePlayer, player)) _activePlayer = null;
+      if (identical(_playerCompleter, completer)) _playerCompleter = null;
+      await player.dispose();
+    }
+  }
+
+  Future<void> _stopActivePlayer() async {
+    final player = _activePlayer;
+    if (player == null) return;
+    _activePlayer = null;
+    await player.stop();
+    // stop() does not fire onPlayerComplete — resolve manually so any
+    // pending _playMp3AndWait await (from pause()/stop()) completes.
+    final completer = _playerCompleter;
+    if (completer != null && !completer.isCompleted) completer.complete();
+  }
 
   Future<void> _speakAndWait(String text) async {
     _utteranceCompleter = Completer<void>();
