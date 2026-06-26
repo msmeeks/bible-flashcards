@@ -5,10 +5,12 @@ import 'package:provider/provider.dart';
 import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../providers/verse_provider.dart';
-import '../../theme/app_colors.dart';
+import '../../widgets/confidence_badge.dart';
 
 class VersesScreen extends StatefulWidget {
-  const VersesScreen({super.key});
+  const VersesScreen({super.key, this.activationCount = 0});
+
+  final int activationCount;
 
   @override
   State<VersesScreen> createState() => _VersesScreenState();
@@ -23,6 +25,12 @@ class _VersesScreenState extends State<VersesScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void didUpdateWidget(VersesScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.activationCount != old.activationCount) setState(() {});
   }
 
   @override
@@ -198,7 +206,7 @@ class _MemorizedListTile extends StatelessWidget {
       subtitle: Text(preview),
       trailing: FutureBuilder<double?>(
         future: DatabaseHelper().getLatestVerseAccuracy(verse.id),
-        builder: (context, snapshot) => _ConfidenceBadge(
+        builder: (context, snapshot) => ConfidenceBadge(
           accuracy: snapshot.data,
           verseRef: verse.reference,
         ),
@@ -211,58 +219,6 @@ class _MemorizedListTile extends StatelessWidget {
   }
 }
 
-class _ConfidenceBadge extends StatelessWidget {
-  final double? accuracy;
-  final String verseRef;
-
-  const _ConfidenceBadge({required this.accuracy, required this.verseRef});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    final String tier;
-    final Color bg;
-    final Color fg;
-    final IconData icon;
-
-    if (accuracy == null) {
-      tier = 'Memorized';
-      bg = cs.successContainer;
-      fg = cs.onSuccessContainer;
-      icon = Symbols.check_circle_rounded;
-    } else if (accuracy! < 0.7) {
-      tier = 'Weak';
-      bg = cs.errorContainer;
-      fg = cs.onErrorContainer;
-      icon = Symbols.cancel_rounded;
-    } else if (accuracy! < 0.9) {
-      tier = 'Learning';
-      bg = cs.warningContainer;
-      fg = cs.onWarningContainer;
-      icon = Symbols.warning_rounded;
-    } else {
-      tier = 'Strong';
-      bg = cs.successContainer;
-      fg = cs.onSuccessContainer;
-      icon = Symbols.check_circle_rounded;
-    }
-
-    return Semantics(
-      label: 'Confidence: $tier — $verseRef',
-      excludeSemantics: true,
-      child: Chip(
-        avatar: Icon(icon, color: fg, size: 16),
-        backgroundColor: bg,
-        label: Text(tier, style: tt.labelSmall?.copyWith(color: fg)),
-        padding: EdgeInsets.zero,
-        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-        visualDensity: VisualDensity.compact,
-      ),
-    );
-  }
-}
 
 class _EmptyMemorizedState extends StatelessWidget {
   const _EmptyMemorizedState();

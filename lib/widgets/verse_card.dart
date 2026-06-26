@@ -3,17 +3,20 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/verse.dart';
 import '../theme/app_colors.dart';
+import 'confidence_badge.dart';
 
 enum FlashcardState { referenceOnly, textOnly, both }
 
 class VerseCard extends StatefulWidget {
   final Verse verse;
   final FlashcardState initialState;
+  final Future<double?>? confidenceFuture;
 
   const VerseCard({
     super.key,
     required this.verse,
     this.initialState = FlashcardState.referenceOnly,
+    this.confidenceFuture,
   });
 
   @override
@@ -62,11 +65,7 @@ class _VerseCardState extends State<VerseCard> {
     TextTheme tt,
     bool showReference,
     bool showText,
-    String chipLabel,
-    IconData chipIcon,
-    Color chipBg,
-    Color chipBorder,
-    Color chipTextColor,
+    Widget chipWidget,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,13 +76,7 @@ class _VerseCardState extends State<VerseCard> {
               Expanded(
                 child: Text(verse.reference, style: tt.titleSmall),
               ),
-              _StatusChip(
-                label: chipLabel,
-                icon: chipIcon,
-                backgroundColor: chipBg,
-                borderColor: chipBorder,
-                textColor: chipTextColor,
-              ),
+              chipWidget,
             ],
           ),
         if (showText) ...[
@@ -140,16 +133,22 @@ class _VerseCardState extends State<VerseCard> {
             ? cs.surfaceContainerHighest
             : cs.secondaryContainer;
 
-    final (chipLabel, chipIcon, chipBg, chipBorder, chipTextColor) =
-        _statusChip(cs);
-
     final showReference = _state != FlashcardState.textOnly;
     final showText = _state != FlashcardState.referenceOnly;
 
+    final Widget chipWidget = widget.confidenceFuture != null
+        ? FutureBuilder<double?>(
+            future: widget.confidenceFuture,
+            builder: (_, snap) => ConfidenceBadge(
+              accuracy: snap.data,
+              verseRef: verse.reference,
+            ),
+          )
+        : _buildStatusChip(cs);
+
     final label = _semanticLabel();
     final content = _buildContent(
-        verse, cs, tt, showReference, showText,
-        chipLabel, chipIcon, chipBg, chipBorder, chipTextColor);
+        verse, cs, tt, showReference, showText, chipWidget);
 
     return Semantics(
       button: true,
@@ -189,31 +188,31 @@ class _VerseCardState extends State<VerseCard> {
     );
   }
 
-  (String, IconData, Color, Color, Color) _statusChip(ColorScheme cs) {
+  Widget _buildStatusChip(ColorScheme cs) {
     if (widget.verse.isVerseOfWeek) {
-      return (
-        'This Week',
-        Icons.star_rounded,
-        cs.tertiary,
-        cs.tertiary,
-        cs.onTertiary,
+      return _StatusChip(
+        label: 'This Week',
+        icon: Icons.star_rounded,
+        backgroundColor: cs.tertiary,
+        borderColor: cs.tertiary,
+        textColor: cs.onTertiary,
       );
     }
     if (widget.verse.isMemorized) {
-      return (
-        'Memorized',
-        Icons.check_circle_rounded,
-        cs.successContainer,
-        cs.success,
-        cs.onSuccessContainer,
+      return _StatusChip(
+        label: 'Memorized',
+        icon: Icons.check_circle_rounded,
+        backgroundColor: cs.successContainer,
+        borderColor: cs.success,
+        textColor: cs.onSuccessContainer,
       );
     }
-    return (
-      'Available',
-      Icons.circle_outlined,
-      cs.surface,
-      cs.outline,
-      cs.onSurface,
+    return _StatusChip(
+      label: 'Available',
+      icon: Icons.circle_outlined,
+      backgroundColor: cs.surface,
+      borderColor: cs.outline,
+      textColor: cs.onSurface,
     );
   }
 }

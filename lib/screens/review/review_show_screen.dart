@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../widgets/verse_card.dart';
 
@@ -16,7 +17,11 @@ class ReviewShowScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         itemCount: verses.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) => VerseCard(verse: verses[index]),
+        itemBuilder: (context, index) => VerseCard(
+          verse: verses[index],
+          confidenceFuture:
+              DatabaseHelper().getLatestVerseAccuracy(verses[index].id),
+        ),
       ),
     );
   }

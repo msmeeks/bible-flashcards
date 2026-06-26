@@ -8,6 +8,7 @@ import 'package:bible_flashcards/providers/settings_provider.dart';
 import 'package:bible_flashcards/providers/tracking_provider.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
 import 'package:bible_flashcards/screens/main_scaffold.dart';
+import 'package:bible_flashcards/screens/verses/verses_screen.dart';
 import 'package:bible_flashcards/services/notification_service.dart';
 
 Widget _wrap() {
@@ -43,5 +44,27 @@ void main() {
         .toList();
 
     expect(labels, ['Home', 'Verses', 'Review', 'Test', 'Settings']);
+  });
+
+  testWidgets('VersesScreen activationCount increments each time Verses tab is selected', (tester) async {
+    await tester.pumpWidget(_wrap());
+
+    // Tap Verses tab (first activation)
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Verses'));
+    await tester.pump();
+    final countAfterFirst =
+        tester.widget<VersesScreen>(find.byType(VersesScreen)).activationCount;
+
+    // Navigate away
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+    await tester.pump();
+
+    // Return to Verses (second activation)
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Verses'));
+    await tester.pump();
+    final countAfterSecond =
+        tester.widget<VersesScreen>(find.byType(VersesScreen)).activationCount;
+
+    expect(countAfterSecond, greaterThan(countAfterFirst));
   });
 }

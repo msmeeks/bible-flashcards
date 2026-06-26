@@ -17,6 +17,7 @@ class MainScaffold extends StatefulWidget {
 
 class _MainScaffoldState extends State<MainScaffold> {
   int _selectedIndex = 0;
+  int _versesActivationCount = 0;
 
   static const _destinations = [
     NavigationDestination(
@@ -41,20 +42,25 @@ class _MainScaffoldState extends State<MainScaffold> {
     ),
   ];
 
-  static const _screens = [
-    HomeScreen(),
-    VersesScreen(),
-    ReviewScreen(),
-    TestScreen(),
-    SettingsScreen(),
-  ];
+  void _onDestinationSelected(int index) {
+    setState(() {
+      if (index == 1) _versesActivationCount++;
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: _screens,
+        children: [
+          const HomeScreen(),
+          VersesScreen(activationCount: _versesActivationCount),
+          const ReviewScreen(),
+          const TestScreen(),
+          const SettingsScreen(),
+        ],
       ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
@@ -63,9 +69,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           const AudioPlayerBar(),
           NavigationBar(
             selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) {
-              setState(() => _selectedIndex = index);
-            },
+            onDestinationSelected: _onDestinationSelected,
             destinations: _destinations,
           ),
         ],
