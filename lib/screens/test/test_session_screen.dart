@@ -11,6 +11,7 @@ import '../../models/verse.dart';
 import '../../services/speech_recognition_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/scoring.dart';
+import '../../widgets/esv_copyright_footer.dart';
 import 'test_enums.dart';
 import 'test_result_screen.dart';
 
@@ -506,6 +507,9 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: _buildAnswerArea(cs, tt),
               ),
+            ),
+            EsvCopyrightFooter(
+              hasEsvContent: _currentVerse.translation == 'ESV',
             ),
           ],
         ),

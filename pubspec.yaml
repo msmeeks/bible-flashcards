@@ -73,6 +73,10 @@ dependencies:
   # never falls back to cloud recognition)
   speech_to_text: ^7.4.0
 
+  # Opens www.esv.org from the ESV copyright notice (explicit dep — was only
+  # pulled in transitively by share_plus before)
+  url_launcher: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

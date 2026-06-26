@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../database/database_helper.dart';
 import '../../models/settings.dart';
@@ -248,6 +249,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const ListTile(
             title: Text('Bible Flashcards'),
             subtitle: Text('Built for personal Bible memorization'),
+          ),
+          // ----------------------------------------------------------------
+          // ESV Bible
+          // ----------------------------------------------------------------
+          _SectionHeader(label: 'ESV Bible', textTheme: tt),
+          const ListTile(
+            title: Text(
+              'Scripture quotations are from the ESV® Bible '
+              '(The Holy Bible, English Standard Version®), '
+              '© 2001 by Crossway, a publishing ministry of '
+              'Good News Publishers. Used by permission. All rights reserved.',
+            ),
+          ),
+          ListTile(
+            title: const Text('ESV.org'),
+            subtitle: const Text('Full terms and copyright'),
+            trailing: const Icon(Symbols.open_in_new_rounded),
+            onTap: () async {
+              final uri = Uri.parse('https://www.esv.org');
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            },
           ),
         ],
       ),

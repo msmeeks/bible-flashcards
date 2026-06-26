@@ -9,6 +9,7 @@ import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/verse_provider.dart';
+import '../../widgets/esv_copyright_footer.dart';
 import '../../widgets/verse_card.dart';
 
 class VerseDetailScreen extends StatefulWidget {
@@ -108,6 +109,9 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
                 const SizedBox(height: 12),
                 _RemoveMemorizedButton(verseId: verse.id),
               ],
+              EsvCopyrightFooter(
+                hasEsvContent: verse.translation == 'ESV',
+              ),
             ],
           ),
         );

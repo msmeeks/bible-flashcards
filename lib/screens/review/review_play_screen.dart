@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/audio_provider.dart';
+import '../../widgets/esv_copyright_footer.dart';
 
 /// Fullscreen "Now Playing" presentation for a queued review session.
 ///
@@ -134,6 +135,11 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+                  EsvCopyrightFooter(
+                    hasEsvContent:
+                        audio.queue.any((v) => v.translation == 'ESV'),
                   ),
                 ],
               ),

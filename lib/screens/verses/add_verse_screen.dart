@@ -8,6 +8,7 @@ import '../../providers/verse_provider.dart';
 import '../../services/bible_lookup_service.dart';
 import '../../services/esv_lookup_service.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/esv_copyright_footer.dart';
 
 class AddVerseScreen extends StatefulWidget {
   const AddVerseScreen({super.key});
@@ -496,6 +497,9 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                   ? null
                   : () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
+            ),
+            EsvCopyrightFooter(
+              hasEsvContent: _translation == 'ESV' && _preview != null,
             ),
           ],
         ),

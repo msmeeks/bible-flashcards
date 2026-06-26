@@ -137,3 +137,44 @@ failed past the first separator-only case.
 `flutter test` passes (325 passed; same 1 pre-existing unrelated failure in
 `test/widget_test.dart`). `flutter analyze` clean (pre-existing deprecation
 infos and the same `widget_test.dart` issue, unrelated to this change).
+
+## 2026-06-26 — feat-esv-attribution.md (#68)
+
+Implemented the collapsible Crossway copyright footer required on every
+screen that shows ESV verse text.
+
+- `lib/widgets/esv_copyright_footer.dart`: new `EsvCopyrightFooter` widget.
+  Renders nothing when `hasEsvContent` is false. Reads/writes
+  `SharedPreferences` key `esv_footer_collapsed_v1` (absent = expanded by
+  default). Collapsed state is a 48dp `InkWell` chip with
+  `Semantics(button: true, expanded: false)`; expanded state shows the full
+  notice, a "Full terms in Settings" link (navigates to `SettingsScreen`),
+  and a collapse `IconButton`. A hidden `liveRegion` sibling announces state
+  changes, and content is wrapped in `AnimatedSize` unless
+  `MediaQuery.disableAnimations` is true — same patterns as
+  `verse_card.dart`'s state-cycling button.
+- `lib/screens/settings/settings_screen.dart`: new "ESV Bible" section below
+  About — full Crossway copyright notice plus a tappable "ESV.org" link
+  (`launchUrl` with `LaunchMode.externalApplication`).
+- Wired `EsvCopyrightFooter` into `add_verse_screen.dart` (visible when
+  `_translation == 'ESV' && _preview != null`), `verse_detail_screen.dart`
+  (`verse.translation == 'ESV'`), `test_session_screen.dart`
+  (`_currentVerse.translation == 'ESV'`), `review_show_screen.dart`
+  (`verses.any((v) => v.translation == 'ESV')`), and
+  `review_play_screen.dart` (`audio.queue.any((v) => v.translation == 'ESV')`).
+- `lib/providers/audio_provider.dart`: added a public `queue` getter
+  (`List<Verse>`, unmodifiable) — `review_play_screen.dart` needed to inspect
+  all queued verses for ESV content and no such accessor existed before.
+- `pubspec.yaml`: added `url_launcher: ^6.3.0` as an explicit direct
+  dependency (was previously only pulled in transitively via `share_plus`).
+- `android/app/src/main/AndroidManifest.xml`: added an `https` `VIEW` intent
+  to the existing `<queries>` block so `canLaunchUrl` doesn't silently return
+  false on Android 11+ package-visibility restrictions.
+- Added `test/widgets/esv_copyright_footer_test.dart` (6 cases: no-content
+  hidden, default-expanded, collapsed-pref rendering, expand-on-tap with
+  pref persistence, collapse-on-tap with pref persistence, live-region
+  presence in both states).
+
+`flutter test` passes (332 total; same 1 pre-existing unrelated failure in
+`test/widget_test.dart`). `flutter analyze` clean (same pre-existing
+deprecation infos and `widget_test.dart` issue, unrelated to this change).
