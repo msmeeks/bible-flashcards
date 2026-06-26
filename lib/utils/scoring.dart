@@ -7,6 +7,27 @@ import 'book_name_variants.dart' show bookNameToUsfm;
 final RegExp _referenceSplitPattern =
     RegExp(r'^(.+?)\s+(\d+:\d+(?:-\d+)?)\s*$');
 
+/// Normalizes natural separator/range variants in a typed reference so they
+/// match the canonical "Book Chapter:Verse" form before [_referenceSplitPattern]
+/// runs. Order matters: range connectors must resolve before the bare-space
+/// rule, or "16 to 17" would become "16:to" before "to" is replaced.
+String _normalizeReferenceInput(String s) {
+  s = s.replaceAll(RegExp(r'\s*\bcolon\b\s*', caseSensitive: false), ':');
+  s = s.replaceAll(RegExp(r'\s*\bdot\b\s*', caseSensitive: false), '.');
+  s = s.replaceAll(RegExp(r'\s*\bdash\b\s*', caseSensitive: false), '-');
+  s = s.replaceAllMapped(
+      RegExp(r'(\d+)\s+(?:to|through)\s+(\d+)', caseSensitive: false),
+      (m) => '${m.group(1)}-${m.group(2)}');
+  s = s.replaceAllMapped(
+      RegExp(r'(\d+:\d+)\s+and\s+(\d+)(?!\s*\w)', caseSensitive: false),
+      (m) => '${m.group(1)}-${m.group(2)}');
+  s = s.replaceAllMapped(
+      RegExp(r'(\d+)\.(\d+)'), (m) => '${m.group(1)}:${m.group(2)}');
+  s = s.replaceAllMapped(
+      RegExp(r'(\d+) (\d+)'), (m) => '${m.group(1)}:${m.group(2)}');
+  return s;
+}
+
 /// Computes a 0.0–1.0 similarity score for a reference-answer (book chapter:verse).
 ///
 /// Before running the usual word-level LCS, the book-name portion of [typed]
@@ -22,7 +43,8 @@ double computeReferenceScore(
   String correct, {
   Map<String, String> customVariants = const {},
 }) {
-  final typedMatch = _referenceSplitPattern.firstMatch(typed.trim());
+  final typedMatch =
+      _referenceSplitPattern.firstMatch(_normalizeReferenceInput(typed.trim()));
   final correctMatch = _referenceSplitPattern.firstMatch(correct.trim());
   if (typedMatch == null || correctMatch == null) {
     return computeScore(typed, correct);

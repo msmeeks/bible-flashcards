@@ -104,3 +104,36 @@ this environment).
 
 `flutter test` passes (318 passed; same 1 pre-existing unrelated failure in
 `test/widget_test.dart`). `flutter analyze` clean.
+
+## 2026-06-26 — feat-reference-scoring-normalization.md (#43, #44)
+
+Implemented separator/range normalization for typed Bible references.
+This plan had 4 prior failed attempts; root cause was a bug in the plan's
+own example code, not the surrounding codebase: it used `String.replaceAll`
+with a `RegExp` pattern and a literal `r'$1-$2'` replacement string. Dart's
+`replaceAll` does **not** interpolate capture groups from a replacement
+string — that substitution syntax only works with `replaceAllMapped`'s
+callback (`match.group(n)`). Every regex step that referenced a capture
+group in its replacement was silently emitting the literal text `$1`/`$2`
+instead of the captured digits, so chapter:verse reconstruction always
+failed past the first separator-only case.
+
+- `lib/utils/scoring.dart`: added `_normalizeReferenceInput()`, using
+  `replaceAllMapped` (not `replaceAll`) everywhere a capture group feeds the
+  replacement. Also widened the word-form separator regexes
+  (`colon`/`dot`/`dash`) to consume surrounding whitespace
+  (`\s*\bcolon\b\s*` etc.) — without that, "4 colon 13" normalized to
+  "4 : 13" (spaces still around the colon), which doesn't match
+  `_referenceSplitPattern`'s `\d+:\d+` requirement. Applied to `typed` only
+  before `_referenceSplitPattern.firstMatch`, per the plan's rationale that
+  `correct` always comes from the database in canonical form.
+- `test/utils/scoring_test.dart`: added cases for period, bare-space,
+  word-form colon/dot/dash separators; `to`/`through`/word-form-dash/`and`
+  range connectors; a guard against `and` mangling book-number prefixes
+  (`1 and 2 Thessalonians`); and a fuzz-string timing bound
+  (350 repeats of `"12 "` normalizes in <100ms, confirming no catastrophic
+  backtracking from the capture-group regexes).
+
+`flutter test` passes (325 passed; same 1 pre-existing unrelated failure in
+`test/widget_test.dart`). `flutter analyze` clean (pre-existing deprecation
+infos and the same `widget_test.dart` issue, unrelated to this change).
