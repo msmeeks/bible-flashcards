@@ -159,6 +159,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           // ----------------------------------------------------------------
+          // Verses
+          // ----------------------------------------------------------------
+          _SectionHeader(label: 'Verses', textTheme: tt),
+          MergeSemantics(
+            child: ListTile(
+              title: const Text('Default translation'),
+              subtitle: settings.defaultTranslation == 'ESV'
+                  ? Semantics(
+                      liveRegion: true,
+                      label: 'ESV is for personal, non-commercial use only.',
+                      child: Text(
+                        'ESV is for personal, non-commercial use only.',
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : null,
+              trailing: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'BSB', label: Text('BSB')),
+                  ButtonSegment(value: 'KJV', label: Text('KJV')),
+                  ButtonSegment(value: 'WEB', label: Text('WEB')),
+                  ButtonSegment(value: 'ESV', label: Text('ESV')),
+                ],
+                selected: {settings.defaultTranslation},
+                onSelectionChanged: (selected) {
+                  settingsProvider.update(
+                    settings.copyWith(defaultTranslation: selected.first),
+                    announcement:
+                        'Default translation set to ${selected.first}',
+                  );
+                },
+              ),
+            ),
+          ),
+          // ----------------------------------------------------------------
           // Appearance
           // ----------------------------------------------------------------
           _SectionHeader(label: 'Appearance', textTheme: tt),

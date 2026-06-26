@@ -85,4 +85,49 @@ void main() {
       expect(updatedSwitch.value, isTrue);
     },
   );
+
+  testWidgets(
+    'Default translation control shows ESV selected and the personal-use notice by default',
+    (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+      await tester.scrollUntilVisible(find.text('Default translation'), 200);
+
+      expect(find.text('Default translation'), findsOneWidget);
+      final segmentedButton = tester.widget<SegmentedButton<String>>(
+        find.byWidgetPredicate(
+          (w) => w is SegmentedButton<String> && w.selected.contains('ESV'),
+        ),
+      );
+      expect(segmentedButton.selected, {'ESV'});
+      expect(
+        find.text('ESV is for personal, non-commercial use only.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'Selecting a non-ESV default translation hides the personal-use notice and persists',
+    (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+      await tester.scrollUntilVisible(find.text('Default translation'), 200);
+
+      await tester.tap(find.text('KJV').last);
+      await tester.pump();
+
+      expect(
+        find.text('ESV is for personal, non-commercial use only.'),
+        findsNothing,
+      );
+
+      final segmentedButton = tester.widget<SegmentedButton<String>>(
+        find.byWidgetPredicate(
+          (w) => w is SegmentedButton<String> && w.selected.contains('KJV'),
+        ),
+      );
+      expect(segmentedButton.selected, {'KJV'});
+    },
+  );
 }

@@ -89,6 +89,9 @@ On the Add Verse screen, ESV is a separate `ActionChip` below the BSB/KJV/WEB `S
 
 `meta/PRIVACY.md` documents api.esv.org/Crossway as a data recipient under its own section.
 
+### Default Translation Setting
+Settings has a "Default translation" control (`SegmentedButton` over BSB/KJV/WEB/ESV) under a "Verses" section, wired to `AppSettings.defaultTranslation`. Selecting ESV shows a `liveRegion` notice — "ESV is for personal, non-commercial use only." — that disappears when any other translation is selected. The Add Verse screen reads this setting in `initState` to pre-select `_translation`; if the default is ESV but `EsvLookupService.isAvailable` is false (no API key), it falls back to BSB rather than rendering a translation with no matching segment.
+
 ### Unmarking a Memorized Verse
 `VerseProvider.unmarkMemorized(id)` sets `isMemorized: false` and clears `memorizedAt`, then delegates to `DatabaseHelper.unmarkMemorizedVerse()`. That method runs a single SQLite transaction that:
 1. Updates the verse row (clears memorized flag and date).
@@ -108,3 +111,4 @@ From the available list, tapping a verse and confirming sets it as the verse of 
 | 2026-06-10 | Bug fixes: unmarkMemorized() wired end-to-end (VerseDetailScreen → VerseProvider → DatabaseHelper atomic txn + test-history purge); insertVerse ConflictAlgorithm.ignore |
 | 2026-06-12 | FlashcardState enum + VerseCard 3-state tap cycle; pack names via DB v2 packs table + getPackNames(); VersePack verseIds now JSON (was CSV); Semantics(header: true) on heading; VerseDetailScreen uses FlashcardState.both; corrected key file paths |
 | 2026-06-26 | ESV verse lookup (#67): EsvLookupService (api.esv.org, key-gated, 500-verse cap), DatabaseHelper.insertEsvVerse atomic cap check, VerseProvider.esvVerseCount + addCustomVerse routing, AppSettings defaultTranslation allowlist, Add Verse screen ESV chip + isolated consent flow |
+| 2026-06-26 | Default translation setting (#69): Settings "Verses" section with BSB/KJV/WEB/ESV SegmentedButton + personal-use notice; Add Verse screen initializes from the setting with ESV→BSB fallback when no API key |

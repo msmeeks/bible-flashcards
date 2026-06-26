@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/verse.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../services/bible_lookup_service.dart';
 import '../../services/esv_lookup_service.dart';
@@ -23,7 +24,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _textController = TextEditingController();
   final _searchFocusNode = FocusNode();
   final _previewFocusNode = FocusNode();
-  String _translation = 'BSB';
+  late String _translation;
   bool _isSaving = false;
   bool _isLookingUp = false;
   String? _saveError;
@@ -37,6 +38,16 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   static const _consentPrefKey = 'bible_lookup_consent_v1';
   static const _esvConsentPrefKey = 'esv_lookup_consent_v1';
   static const _esvCap = 500;
+
+  @override
+  void initState() {
+    super.initState();
+    final defaultTranslation =
+        context.read<SettingsProvider>().settings.defaultTranslation;
+    _translation = (defaultTranslation == 'ESV' && !_esvLookupService.isAvailable)
+        ? 'BSB'
+        : defaultTranslation;
+  }
 
   @override
   void dispose() {

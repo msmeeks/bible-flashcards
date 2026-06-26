@@ -178,3 +178,43 @@ screen that shows ESV verse text.
 `flutter test` passes (332 total; same 1 pre-existing unrelated failure in
 `test/widget_test.dart`). `flutter analyze` clean (same pre-existing
 deprecation infos and `widget_test.dart` issue, unrelated to this change).
+
+## 2026-06-26 — feat-esv-settings.md (#69)
+
+Implemented the "Default translation" control and wired the Add Verse screen
+to read it. Picked this over `feat-esv-audio.md` (its plan requires
+discovering the live Crossway audio CDN hostname from a real API response
+before hardcoding a security allowlist — not safely doable here without
+network/API-key access, same blocker noted in the `feat-auto-verse-of-week`
+entry above) — `feat-esv-settings.md` was self-contained and unblocked.
+
+- `lib/screens/settings/settings_screen.dart`: new "Verses" section between
+  the existing Notifications and Appearance sections — `MergeSemantics` +
+  `ListTile` with a 4-segment `SegmentedButton` (BSB/KJV/WEB/ESV) bound to
+  `AppSettings.defaultTranslation`. A `liveRegion` subtitle notice ("ESV is
+  for personal, non-commercial use only.") shows only when ESV is selected,
+  matching the `Theme`/`Notification type` tile pattern already in the file.
+- `lib/screens/verses/add_verse_screen.dart`: replaced the hardcoded
+  `_translation = 'BSB'` field initializer with `late String _translation`
+  set in a new `initState`, read from
+  `context.read<SettingsProvider>().settings.defaultTranslation`; falls back
+  to `'BSB'` when the default is `'ESV'` but `_esvLookupService.isAvailable`
+  is false (no `ESV_API_KEY` configured), so the screen never renders with no
+  matching segment selected.
+- `AppSettings.defaultTranslation` allowlist guard and the ESV segment in
+  Add Verse's `SegmentedButton` were both already in place from
+  `feat-esv-lookup.md` — no changes needed there.
+- `docs/features/verse-management.md`: added a "Default Translation Setting"
+  subsection and changelog entry.
+- Tests: `test/screens/settings/settings_screen_test.dart` — control shows
+  ESV pre-selected with the notice by default, and selecting a non-ESV
+  translation hides the notice and persists the choice (both required
+  `tester.scrollUntilVisible` since the control sits below the fold in the
+  default 800×600 test viewport — `ListView` only builds visible children).
+  New `test/screens/verses/add_verse_screen_test.dart` — translation selector
+  initializes to a non-default setting (KJV), and falls back to BSB when the
+  default is ESV with no API key configured.
+
+`flutter test` passes (336 passed; same 1 pre-existing unrelated failure in
+`test/widget_test.dart`). `flutter analyze` clean (same pre-existing
+deprecation infos and `widget_test.dart` issue, unrelated to this change).
