@@ -16,6 +16,7 @@ class ReviewPlayScreen extends StatefulWidget {
 
 class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
   AudioProvider? _audioProvider;
+  bool _popping = false;
 
   @override
   void didChangeDependencies() {
@@ -29,10 +30,17 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
   }
 
   void _onAudioChanged() {
-    if (!mounted) return;
+    if (!mounted || _popping) return;
     if (_audioProvider?.currentVerse == null) {
+      _popping = true;
       Navigator.of(context).pop();
     }
+  }
+
+  void _stop(AudioProvider audio) {
+    _popping = true;
+    Navigator.of(context).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) => audio.stop());
   }
 
   @override
@@ -122,7 +130,7 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                           iconSize: 32,
                           icon: const Icon(Symbols.stop_rounded),
                           tooltip: 'Stop',
-                          onPressed: audio.stop,
+                          onPressed: () => _stop(audio),
                         ),
                       ),
                     ],
