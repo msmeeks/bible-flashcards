@@ -97,6 +97,7 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                             child: FilledButton(
                               style: FilledButton.styleFrom(
                                 shape: const CircleBorder(),
+                                padding: EdgeInsets.zero,
                               ),
                               onPressed: audio.isCompleted
                                   ? null
