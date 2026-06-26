@@ -57,4 +57,32 @@ void main() {
       expect(find.text('Audio review'), findsNothing);
     },
   );
+
+  testWidgets(
+    'Auto-advance verse of the week toggle is off by default and can be enabled',
+    (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+
+      expect(
+        find.text('Auto-advance verse of the week'),
+        findsOneWidget,
+      );
+      final switchFinder = find.byType(SwitchListTile);
+      final autoAdvanceSwitch = tester
+          .widgetList<SwitchListTile>(switchFinder)
+          .firstWhere((s) => (s.title as Text).data ==
+              'Auto-advance verse of the week');
+      expect(autoAdvanceSwitch.value, isFalse);
+
+      await tester.tap(find.text('Auto-advance verse of the week'));
+      await tester.pump();
+
+      final updatedSwitch = tester
+          .widgetList<SwitchListTile>(switchFinder)
+          .firstWhere((s) => (s.title as Text).data ==
+              'Auto-advance verse of the week');
+      expect(updatedSwitch.value, isTrue);
+    },
+  );
 }

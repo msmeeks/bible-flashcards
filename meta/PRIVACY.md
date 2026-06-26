@@ -11,7 +11,7 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 | Test session history (scores, timestamps) | Local SQLite (encrypted) | Progress review | Until user deletes app or clears data |
 | Verse of the week selection | Local SQLite (encrypted) | Core app function | Until changed or app deleted |
 | Custom verses entered by user | Local SQLite (encrypted) | Core app function | Until user deletes them or app |
-| User preferences (audio, theme, translation, notification time, notification type, lock-screen toggle) | SharedPreferences (local) | App configuration | Until user changes or uninstalls |
+| User preferences (audio, theme, translation, notification time, notification type, lock-screen toggle, auto-advance verse of the week and its last-advanced date) | SharedPreferences (local) | App configuration | Until user changes or uninstalls |
 | Lookup consent flags (`bible_lookup_consent_v1`, `esv_lookup_consent_v1`) | SharedPreferences (local) | Records that the user agreed to send verse references to the named third party | Until user clears app data |
 | Engagement log (date, event type, aggregate count) | Local SQLite (`engagement_log`) | Streak & activity history display | 90 days auto-purge; user-clearable via Settings → Activity History |
 | Export file (JSON snapshot of above) | App internal storage (temporary) | User-initiated data transfer | Deleted immediately after share |

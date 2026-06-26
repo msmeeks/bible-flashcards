@@ -62,3 +62,45 @@ unit-tested — consistent with the existing test boundary for that class.
 
 `flutter test` passes (303 passed; same 1 pre-existing unrelated failure in
 `test/widget_test.dart`).
+
+## 2026-06-26 — feat-auto-verse-of-week.md (#45)
+
+Implemented automatic weekly verse-of-week advancement. Picked this plan over
+`feat-reference-scoring-normalization.md` (self-contained but had been
+repeatedly skipped by prior runs without an architectural reason to skip
+again) and `feat-esv-audio.md` (its plan explicitly requires discovering the
+live Crossway audio CDN hostname from a real API response before hardcoding
+a security allowlist — not safely doable without network/API-key access in
+this environment).
+
+- `lib/models/settings.dart`: added `autoAdvanceVerseOfWeek` (bool, default
+  false) and `lastVerseAdvanceDate` (`DateTime?`) to `AppSettings`, with the
+  same far-future tamper-guard pattern as `lastBackupAt` in `fromMap`.
+- `lib/providers/settings_provider.dart`: persists/loads both new fields
+  through `_persist`/`load`, following the existing key-per-field pattern.
+- `lib/providers/verse_provider.dart`: added `pickVerseForAutoAdvance`
+  (`@visibleForTesting`) — pure decision logic (disabled / not-Sunday /
+  already-advanced-this-ISO-week / no-candidate checks) kept separate from
+  the DB write so it's unit-testable without a real database, mirroring the
+  `pickVerseForInterrupt` precedent from the audio-interrupt-probability
+  plan. `autoAdvanceVerseOfWeekIfNeeded` wraps it and calls
+  `setVerseOfWeek` + an `onUpdate` callback to persist the new
+  `lastVerseAdvanceDate`. ISO-week equality compares the Monday of each
+  date's week, correctly handling the Dec/Jan year boundary.
+- `lib/screens/settings/settings_screen.dart`: added "Auto-advance verse of
+  the week" `SwitchListTile`.
+- `lib/screens/home/home_screen.dart`: calls
+  `autoAdvanceVerseOfWeekIfNeeded` in the existing post-frame callback after
+  `loadVerses()`.
+- `meta/PRIVACY.md`, `docs/features/verse-management.md`, `docs/llms.md`:
+  updated.
+- Tests added in `test/models/settings_test.dart`,
+  `test/providers/settings_provider_test.dart`,
+  `test/providers/verse_provider_test.dart` (including the Dec-28/Dec-29
+  ISO-week-boundary pair), and `test/screens/settings/settings_screen_test.dart`.
+  The `HomeScreen` wiring itself isn't independently tested — it calls
+  `loadVerses()` against a real `DatabaseHelper`/sqflite, the same untested
+  DB-touching boundary noted for `insertEsvVerse` in the prior entry.
+
+`flutter test` passes (318 passed; same 1 pre-existing unrelated failure in
+`test/widget_test.dart`). `flutter analyze` clean.

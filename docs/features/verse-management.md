@@ -72,6 +72,9 @@ Both branches of `_VerseOfWeekSection` (verse present and verse absent) wrap the
 ### Verse of the Week
 Exactly one verse is flagged `is_verse_of_week = 1` at any time. Setting a new verse of the week clears the previous flag. The current verse is surfaced prominently on the home screen.
 
+### Auto-Advance Verse of the Week
+When `AppSettings.autoAdvanceVerseOfWeek` is enabled (Settings toggle, default off), `HomeScreen.initState` calls `VerseProvider.autoAdvanceVerseOfWeekIfNeeded(settings, onUpdate)` after the post-frame verse load. The decision logic lives in `VerseProvider.pickVerseForAutoAdvance` (`@visibleForTesting`), kept separate from the DB write so it's unit-testable without a real database: it returns null unless today is Sunday and the current ISO week hasn't already advanced, then picks a random non-current verse. `AppSettings.lastVerseAdvanceDate` persists through `SettingsProvider` (and therefore export/import and Drive backup) so the ISO-week guard survives app restarts; `AppSettings.fromMap` rejects far-future values as a tamper guard, matching `lastBackupAt`. ISO-week comparison is done by Monday-of-week equality, which correctly handles the Dec/Jan year boundary.
+
 ### Adding Custom Verses
 Users can enter a reference and text manually. Custom verses are stored in the same table with no pack membership. Bible version must be specified at entry. `insertVerse` uses `ConflictAlgorithm.ignore` so duplicate inserts are silently dropped (same behaviour as seed inserts). `VerseProvider.addCustomVerse` routes to `DatabaseHelper.insertEsvVerse` when `translation == 'ESV'`, else to `insertVerse` (see "ESV Verse Lookup" below).
 
@@ -100,6 +103,7 @@ From the available list, tapping a verse and confirming sets it as the verse of 
 | Date | Change |
 |---|---|
 | 2026-05-27 | Initial documentation |
+| 2026-06-26 | Auto-advance verse of the week (#45) |
 | 2026-05-27 | Updated with full implementation: encryption details, DatabaseHelper singleton, screen/route table, Provider integration |
 | 2026-06-10 | Bug fixes: unmarkMemorized() wired end-to-end (VerseDetailScreen → VerseProvider → DatabaseHelper atomic txn + test-history purge); insertVerse ConflictAlgorithm.ignore |
 | 2026-06-12 | FlashcardState enum + VerseCard 3-state tap cycle; pack names via DB v2 packs table + getPackNames(); VersePack verseIds now JSON (was CSV); Semantics(header: true) on heading; VerseDetailScreen uses FlashcardState.both; corrected key file paths |

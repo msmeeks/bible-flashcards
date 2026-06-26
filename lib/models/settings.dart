@@ -19,6 +19,8 @@ class AppSettings {
   // Consent record persisted for audit; null = not yet consented
   final String? driveConsentAt; // ISO-8601
   final int driveConsentVersion; // disclosure version shown at consent time
+  final bool autoAdvanceVerseOfWeek; // default false
+  final DateTime? lastVerseAdvanceDate;
 
   const AppSettings({
     this.audioInterruptEnabled = false,
@@ -34,6 +36,8 @@ class AppSettings {
     this.lastBackupAt,
     this.driveConsentAt,
     this.driveConsentVersion = 0,
+    this.autoAdvanceVerseOfWeek = false,
+    this.lastVerseAdvanceDate,
   });
 
   AppSettings copyWith({
@@ -51,6 +55,9 @@ class AppSettings {
     bool clearLastBackupAt = false,
     String? driveConsentAt,
     int? driveConsentVersion,
+    bool? autoAdvanceVerseOfWeek,
+    DateTime? lastVerseAdvanceDate,
+    bool clearLastVerseAdvanceDate = false,
   }) {
     return AppSettings(
       audioInterruptEnabled:
@@ -72,6 +79,11 @@ class AppSettings {
           clearLastBackupAt ? null : (lastBackupAt ?? this.lastBackupAt),
       driveConsentAt: driveConsentAt ?? this.driveConsentAt,
       driveConsentVersion: driveConsentVersion ?? this.driveConsentVersion,
+      autoAdvanceVerseOfWeek:
+          autoAdvanceVerseOfWeek ?? this.autoAdvanceVerseOfWeek,
+      lastVerseAdvanceDate: clearLastVerseAdvanceDate
+          ? null
+          : (lastVerseAdvanceDate ?? this.lastVerseAdvanceDate),
     );
   }
 
@@ -91,6 +103,8 @@ class AppSettings {
       'last_backup_at': lastBackupAt?.toIso8601String(),
       'drive_consent_at': driveConsentAt,
       'drive_consent_version': driveConsentVersion,
+      'auto_advance_verse_of_week': autoAdvanceVerseOfWeek,
+      'last_verse_advance_date': lastVerseAdvanceDate?.toIso8601String(),
     };
   }
 
@@ -109,6 +123,17 @@ class AppSettings {
       if (parsed != null &&
           parsed.isBefore(DateTime.now().add(const Duration(days: 365)))) {
         lastBackupAt = parsed;
+      }
+    }
+
+    final lastVerseAdvanceRaw = map['last_verse_advance_date'] as String?;
+    DateTime? lastVerseAdvanceDate;
+    if (lastVerseAdvanceRaw != null) {
+      final parsed = DateTime.tryParse(lastVerseAdvanceRaw);
+      // Reject far-future timestamps (tampered preference guard per security review)
+      if (parsed != null &&
+          parsed.isBefore(DateTime.now().add(const Duration(days: 365)))) {
+        lastVerseAdvanceDate = parsed;
       }
     }
 
@@ -138,6 +163,9 @@ class AppSettings {
       lastBackupAt: lastBackupAt,
       driveConsentAt: map['drive_consent_at'] as String?,
       driveConsentVersion: map['drive_consent_version'] as int? ?? 0,
+      autoAdvanceVerseOfWeek:
+          map['auto_advance_verse_of_week'] as bool? ?? false,
+      lastVerseAdvanceDate: lastVerseAdvanceDate,
     );
   }
 }

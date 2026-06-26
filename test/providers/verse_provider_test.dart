@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
+import 'package:bible_flashcards/models/settings.dart';
 import 'package:bible_flashcards/models/verse.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
 
@@ -199,6 +200,90 @@ void main() {
         expect(result.length, 1);
         expect(result.first.isVerseOfWeek, isTrue);
       });
+    });
+  });
+
+  group('VerseProvider.pickVerseForAutoAdvance', () {
+    final sunday = DateTime(2026, 6, 21); // confirmed Sunday
+    final monday = DateTime(2026, 6, 22);
+
+    test('returns null when autoAdvanceVerseOfWeek is disabled', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      const settings = AppSettings(autoAdvanceVerseOfWeek: false);
+
+      expect(provider.pickVerseForAutoAdvance(settings, sunday), isNull);
+    });
+
+    test('returns null when today is not Sunday', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+
+      expect(provider.pickVerseForAutoAdvance(settings, monday), isNull);
+    });
+
+    test('returns null when already advanced this ISO week', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      final settings = AppSettings(
+        autoAdvanceVerseOfWeek: true,
+        lastVerseAdvanceDate: sunday,
+      );
+
+      expect(provider.pickVerseForAutoAdvance(settings, sunday), isNull);
+    });
+
+    test('picks a non-current verse on Sunday when not yet advanced', () {
+      final provider = VerseProvider(DatabaseHelper());
+      final vow = _verse('vow', isVerseOfWeek: true);
+      provider.debugSetVerses([vow, _verse('a'), _verse('b')]);
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+
+      final picked = provider.pickVerseForAutoAdvance(settings, sunday);
+
+      expect(picked, isNotNull);
+      expect(picked!.id, isNot('vow'));
+    });
+
+    test('returns null when there is no non-current verse candidate', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('vow', isVerseOfWeek: true)]);
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+
+      expect(provider.pickVerseForAutoAdvance(settings, sunday), isNull);
+    });
+
+    test('treats Dec-28 (prior ISO week) advance as stale on next Sunday',
+        () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      // last advance was the Sunday before New Year's Eve week (ISO 2025-W52);
+      // the following Sunday lands in ISO 2026-W1 — must advance again.
+      final settings = AppSettings(
+        autoAdvanceVerseOfWeek: true,
+        lastVerseAdvanceDate: DateTime(2025, 12, 28),
+      );
+
+      final picked =
+          provider.pickVerseForAutoAdvance(settings, DateTime(2026, 1, 4));
+
+      expect(picked, isNotNull);
+    });
+
+    test('treats Dec-29 advance and Jan-4 Sunday as same ISO week', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      // 2025-12-29 (Mon) and 2026-01-04 (Sun) both fall in ISO week 2026-W1.
+      final settings = AppSettings(
+        autoAdvanceVerseOfWeek: true,
+        lastVerseAdvanceDate: DateTime(2025, 12, 29),
+      );
+
+      final picked =
+          provider.pickVerseForAutoAdvance(settings, DateTime(2026, 1, 4));
+
+      expect(picked, isNull);
     });
   });
 }

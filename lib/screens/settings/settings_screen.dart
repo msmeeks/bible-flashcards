@@ -144,6 +144,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
             },
           ),
+          SwitchListTile(
+            title: const Text('Auto-advance verse of the week'),
+            subtitle: const Text('Picks a new verse every Sunday'),
+            value: settings.autoAdvanceVerseOfWeek,
+            onChanged: (value) {
+              settingsProvider.update(
+                settings.copyWith(autoAdvanceVerseOfWeek: value),
+                announcement: value
+                    ? 'Auto-advance verse of the week enabled'
+                    : 'Auto-advance verse of the week disabled',
+              );
+            },
+          ),
           // ----------------------------------------------------------------
           // Appearance
           // ----------------------------------------------------------------

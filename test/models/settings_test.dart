@@ -138,6 +138,34 @@ void main() {
       final s = AppSettings.fromMap({});
       expect(s.defaultTranslation, 'ESV');
     });
+
+    test('autoAdvanceVerseOfWeek and lastVerseAdvanceDate round-trip', () {
+      final original = AppSettings(
+        autoAdvanceVerseOfWeek: true,
+        lastVerseAdvanceDate: DateTime(2026, 6, 21),
+      );
+      final restored = AppSettings.fromMap(original.toMap());
+      expect(restored.autoAdvanceVerseOfWeek, isTrue);
+      expect(restored.lastVerseAdvanceDate, DateTime(2026, 6, 21));
+    });
+
+    test('missing autoAdvanceVerseOfWeek defaults to false', () {
+      final s = AppSettings.fromMap({});
+      expect(s.autoAdvanceVerseOfWeek, isFalse);
+    });
+
+    test('missing lastVerseAdvanceDate defaults to null', () {
+      final s = AppSettings.fromMap({});
+      expect(s.lastVerseAdvanceDate, isNull);
+    });
+
+    test('lastVerseAdvanceDate far in the future is rejected', () {
+      final tampered = DateTime.now().add(const Duration(days: 400));
+      final s = AppSettings.fromMap(
+        {'last_verse_advance_date': tampered.toIso8601String()},
+      );
+      expect(s.lastVerseAdvanceDate, isNull);
+    });
   });
 
   group('AppSettings.copyWith', () {

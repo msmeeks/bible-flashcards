@@ -152,4 +152,47 @@ void main() {
       expect(provider2.settings.showOnLockScreen, isTrue);
     });
   });
+
+  group('SettingsProvider auto-advance verse of week persistence', () {
+    test('update persists autoAdvanceVerseOfWeek and lastVerseAdvanceDate',
+        () async {
+      final provider = SettingsProvider();
+      final date = DateTime(2026, 6, 21);
+      await provider.update(
+        AppSettings(
+          autoAdvanceVerseOfWeek: true,
+          lastVerseAdvanceDate: date,
+        ),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('auto_advance_verse_of_week'), isTrue);
+      expect(
+        prefs.getString('last_verse_advance_date'),
+        date.toIso8601String(),
+      );
+    });
+
+    test('update with null lastVerseAdvanceDate removes the key', () async {
+      SharedPreferences.setMockInitialValues({
+        'last_verse_advance_date': DateTime(2026, 6, 21).toIso8601String(),
+      });
+      final provider = SettingsProvider();
+      await provider.update(const AppSettings());
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('last_verse_advance_date'), isNull);
+    });
+
+    test('load restores autoAdvanceVerseOfWeek and lastVerseAdvanceDate',
+        () async {
+      final date = DateTime(2026, 6, 21);
+      SharedPreferences.setMockInitialValues({
+        'auto_advance_verse_of_week': true,
+        'last_verse_advance_date': date.toIso8601String(),
+      });
+      final provider = SettingsProvider();
+      await provider.load();
+      expect(provider.settings.autoAdvanceVerseOfWeek, isTrue);
+      expect(provider.settings.lastVerseAdvanceDate, date);
+    });
+  });
 }

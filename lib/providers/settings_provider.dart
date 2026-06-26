@@ -29,6 +29,8 @@ class SettingsProvider extends ChangeNotifier {
       'last_backup_at': prefs.getString('last_backup_at'),
       'drive_consent_at': prefs.getString('drive_consent_at'),
       'drive_consent_version': prefs.getInt('drive_consent_version'),
+      'auto_advance_verse_of_week': prefs.getBool('auto_advance_verse_of_week'),
+      'last_verse_advance_date': prefs.getString('last_verse_advance_date'),
     });
     notifyListeners();
   }
@@ -81,5 +83,15 @@ class SettingsProvider extends ChangeNotifier {
     }
     await prefs.setInt(
         'drive_consent_version', appSettings.driveConsentVersion);
+
+    await prefs.setBool('auto_advance_verse_of_week',
+        appSettings.autoAdvanceVerseOfWeek);
+    final advanceDate = appSettings.lastVerseAdvanceDate;
+    if (advanceDate != null) {
+      await prefs.setString(
+          'last_verse_advance_date', advanceDate.toIso8601String());
+    } else {
+      await prefs.remove('last_verse_advance_date');
+    }
   }
 }
