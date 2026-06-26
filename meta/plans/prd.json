@@ -1,5 +1,5 @@
 {
-  "integration_branch": "integration/batch",
+  "integration_branch": "integration/2026-06-26-esv",
   "smoke_test": "flutter test",
   "feature_branches": [],
   "plans": [
