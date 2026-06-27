@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../utils/book_name_variants.dart' show bookDisplayNames, bookNameToUsfm;
 import 'bible_lookup_service.dart' show LookupException, VerseLookupResult;
+import 'net_security.dart';
 
 /// Fetches verse text from api.esv.org (Crossway's ESV API).
 ///
@@ -55,7 +56,7 @@ class EsvLookupService {
       'include-headings': 'false',
       'include-short-copyright': 'false',
     });
-    _assertHttps(uri);
+    assertAllowedHttpsHost(uri, {_allowedHost});
 
     late final http.Response response;
     try {
@@ -99,11 +100,6 @@ class EsvLookupService {
     final endVerse = m.group(4);
     final verseRange = endVerse != null ? '$startVerse-$endVerse' : startVerse;
     return '$displayName $chapter:$verseRange';
-  }
-
-  void _assertHttps(Uri uri) {
-    if (uri.scheme != 'https') throw StateError('Non-HTTPS URL rejected.');
-    if (uri.host != _allowedHost) throw StateError('Disallowed host: ${uri.host}');
   }
 
   VerseLookupResult _parse(String body, String reference) {

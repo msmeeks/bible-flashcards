@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../utils/book_name_variants.dart' show bookNameToUsfm;
+import 'net_security.dart';
 
 class VerseLookupResult {
   const VerseLookupResult({
@@ -73,7 +74,7 @@ class BibleLookupService {
 
     final ref = _parseRef(reference);
     final uri = Uri.parse('$_baseUrl/$translationId/${ref.usfm}/${ref.chapter}.json');
-    _assertHttps(uri);
+    assertAllowedHttpsHost(uri, {_allowedHost});
 
     late final http.Response response;
     try {
@@ -115,11 +116,6 @@ class BibleLookupService {
       throw const LookupException('Unknown book name. Check spelling and try again.');
     }
     return _VerseRef(usfm: usfm, chapter: chapter, startVerse: startVerse, endVerse: endVerse);
-  }
-
-  void _assertHttps(Uri uri) {
-    if (uri.scheme != 'https') throw StateError('Non-HTTPS URL rejected.');
-    if (uri.host != _allowedHost) throw StateError('Disallowed host: ${uri.host}');
   }
 
   VerseLookupResult _parse(

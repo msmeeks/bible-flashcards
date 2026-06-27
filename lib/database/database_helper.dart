@@ -12,7 +12,6 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/test_result.dart';
 import '../models/verse.dart';
-import '../services/bible_lookup_service.dart' show LookupException;
 import '../utils/book_name_variants.dart'
     show bookDisplayNames, maxCustomVariants, maxVariantLength, normalizeBookNameKey;
 
@@ -285,7 +284,7 @@ class DatabaseHelper {
       );
       final count = rows.first['c'] as int;
       if (count >= cap) {
-        throw const LookupException('ESV verse limit reached (500).');
+        throw const EsvVerseCapExceededException('ESV verse limit reached (500).');
       }
       await txn.insert(
         'verses',
@@ -509,4 +508,15 @@ class DatabaseHelper {
       );
     });
   }
+}
+
+/// Thrown by [DatabaseHelper.insertEsvVerse] when Crossway's 500-verse
+/// storage cap is reached. DB-layer exception, not the service-layer
+/// [LookupException] used by lookup network calls.
+class EsvVerseCapExceededException implements Exception {
+  const EsvVerseCapExceededException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
 }

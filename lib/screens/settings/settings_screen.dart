@@ -305,7 +305,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Symbols.open_in_new_rounded),
             onTap: () async {
               final uri = Uri.parse('https://www.esv.org');
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
+              bool launched = false;
+              try {
+                launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+              } catch (_) {
+                launched = false;
+              }
+              if (!launched && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not open ESV.org.')),
+                );
+              }
             },
           ),
         ],

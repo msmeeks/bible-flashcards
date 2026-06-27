@@ -79,6 +79,114 @@
       "blocked_by": [
         "feat-esv-lookup.md"
       ]
+    },
+    {
+      "file": "fix-net-security-shared.md",
+      "issues": [
+        72,
+        74,
+        76
+      ],
+      "size": "S",
+      "status": "done",
+      "attempts": 2,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-translation-selection-consistency.md",
+      "issues": [
+        73,
+        77,
+        88
+      ],
+      "size": "M",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "refactor-audio-settings-dedup.md",
+      "issues": [
+        75,
+        78
+      ],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-esv-copyright-footer.md",
+      "issues": [
+        80,
+        81,
+        82,
+        83,
+        87
+      ],
+      "size": "M",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-add-verse-ui-polish.md",
+      "issues": [
+        84,
+        85,
+        86,
+        89,
+        90
+      ],
+      "size": "M",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": [
+        "fix-translation-selection-consistency.md"
+      ]
+    },
+    {
+      "file": "test-esv-coverage-gaps.md",
+      "issues": [
+        91,
+        92,
+        93,
+        94,
+        95,
+        96
+      ],
+      "size": "L",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
     }
+  ],
+  "sdlc_review_status": "complete",
+  "sdlc_finding_issues": [
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96
   ]
 }

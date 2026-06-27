@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/providers/settings_provider.dart';
@@ -9,6 +12,19 @@ import 'package:bible_flashcards/providers/tracking_provider.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
 import 'package:bible_flashcards/screens/settings/settings_screen.dart';
 import 'package:bible_flashcards/services/notification_service.dart';
+
+class _ThrowingUrlLauncherPlatform extends UrlLauncherPlatform {
+  @override
+  LinkDelegate? get linkDelegate => null;
+
+  @override
+  Future<bool> canLaunch(String url) async => false;
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) {
+    throw PlatformException(code: 'NO_HANDLER', message: 'no app to handle url');
+  }
+}
 
 // Mirrors the provider tree BibleFlashcardsApp builds in lib/app.dart.
 Widget _wrap() {
@@ -128,6 +144,24 @@ void main() {
         ),
       );
       expect(segmentedButton.selected, {'KJV'});
+    },
+  );
+
+  testWidgets(
+    'tapping ESV.org shows a fallback message when no app can handle the link',
+    (tester) async {
+      final originalPlatform = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = _ThrowingUrlLauncherPlatform();
+      addTearDown(() => UrlLauncherPlatform.instance = originalPlatform);
+
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+      await tester.scrollUntilVisible(find.text('ESV.org'), 200);
+
+      await tester.tap(find.text('ESV.org'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Could not open ESV.org.'), findsOneWidget);
     },
   );
 }

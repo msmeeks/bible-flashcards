@@ -7,6 +7,8 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'net_security.dart';
+
 /// Fetches and caches Crossway ESV audio recordings from api.esv.org.
 ///
 /// Two-request pattern: the Authorization header is sent only to api.esv.org
@@ -76,8 +78,10 @@ class EsvAudioCacheService {
 
   Future<Uri> _resolveCdnUri(String reference) async {
     final resolveUri = Uri.parse(_audioBaseUrl).replace(queryParameters: {'q': reference});
-    if (resolveUri.scheme != 'https' || resolveUri.host != 'api.esv.org') {
-      throw EsvAudioException('Disallowed host: ${resolveUri.host}');
+    try {
+      assertAllowedHttpsHost(resolveUri, {'api.esv.org'});
+    } on StateError catch (e) {
+      throw EsvAudioException(e.message);
     }
 
     final resolveRequest = http.Request('GET', resolveUri)
@@ -101,9 +105,10 @@ class EsvAudioCacheService {
   }
 
   void _assertAllowedAudioHost(Uri uri) {
-    if (uri.scheme != 'https') throw EsvAudioException('Non-HTTPS redirect: ${uri.scheme}');
-    if (!_allowedAudioHosts.contains(uri.host)) {
-      throw EsvAudioException('Unexpected audio host: ${uri.host}');
+    try {
+      assertAllowedHttpsHost(uri, _allowedAudioHosts);
+    } on StateError catch (e) {
+      throw EsvAudioException(e.message);
     }
   }
 

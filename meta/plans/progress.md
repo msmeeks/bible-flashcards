@@ -1,5 +1,51 @@
 # Progress Log
 
+## 2026-06-26 — fix-net-security-shared.md (#72, #74, #76)
+
+Implemented the three security/architecture hygiene findings from the SDLC
+review of the ESV integration branch. Picked this plan over the other
+unblocked pending plans because it's security/layering-relevant (highest
+priority per the prioritization rule), self-contained, and had no
+dependencies.
+
+- `lib/services/net_security.dart` (new): `assertAllowedHttpsHost(Uri uri,
+  Set<String> allowedHosts)` — throws `StateError` on non-https scheme or
+  disallowed host. Added with TDD (`test/services/net_security_test.dart`,
+  3 cases: allowed host, non-https rejection, disallowed-host rejection).
+- `lib/services/bible_lookup_service.dart`, `lib/services/esv_lookup_service.dart`:
+  replaced their private `_assertHttps` inline duplicate with a call to the
+  shared helper; removed the now-dead private method from both.
+- `lib/services/esv_audio_cache_service.dart`: both of its host checks
+  (the `api.esv.org` redirect-resolve guard and the `audio.esv.org` CDN
+  guard) now call the shared helper, with the `StateError` it throws
+  re-wrapped into `EsvAudioException` so existing callers/tests (which
+  expect `EsvAudioException`, not `StateError`) are unaffected.
+- `lib/database/database_helper.dart`: removed the `LookupException` import
+  (a service-layer type the DB layer had no business depending on);
+  `insertEsvVerse` now throws a new DB-owned `EsvVerseCapExceededException`
+  on cap-exceeded instead. No caller needed updating — `add_verse_screen.dart`
+  catches the save path generically (`catch (_)`), not by `LookupException`
+  type, so the user-facing save-error message is unchanged. No DB-backed
+  unit test was added for the new exception type — there is no sqlite test
+  harness for `DatabaseHelper` in this repo (same untested boundary noted in
+  every prior `insertEsvVerse`-adjacent entry).
+- `lib/screens/settings/settings_screen.dart`: the "ESV.org" `ListTile.onTap`
+  now wraps `launchUrl` in try/catch and shows a `SnackBar` ("Could not open
+  ESV.org.") if it throws or returns false, matching the existing defensive
+  SnackBar-fallback pattern already used for the notification-permission
+  case in this same file. Added `url_launcher_platform_interface` as an
+  explicit `dev_dependency` (was previously only a transitive dependency) so
+  the new test could install a throwing fake `UrlLauncherPlatform` and
+  exercise the failure path without a real platform channel — new test in
+  `test/screens/settings/settings_screen_test.dart`.
+- `docs/features/verse-management.md`, `docs/features/audio.md`,
+  `docs/features/esv-attribution.md`, `docs/llms.md`: updated via
+  `sdlc-doc-writer` to reflect the shared helper and exception rename.
+
+`flutter test` passes (349 total; same 1 pre-existing unrelated failure in
+`test/widget_test.dart`). `flutter analyze` clean (same pre-existing
+deprecation infos and `widget_test.dart` issue, unrelated to this change).
+
 ## 2026-06-26 — feat-esv-audio.md (#70)
 
 Implemented ESV audio playback — the last pending plan, previously skipped
