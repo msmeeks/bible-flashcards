@@ -5,6 +5,8 @@ class AppSettings {
   // on the nullable dailyNotificationTime field.
   static const Object _sentinel = Object();
 
+  // UI displays these as "Verse-of-week probability" / its enabling switch —
+  // names are intentionally unchanged here to avoid a pref-key migration.
   final bool audioInterruptEnabled;
   final double audioInterruptProbability; // default 0.5
   final int audioInterruptAfterMinutes; // default 60

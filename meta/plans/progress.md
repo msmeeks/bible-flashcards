@@ -1,5 +1,59 @@
 # Progress Log
 
+## 2026-06-26 — fix-translation-selection-consistency.md (#73, #77, #88)
+
+Picked this over the other unblocked pending plans because it unblocks
+`fix-add-verse-ui-polish.md` and resolves a real availability-gating bug
+(#73) rather than being pure polish or dedup.
+
+- `lib/services/esv_lookup_service.dart`: added `static bool get
+  isApiKeyConfigured` — reads the compile-time `ESV_API_KEY` define directly,
+  without constructing an instance/`http.Client`. Existing instance
+  `isAvailable` getter unchanged (still used by `add_verse_screen.dart`,
+  which already holds a long-lived instance for lookups).
+- `lib/screens/settings/settings_screen.dart`: the "Default translation"
+  `SegmentedButton` now only offers an ESV segment when
+  `EsvLookupService.isApiKeyConfigured` is true — previously it always
+  showed BSB/KJV/WEB/ESV regardless of key availability (#73). If the saved
+  `defaultTranslation` is `'ESV'` but no key is configured (e.g. a build
+  without the key inherited a pref written by one that had it), the screen
+  displays `'BSB'` as the effective selection without overwriting the
+  stored preference — same fallback idiom `add_verse_screen.dart` already
+  used. The personal-use notice subtitle only renders for that effective
+  selection, so it no longer appears when ESV isn't actually selectable.
+- `lib/models/settings.dart`: added a comment above
+  `audioInterruptEnabled`/`audioInterruptProbability` noting the UI displays
+  these as "Verse-of-week probability" (#77) — left the stored field/pref-key
+  names unchanged rather than writing a migration, per the plan's lighter-
+  option guidance.
+- `lib/screens/verses/add_verse_screen.dart`: removed the separate
+  `ActionChip` ESV toggle (#88) — it folded "ESV · Personal use · 500-verse
+  cap" usage-note text into the tappable control, diverging from Settings'
+  `SegmentedButton` idiom for the same logical choice. ESV is now a 4th
+  `ButtonSegment` in the same `SegmentedButton<String>` as BSB/KJV/WEB (still
+  gated behind `_esvLookupService.isAvailable`). The usage note is now static
+  caption `Text` below the control, shown only when ESV is available and
+  currently selected.
+- Tests: `test/services/esv_lookup_service_test.dart` (new
+  `isApiKeyConfigured` case); `test/screens/settings/settings_screen_test.dart`
+  (replaced the test that asserted the old, buggy "ESV always selectable"
+  behavior with one asserting the segment is hidden and the saved-but-
+  unavailable `'ESV'` default displays as `'BSB'`); `test/screens/verses/
+  add_verse_screen_test.dart` (new regression test confirming no separate
+  `ActionChip` exists). The "ESV actually available" rendering path for both
+  screens isn't independently tested — `EsvLookupService.isAvailable`/
+  `isApiKeyConfigured` both read the compile-time `ESV_API_KEY` define, which
+  is empty in this test environment and not constructor-injectable on either
+  screen, the same kind of untested boundary noted for `AudioService`'s ESV
+  branch in the `feat-esv-audio.md` entry above.
+- Docs updated via `sdlc-doc-writer`:
+  `docs/features/verse-management.md` (ESV lookup section, Default
+  Translation Setting section, changelog row).
+
+`flutter test` passes (350 passed; same 1 pre-existing unrelated failure in
+`test/widget_test.dart` noted in every prior entry). `flutter analyze` clean
+(same pre-existing deprecation infos and `widget_test.dart` issue).
+
 ## 2026-06-26 — fix-net-security-shared.md (#72, #74, #76)
 
 Implemented the three security/architecture hygiene findings from the SDLC

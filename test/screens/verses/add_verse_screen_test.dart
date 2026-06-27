@@ -67,4 +67,30 @@ void main() {
       expect(segmentedButton.selected, {'BSB'});
     },
   );
+
+  testWidgets(
+    'translation selector has no separate ActionChip toggle for ESV; '
+    'it is a segment in the same SegmentedButton as the other translations',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      await settingsProvider.update(
+        const AppSettings().copyWith(defaultTranslation: 'BSB'),
+      );
+
+      await tester.pumpWidget(_wrap(settingsProvider));
+      await tester.pump();
+
+      expect(find.byType(ActionChip), findsNothing);
+      final segmentedButton = tester.widget<SegmentedButton<String>>(
+        find.byWidgetPredicate(
+          (w) => w is SegmentedButton<String> && w.selected.contains('BSB'),
+        ),
+      );
+      // ESV segment isn't offered in this test build (no API key configured).
+      expect(
+        segmentedButton.segments.any((s) => s.value == 'ESV'),
+        isFalse,
+      );
+    },
+  );
 }

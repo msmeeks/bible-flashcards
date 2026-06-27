@@ -418,10 +418,12 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               label: 'Translation',
               container: true,
               child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'BSB', label: Text('BSB')),
-                  ButtonSegment(value: 'KJV', label: Text('KJV')),
-                  ButtonSegment(value: 'WEB', label: Text('WEB')),
+                segments: [
+                  const ButtonSegment(value: 'BSB', label: Text('BSB')),
+                  const ButtonSegment(value: 'KJV', label: Text('KJV')),
+                  const ButtonSegment(value: 'WEB', label: Text('WEB')),
+                  if (_esvLookupService.isAvailable)
+                    const ButtonSegment(value: 'ESV', label: Text('ESV')),
                 ],
                 selected: {_translation},
                 onSelectionChanged: (values) {
@@ -434,25 +436,11 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                 },
               ),
             ),
-            if (_esvLookupService.isAvailable) ...[
+            if (_esvLookupService.isAvailable && _translation == 'ESV') ...[
               const SizedBox(height: 8),
-              ActionChip(
-                avatar: Icon(
-                  Symbols.info_rounded,
-                  size: 16,
-                  color: _translation == 'ESV'
-                      ? cs.onSecondaryContainer
-                      : cs.onSurfaceVariant,
-                ),
-                label: const Text('ESV · Personal use · 500-verse cap'),
-                backgroundColor:
-                    _translation == 'ESV' ? cs.secondaryContainer : null,
-                onPressed: () {
-                  setState(() {
-                    _translation = 'ESV';
-                    _capWarning = null;
-                  });
-                },
+              Text(
+                'ESV · Personal use · 500-verse cap',
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
             ],
             const SizedBox(height: 32),

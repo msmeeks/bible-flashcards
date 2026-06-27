@@ -18,6 +18,14 @@ class EsvLookupService {
       : _client = client ?? http.Client(),
         _apiKey = apiKey;
 
+  static const String _compiledApiKey = String.fromEnvironment('ESV_API_KEY');
+
+  /// True when the build was compiled with a non-empty `ESV_API_KEY`.
+  /// Cheap to check (no instance/http.Client required) — use this to decide
+  /// whether to render the ESV option in UI that doesn't already hold a
+  /// service instance.
+  static bool get isApiKeyConfigured => _compiledApiKey.isNotEmpty;
+
   static const _allowedHost = 'api.esv.org';
   static const _baseUrl = 'https://api.esv.org/v3/passage/text/';
 

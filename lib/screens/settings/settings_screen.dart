@@ -10,6 +10,7 @@ import '../../providers/tracking_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../services/audio_interrupt_service.dart';
 import '../../services/audio_service.dart';
+import '../../services/esv_lookup_service.dart';
 import '../../services/notification_service.dart';
 import 'book_variants_screen.dart';
 import 'data_management_screen.dart';
@@ -39,6 +40,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = settingsProvider.settings;
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    // Saved default may be 'ESV' from a build that had a key configured;
+    // fall back to BSB for display when this build has none, mirroring
+    // AddVerseScreen's fallback for the same situation.
+    final effectiveDefaultTranslation =
+        settings.defaultTranslation == 'ESV' &&
+                !EsvLookupService.isApiKeyConfigured
+            ? 'BSB'
+            : settings.defaultTranslation;
+    final esvSelected = effectiveDefaultTranslation == 'ESV';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -165,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           MergeSemantics(
             child: ListTile(
               title: const Text('Default translation'),
-              subtitle: settings.defaultTranslation == 'ESV'
+              subtitle: esvSelected
                   ? Semantics(
                       liveRegion: true,
                       label: 'ESV is for personal, non-commercial use only.',
@@ -178,13 +188,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     )
                   : null,
               trailing: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'BSB', label: Text('BSB')),
-                  ButtonSegment(value: 'KJV', label: Text('KJV')),
-                  ButtonSegment(value: 'WEB', label: Text('WEB')),
-                  ButtonSegment(value: 'ESV', label: Text('ESV')),
+                segments: [
+                  const ButtonSegment(value: 'BSB', label: Text('BSB')),
+                  const ButtonSegment(value: 'KJV', label: Text('KJV')),
+                  const ButtonSegment(value: 'WEB', label: Text('WEB')),
+                  if (EsvLookupService.isApiKeyConfigured)
+                    const ButtonSegment(value: 'ESV', label: Text('ESV')),
                 ],
-                selected: {settings.defaultTranslation},
+                selected: {effectiveDefaultTranslation},
                 onSelectionChanged: (selected) {
                   settingsProvider.update(
                     settings.copyWith(defaultTranslation: selected.first),

@@ -103,7 +103,8 @@ void main() {
   );
 
   testWidgets(
-    'Default translation control shows ESV selected and the personal-use notice by default',
+    'Default translation control hides the ESV segment when no API key is configured '
+    'and falls back to BSB display, even though the saved default is ESV',
     (tester) async {
       await tester.pumpWidget(_wrap());
       await tester.pump();
@@ -112,13 +113,19 @@ void main() {
       expect(find.text('Default translation'), findsOneWidget);
       final segmentedButton = tester.widget<SegmentedButton<String>>(
         find.byWidgetPredicate(
-          (w) => w is SegmentedButton<String> && w.selected.contains('ESV'),
+          (w) =>
+              w is SegmentedButton<String> &&
+              w.segments.any((s) => s.value == 'KJV'),
         ),
       );
-      expect(segmentedButton.selected, {'ESV'});
+      expect(
+        segmentedButton.segments.any((s) => s.value == 'ESV'),
+        isFalse,
+      );
+      expect(segmentedButton.selected, {'BSB'});
       expect(
         find.text('ESV is for personal, non-commercial use only.'),
-        findsOneWidget,
+        findsNothing,
       );
     },
   );

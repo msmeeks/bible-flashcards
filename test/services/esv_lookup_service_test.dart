@@ -106,6 +106,11 @@ void main() {
       service.dispose();
     });
 
+    test('isApiKeyConfigured reflects the compiled API key without constructing a client', () {
+      // Compiled with no ESV_API_KEY define in the test environment.
+      expect(EsvLookupService.isApiKeyConfigured, isFalse);
+    });
+
     test('lookup throws StateError when API key is empty', () async {
       final service = EsvLookupService(client: _mockClient(200, '{}'), apiKey: '');
       await expectLater(service.lookup('John 3:16'), throwsA(isA<StateError>()));
