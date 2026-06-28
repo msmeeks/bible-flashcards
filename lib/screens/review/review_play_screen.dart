@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/audio_provider.dart';
 import '../../widgets/esv_copyright_footer.dart';
+import '../settings/settings_screen.dart';
 
 /// Fullscreen "Now Playing" presentation for a queued review session.
 ///
@@ -140,6 +141,11 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                   EsvCopyrightFooter(
                     hasEsvContent:
                         audio.queue.any((v) => v.translation == 'ESV'),
+                    onViewFullTerms: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    ),
                   ),
                 ],
               ),

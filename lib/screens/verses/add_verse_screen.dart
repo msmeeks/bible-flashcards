@@ -10,6 +10,7 @@ import '../../services/bible_lookup_service.dart';
 import '../../services/esv_lookup_service.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/esv_copyright_footer.dart';
+import '../settings/settings_screen.dart';
 
 class AddVerseScreen extends StatefulWidget {
   const AddVerseScreen({super.key});
@@ -499,6 +500,9 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
             ),
             EsvCopyrightFooter(
               hasEsvContent: _translation == 'ESV' && _preview != null,
+              onViewFullTerms: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              ),
             ),
           ],
         ),

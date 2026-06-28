@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../screens/settings/settings_screen.dart';
+import 'announce_on_change.dart';
 
 const _prefsKey = 'esv_footer_collapsed_v1';
 
 class EsvCopyrightFooter extends StatefulWidget {
   final bool hasEsvContent;
+  final VoidCallback onViewFullTerms;
 
-  const EsvCopyrightFooter({super.key, required this.hasEsvContent});
+  const EsvCopyrightFooter({
+    super.key,
+    required this.hasEsvContent,
+    required this.onViewFullTerms,
+  });
 
   @override
   State<EsvCopyrightFooter> createState() => _EsvCopyrightFooterState();
@@ -40,69 +45,48 @@ class _EsvCopyrightFooterState extends State<EsvCopyrightFooter> {
     await prefs.setBool(_prefsKey, collapsed);
   }
 
-  void _navigateToEsvSettings() {
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
-  }
-
   Widget _buildCollapsed(TextTheme tt) {
-    return Semantics(
-      button: true,
-      expanded: false,
-      label: 'ESV copyright notice. Collapsed. Activate to expand.',
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: () => _setCollapsed(false),
-        child: SizedBox(
-          height: 48,
-          child: Row(
-            children: [
-              const SizedBox(width: 16),
-              Text('ESV®', style: tt.labelSmall),
-              const SizedBox(width: 4),
-              const Icon(Symbols.expand_more_rounded, size: 16),
-            ],
-          ),
-        ),
+    return IconButton(
+      tooltip: 'Expand copyright notice',
+      onPressed: () => _setCollapsed(false),
+      icon: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('ESV®', style: tt.labelSmall),
+          const SizedBox(width: 4),
+          const Icon(Symbols.expand_more_rounded, size: 16),
+        ],
       ),
     );
   }
 
   Widget _buildExpanded(TextTheme tt) {
-    return Semantics(
-      expanded: true,
-      label: 'ESV copyright notice. Expanded.',
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Scripture quotations are from the ESV® Bible, '
-                    '© 2001 by Crossway. Used by permission.',
-                    style: tt.labelSmall,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Scripture quotations are from the ESV® Bible, '
+                  '© 2001 by Crossway. Used by permission.',
+                  style: tt.labelSmall,
                 ),
-                IconButton(
-                  tooltip: 'Collapse copyright notice',
-                  icon: const Icon(Symbols.expand_less_rounded, size: 16),
-                  onPressed: () => _setCollapsed(true),
-                ),
-              ],
-            ),
-            Semantics(
-              label: 'View full ESV copyright terms in Settings',
-              excludeSemantics: true,
-              child: TextButton(
-                onPressed: _navigateToEsvSettings,
-                child: const Text('Full terms in Settings'),
               ),
-            ),
-          ],
-        ),
+              IconButton(
+                tooltip: 'Collapse copyright notice',
+                icon: const Icon(Symbols.expand_less_rounded, size: 16),
+                onPressed: () => _setCollapsed(true),
+              ),
+            ],
+          ),
+          TextButton(
+            onPressed: widget.onViewFullTerms,
+            child: const Text('Full terms in Settings'),
+          ),
+        ],
       ),
     );
   }
@@ -114,26 +98,29 @@ class _EsvCopyrightFooterState extends State<EsvCopyrightFooter> {
 
     final tt = Theme.of(context).textTheme;
     final reducedMotion = MediaQuery.of(context).disableAnimations;
-    final content = _collapsed ? _buildCollapsed(tt) : _buildExpanded(tt);
+    final announcement = _collapsed
+        ? 'ESV copyright notice collapsed'
+        : 'ESV copyright notice expanded';
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Semantics(
-          liveRegion: true,
-          label: _collapsed
-              ? 'ESV copyright notice collapsed'
-              : 'ESV copyright notice expanded',
-          child: const SizedBox.shrink(),
-        ),
-        reducedMotion
-            ? content
-            : AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                alignment: Alignment.topCenter,
-                child: content,
-              ),
-      ],
+    return AnnounceOnChange(
+      value: announcement,
+      builder: (context, liveRegion) {
+        final content = _collapsed ? _buildCollapsed(tt) : _buildExpanded(tt);
+        return Semantics(
+          container: true,
+          explicitChildNodes: true,
+          liveRegion: liveRegion,
+          expanded: !_collapsed,
+          label: announcement,
+          child: reducedMotion
+              ? content
+              : AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  alignment: Alignment.topCenter,
+                  child: content,
+                ),
+        );
+      },
     );
   }
 }

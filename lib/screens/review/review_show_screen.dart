@@ -4,6 +4,7 @@ import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../widgets/esv_copyright_footer.dart';
 import '../../widgets/verse_card.dart';
+import '../settings/settings_screen.dart';
 
 class ReviewShowScreen extends StatelessWidget {
   const ReviewShowScreen({super.key, required this.verses});
@@ -30,6 +31,9 @@ class ReviewShowScreen extends StatelessWidget {
           ),
           EsvCopyrightFooter(
             hasEsvContent: verses.any((v) => v.translation == 'ESV'),
+            onViewFullTerms: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
           ),
         ],
       ),

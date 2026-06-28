@@ -12,6 +12,7 @@ import '../../services/audio_interrupt_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/esv_lookup_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/announce_on_change.dart';
 import 'book_variants_screen.dart';
 import 'data_management_screen.dart';
 import 'test_history_screen.dart';
@@ -175,18 +176,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           MergeSemantics(
             child: ListTile(
               title: const Text('Default translation'),
-              subtitle: esvSelected
-                  ? Semantics(
-                      liveRegion: true,
-                      label: 'ESV is for personal, non-commercial use only.',
-                      child: Text(
-                        'ESV is for personal, non-commercial use only.',
-                        style: tt.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
+              subtitle: AnnounceOnChange(
+                value: esvSelected.toString(),
+                builder: (context, liveRegion) => esvSelected
+                    ? Semantics(
+                        liveRegion: liveRegion,
+                        label:
+                            'ESV is for personal, non-commercial use only.',
+                        child: Text(
+                          'ESV is for personal, non-commercial use only.',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                    )
-                  : null,
+                      )
+                    : const SizedBox.shrink(),
+              ),
               trailing: SegmentedButton<String>(
                 segments: [
                   const ButtonSegment(value: 'BSB', label: Text('BSB')),

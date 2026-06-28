@@ -11,6 +11,7 @@ import '../../providers/audio_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../widgets/esv_copyright_footer.dart';
 import '../../widgets/verse_card.dart';
+import '../settings/settings_screen.dart';
 
 class VerseDetailScreen extends StatefulWidget {
   const VerseDetailScreen({super.key});
@@ -111,6 +112,9 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
               ],
               EsvCopyrightFooter(
                 hasEsvContent: verse.translation == 'ESV',
+                onViewFullTerms: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
               ),
             ],
           ),

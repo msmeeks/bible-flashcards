@@ -12,6 +12,7 @@ import '../../services/speech_recognition_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/scoring.dart';
 import '../../widgets/esv_copyright_footer.dart';
+import '../settings/settings_screen.dart';
 import 'test_enums.dart';
 import 'test_result_screen.dart';
 
@@ -510,6 +511,9 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
             ),
             EsvCopyrightFooter(
               hasEsvContent: _currentVerse.translation == 'ESV',
+              onViewFullTerms: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              ),
             ),
           ],
         ),

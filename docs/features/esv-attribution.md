@@ -10,16 +10,17 @@ Crossway's ESV API terms require a visible copyright notice with an esv.org link
 - `shared_preferences` — persists the footer's collapsed/expanded state across the whole app (single shared key, not per-screen)
 - `url_launcher` — opens esv.org in an external browser from Settings
 - `material_symbols_icons` — expand/collapse chevrons
-- Flutter `Semantics`/`liveRegion` — accessible state announcements
+- Flutter `Semantics`/`liveRegion` via `AnnounceOnChange` — accessible state announcements, fired once per real change
 
 ## Technical Overview
-`EsvCopyrightFooter` (`lib/widgets/esv_copyright_footer.dart`) is a stateful widget taking a single `hasEsvContent` flag; callers compute that flag from whatever verse(s) are visible on screen. It renders nothing if `hasEsvContent` is false or before the persisted collapse preference has loaded (avoiding a flash of the wrong state). The widget is wired into every screen that can display ESV verse text: Add Verse (preview), Verse Detail, Test session, Review Show, and Review Play. Settings carries the permanent, non-collapsible full notice plus an external link, independent of the per-screen footer.
+`EsvCopyrightFooter` (`lib/widgets/esv_copyright_footer.dart`) is a stateful widget taking a `hasEsvContent` flag and a required `onViewFullTerms: VoidCallback`; callers compute the flag from whatever verse(s) are visible on screen and supply the callback to navigate to Settings. It renders nothing if `hasEsvContent` is false or before the persisted collapse preference has loaded (avoiding a flash of the wrong state). The widget is wired into every screen that can display ESV verse text: Add Verse (preview), Verse Detail, Test session, Review Show, and Review Play. Settings carries the permanent, non-collapsible full notice plus an external link, independent of the per-screen footer. The footer no longer imports `SettingsScreen` directly — navigation is the caller's responsibility via `onViewFullTerms`, decoupling the widget from the screen layer.
 
 ## Key Files
 | File | Purpose |
 |---|---|
-| `lib/widgets/esv_copyright_footer.dart` | Collapsible footer widget; loads/persists `esv_footer_collapsed_v1` via `shared_preferences` |
-| `lib/screens/verses/add_verse_screen.dart` | Renders footer in the save-confirmation dialog when an ESV preview is showing |
+| `lib/widgets/esv_copyright_footer.dart` | Collapsible footer widget; loads/persists `esv_footer_collapsed_v1` via `shared_preferences`; takes `onViewFullTerms` callback instead of navigating itself |
+| `lib/widgets/announce_on_change.dart` | Generic helper: flags a `Semantics` live region for exactly one frame after a tracked `value` actually changes, then clears it — prevents duplicate/spurious screen-reader announcements on unrelated rebuilds. Used by `EsvCopyrightFooter` and the Settings ESV notice |
+| `lib/screens/verses/add_verse_screen.dart` | Renders footer in the save-confirmation dialog when an ESV preview is showing; passes `onViewFullTerms` that pushes `SettingsScreen` |
 | `lib/screens/verses/verse_detail_screen.dart` | Renders footer when the displayed verse's translation is ESV |
 | `lib/screens/test/test_session_screen.dart` | Renders footer when the current test card's verse is ESV |
 | `lib/screens/review/review_show_screen.dart` | Renders footer when any verse in the fixed session list is ESV |
@@ -34,10 +35,10 @@ Crossway's ESV API terms require a visible copyright notice with an esv.org link
 Persisted under a single SharedPreferences key (`esv_footer_collapsed_v1`) shared across all screens — collapsing the footer once collapses it everywhere it next appears, rather than per-screen. Defaults to expanded (`false`) when the key is absent. State is loaded asynchronously in `initState`; the widget renders `SizedBox.shrink()` until loaded to avoid a flash of the wrong (default-expanded) state.
 
 ### Collapsed vs Expanded
-- **Collapsed**: a 48px-tall tappable row showing "ESV®" + a chevron-down icon. Tapping anywhere in the row expands.
-- **Expanded**: full Crossway copyright sentence + a collapse icon button + a "Full terms in Settings" `TextButton` that pushes `SettingsScreen`.
+- **Collapsed**: a real `IconButton` (keyboard-focusable, guaranteed 48x48dp tap target) showing "ESV®" + a chevron-down icon. Was previously a bare `InkWell` (not focusable, no guaranteed tap target size).
+- **Expanded**: full Crossway copyright sentence + a collapse `IconButton` + a "Full terms in Settings" `TextButton` calling `widget.onViewFullTerms`.
 
-Both states wrap content in `Semantics` (`button: true` for collapsed, `expanded: true/false`) and an always-present `Semantics(liveRegion: true)` sibling announces "ESV copyright notice expanded/collapsed" on every state change, independent of the visible content's own semantics tree — this guarantees TalkBack announces the transition even though the visible widget subtree is swapped out via `excludeSemantics`.
+A single `Semantics` node wraps the whole footer (`container: true`, `explicitChildNodes: true`, `expanded: true/false`, `label` set to the announcement string), and `liveRegion` is driven by `AnnounceOnChange` keyed on the announcement text ("ESV copyright notice expanded/collapsed"). `AnnounceOnChange` flips `liveRegion` true for exactly one frame after the value actually changes, then resets it — so TalkBack announces the transition exactly once. Previously a duplicate hidden `Semantics(liveRegion: true)` sibling caused the same announcement to fire twice.
 
 Transition between states is wrapped in `AnimatedSize` (200ms), skipped in favor of an instant swap when `MediaQuery.disableAnimations` is true (matches the reduced-motion pattern used elsewhere in the app, e.g. `VerseCard`).
 
@@ -54,8 +55,12 @@ Distinct from the per-screen footer — a permanent `ListTile` with the full Cro
 ### AndroidManifest Queries
 Android 11+ package-visibility restrictions require an explicit `<queries>` declaration for `url_launcher`'s `canLaunchUrl`/`launchUrl` to see installed browser apps; without it, `launchUrl` for an `https` URI can silently fail to find a handler on some devices.
 
+### AnnounceOnChange Helper
+`lib/widgets/announce_on_change.dart` is a small generic widget (`value: String`, `builder: (context, liveRegion) => Widget`) factored out of the footer so the same one-shot-announcement pattern can be reused elsewhere. It detects a real change to `value` in `didUpdateWidget`, sets `liveRegion = true` for the widget's `build`, then schedules a post-frame callback to flip it back to `false`. Settings' ESV default-translation subtitle notice ("ESV is for personal, non-commercial use only.") also uses it, keyed on whether ESV is the currently effective default selection — so opening Settings with ESV already selected doesn't trigger a spurious announcement, only an actual change to/from ESV does.
+
 ## Changelog
 | Date | Change |
 |---|---|
 | 2026-06-26 | Initial implementation (#68): `EsvCopyrightFooter` widget + wiring into Add Verse, Verse Detail, Test session, Review Show, Review Play; Settings "ESV Bible" section with full notice + esv.org link; `AudioProvider.queue` getter added to support Review Play's content check; AndroidManifest `<queries>` entry for `url_launcher` |
 | 2026-06-26 | Hardening (#72, #74, #76): "ESV.org" link tap now guarded with try/catch + fallback SnackBar if `launchUrl` fails or finds no handler |
+| 2026-06-28 | Accessibility hardening (#80, #81, #82, #83, #87): new `AnnounceOnChange` helper (`lib/widgets/announce_on_change.dart`) replaces the duplicate hidden live-region `Semantics` node, fixing double announcements; collapsed toggle is now a focusable 48x48dp `IconButton` instead of a bare `InkWell`; footer no longer imports `SettingsScreen` directly — takes a required `onViewFullTerms: VoidCallback` instead, updated at all 5 call sites; Settings' ESV default-translation notice also adopts `AnnounceOnChange` to avoid announcing on every Settings open |

@@ -1,5 +1,57 @@
 # Progress Log
 
+## 2026-06-28 — fix-esv-copyright-footer.md (#80, #81, #82, #83, #87)
+
+Picked over the other unblocked pending plans (`refactor-audio-settings-dedup.md`,
+`fix-add-verse-ui-polish.md`, `test-esv-coverage-gaps.md`) because a prior attempt
+had already left most of this plan implemented uncommitted in the working tree —
+finishing it avoided discarding that work, and accessibility/layering fixes rank
+above pure UI polish or dedup in the prioritization rule.
+
+The working tree already had: `lib/widgets/announce_on_change.dart` (the shared
+post-frame-reset live-region helper), the `EsvCopyrightFooter` rewrite using it
+plus `IconButton`-based focus for the collapsed toggle and an `onViewFullTerms`
+callback replacing the `SettingsScreen` import, and the two call sites
+(`add_verse_screen.dart`, `review_show_screen.dart`) already passing the callback.
+That left three things broken/missing, which is why `attempts` was already 2:
+
+- `lib/screens/verses/verse_detail_screen.dart`, `lib/screens/review/review_play_screen.dart`,
+  `lib/screens/test/test_session_screen.dart` still called `EsvCopyrightFooter`
+  without the now-required `onViewFullTerms` — a compile error (`flutter analyze`
+  confirmed 3 `missing_required_argument` errors). Fixed all three with the same
+  `Navigator.push(MaterialPageRoute(... SettingsScreen()))` callback used at the
+  other two call sites.
+- `lib/screens/settings/settings_screen.dart`'s ESV default-translation subtitle
+  (#83) still used unconditional `liveRegion: true`. Wrapped it in
+  `AnnounceOnChange` (keyed on `esvSelected.toString()`) so opening Settings with
+  ESV already selected doesn't announce, but switching to/from it does — same
+  fix already applied to the footer itself. The `Semantics`/`Text` is now always
+  present (an empty `SizedBox.shrink()` when not selected) rather than the
+  subtitle being `null`, so `AnnounceOnChange.didUpdateWidget` can observe the
+  transition instead of remounting fresh each time the value flips.
+- `test/widgets/esv_copyright_footer_test.dart`'s two new tests (`does not
+  announce a live region on first mount`, `collapsed toggle is keyboard
+  focusable`) were failing for reasons unrelated to app logic:
+  - The live-region label assertion used `find.bySemanticsLabel` expecting an
+    exact match, but the footer's `Semantics` node was merging the child
+    `Text`'s content into its own label (Flutter merges leaf text into the
+    nearest ancestor node unless told not to). Added `container: true,
+    explicitChildNodes: true` to the footer's outer `Semantics` so it keeps its
+    own label distinct from its children's.
+  - The focus test called `Focus.of()` on the `IconButton`'s own context, but
+    `Focus.of` searches *ancestors* — the `IconButton`'s internal `Focus` (from
+    `InkWell`) is a *descendant*, and calling `Focus.of` on that `Focus`
+    widget's own context has the same ancestor-search problem. Fixed by calling
+    `Focus.of` from a context further inside the tree (the `Icon` descendant),
+    which correctly resolves to the `IconButton`'s internal focus node.
+  - Neither fix touched production accessibility behavior — both were finding
+    the right thing, just via the wrong `BuildContext`/Semantics-node shape.
+
+`flutter analyze`: 0 errors (12 pre-existing info-level deprecation notices,
+same `MyApp` `widget_test.dart` issue noted in every prior entry). `flutter
+test`: all pass except the same single pre-existing `test/widget_test.dart`
+failure noted in every prior entry.
+
 ## 2026-06-26 — fix-translation-selection-consistency.md (#73, #77, #88)
 
 Picked this over the other unblocked pending plans because it unblocks
