@@ -63,7 +63,8 @@ void main() {
         showOnLockScreen: true,
       );
       final restored = AppSettings.fromMap(original.toMap());
-      expect(restored.dailyNotificationTime, const TimeOfDay(hour: 8, minute: 30));
+      expect(
+          restored.dailyNotificationTime, const TimeOfDay(hour: 8, minute: 30));
       expect(restored.notificationType, 'reviewVerse');
       expect(restored.showOnLockScreen, isTrue);
     });
@@ -98,7 +99,8 @@ void main() {
         dailyNotificationTime: TimeOfDay(hour: 0, minute: 0),
       );
       final restored = AppSettings.fromMap(original.toMap());
-      expect(restored.dailyNotificationTime, const TimeOfDay(hour: 0, minute: 0));
+      expect(
+          restored.dailyNotificationTime, const TimeOfDay(hour: 0, minute: 0));
     });
 
     test('end-of-day boundary round-trips correctly', () {
@@ -106,7 +108,88 @@ void main() {
         dailyNotificationTime: TimeOfDay(hour: 23, minute: 59),
       );
       final restored = AppSettings.fromMap(original.toMap());
-      expect(restored.dailyNotificationTime, const TimeOfDay(hour: 23, minute: 59));
+      expect(restored.dailyNotificationTime,
+          const TimeOfDay(hour: 23, minute: 59));
+    });
+
+    test('audioInterruptProbability above 1.0 is clamped to 1.0', () {
+      final s = AppSettings.fromMap({'audio_interrupt_probability': 5.0});
+      expect(s.audioInterruptProbability, 1.0);
+    });
+
+    test('audioInterruptProbability below 0.0 is clamped to 0.0', () {
+      final s = AppSettings.fromMap({'audio_interrupt_probability': -1.0});
+      expect(s.audioInterruptProbability, 0.0);
+    });
+
+    test('defaultTranslation accepts each allowed value', () {
+      for (final t in ['BSB', 'KJV', 'WEB', 'ESV']) {
+        final s = AppSettings.fromMap({'default_translation': t});
+        expect(s.defaultTranslation, t);
+      }
+    });
+
+    test('defaultTranslation falls back to ESV for unrecognized value', () {
+      final s = AppSettings.fromMap({'default_translation': 'NIV'});
+      expect(s.defaultTranslation, 'ESV');
+    });
+
+    test('missing default_translation defaults to ESV', () {
+      final s = AppSettings.fromMap({});
+      expect(s.defaultTranslation, 'ESV');
+    });
+
+    test('autoAdvanceVerseOfWeek and lastVerseAdvanceDate round-trip', () {
+      final original = AppSettings(
+        autoAdvanceVerseOfWeek: true,
+        lastVerseAdvanceDate: DateTime(2026, 6, 21),
+      );
+      final restored = AppSettings.fromMap(original.toMap());
+      expect(restored.autoAdvanceVerseOfWeek, isTrue);
+      expect(restored.lastVerseAdvanceDate, DateTime(2026, 6, 21));
+    });
+
+    test('missing autoAdvanceVerseOfWeek defaults to false', () {
+      final s = AppSettings.fromMap({});
+      expect(s.autoAdvanceVerseOfWeek, isFalse);
+    });
+
+    test('missing lastVerseAdvanceDate defaults to null', () {
+      final s = AppSettings.fromMap({});
+      expect(s.lastVerseAdvanceDate, isNull);
+    });
+
+    test('lastVerseAdvanceDate far in the future is rejected', () {
+      final tampered = DateTime.now().add(const Duration(days: 400));
+      final s = AppSettings.fromMap(
+        {'last_verse_advance_date': tampered.toIso8601String()},
+      );
+      expect(s.lastVerseAdvanceDate, isNull);
+    });
+
+    test('lastVerseAdvanceDate just inside the 365-day window is accepted',
+        () {
+      final justInside = DateTime.now().add(const Duration(days: 364));
+      final s = AppSettings.fromMap(
+        {'last_verse_advance_date': justInside.toIso8601String()},
+      );
+      expect(s.lastVerseAdvanceDate, justInside);
+    });
+
+    test('lastBackupAt far in the future is rejected', () {
+      final tampered = DateTime.now().add(const Duration(days: 400));
+      final s = AppSettings.fromMap(
+        {'last_backup_at': tampered.toIso8601String()},
+      );
+      expect(s.lastBackupAt, isNull);
+    });
+
+    test('lastBackupAt just inside the 365-day window is accepted', () {
+      final justInside = DateTime.now().add(const Duration(days: 364));
+      final s = AppSettings.fromMap(
+        {'last_backup_at': justInside.toIso8601String()},
+      );
+      expect(s.lastBackupAt, justInside);
     });
   });
 
@@ -124,7 +207,8 @@ void main() {
         dailyNotificationTime: TimeOfDay(hour: 9, minute: 0),
       );
       final updated = original.copyWith(notificationType: 'reviewVerse');
-      expect(updated.dailyNotificationTime, const TimeOfDay(hour: 9, minute: 0));
+      expect(
+          updated.dailyNotificationTime, const TimeOfDay(hour: 9, minute: 0));
     });
 
     test('unset fields retain original values', () {
@@ -147,6 +231,21 @@ void main() {
       const original = AppSettings();
       final updated = original.copyWith(notificationType: 'reviewVerse');
       expect(updated.notificationType, 'reviewVerse');
+    });
+
+    test('clearLastVerseAdvanceDate true clears a previously-set date', () {
+      final original = AppSettings(lastVerseAdvanceDate: DateTime(2026, 6, 21));
+      final updated = original.copyWith(clearLastVerseAdvanceDate: true);
+      expect(updated.lastVerseAdvanceDate, isNull);
+    });
+
+    test(
+        'clearLastVerseAdvanceDate false (default) preserves the existing date',
+        () {
+      final date = DateTime(2026, 6, 21);
+      final original = AppSettings(lastVerseAdvanceDate: date);
+      final updated = original.copyWith(notificationType: 'reviewVerse');
+      expect(updated.lastVerseAdvanceDate, date);
     });
   });
 }

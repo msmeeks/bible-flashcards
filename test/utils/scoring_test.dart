@@ -203,6 +203,52 @@ void main() {
       expect(score, computeScore('Mark 4:9', 'Frodo 4:9'));
     });
 
+    test('period separator normalized to colon', () {
+      expect(computeReferenceScore('Phil 4.13', 'Phil 4:13'), 1.0);
+    });
+
+    test('bare space between chapter and verse normalized to colon', () {
+      expect(computeReferenceScore('Phil 4 13', 'Phil 4:13'), 1.0);
+    });
+
+    test('word-form "colon" and "dot" separators normalized', () {
+      expect(computeReferenceScore('Phil 4 colon 13', 'Phil 4:13'), 1.0);
+      expect(computeReferenceScore('Phil 4 dot 13', 'Phil 4:13'), 1.0);
+    });
+
+    test('"to" and "through" range connectors normalized to a dash', () {
+      expect(
+          computeReferenceScore('John 3:16 to 17', 'John 3:16-17'), 1.0);
+      expect(
+          computeReferenceScore('John 3:16 through 17', 'John 3:16-17'),
+          1.0);
+    });
+
+    test('word-form "dash" range connector normalized', () {
+      expect(
+          computeReferenceScore('John 3:16 dash 17', 'John 3:16-17'), 1.0);
+    });
+
+    test('"and" after a chapter:verse token normalized to a range dash', () {
+      expect(
+          computeReferenceScore('John 3:16 and 17', 'John 3:16-17'), 1.0);
+    });
+
+    test('"and" joining book-number prefixes is not mangled', () {
+      final score =
+          computeReferenceScore('1 and 2 Thessalonians 1:1', '1 Peter 3:16');
+      expect(score, computeScore('1 and 2 Thessalonians 1:1', '1 Peter 3:16'));
+    });
+
+    test('normalization completes quickly on a long digit/space fuzz string',
+        () {
+      final fuzz = ('12 ' * 350).trim();
+      final stopwatch = Stopwatch()..start();
+      computeReferenceScore(fuzz, 'Phil 4:13');
+      stopwatch.stop();
+      expect(stopwatch.elapsedMilliseconds, lessThan(100));
+    });
+
     test('non-reference input falls through to plain computeScore', () {
       expect(
         computeReferenceScore('for God so loved', 'for God so loved'),
@@ -224,6 +270,44 @@ void main() {
         customVariants: {'jpet': '1PE'},
       );
       expect(score, 1.0);
+    });
+
+    test(
+        'bare-space verse + trailing "and" range does not fully normalize '
+        '(range connector resolves before the bare-space colon insertion)',
+        () {
+      // Documents the ordering tradeoff called out in
+      // _normalizeReferenceInput: "16 and 17" only becomes a range once a
+      // colon already precedes it, but "3 16" hasn't been colonized yet
+      // when the "and" rule runs, so this falls through to plain LCS.
+      final score = computeReferenceScore('John 3 16 and 17', 'John 3:16-17');
+      expect(score, computeScore('John 3 16 and 17', 'John 3:16-17'));
+      expect(score, lessThan(1.0));
+    });
+
+    test('"to" range connector combined with bare-space chapter:verse matches',
+        () {
+      expect(
+        computeReferenceScore('Phil 4 13 to 14', 'Phil 4:13-14'),
+        1.0,
+      );
+    });
+
+    test('both empty → falls through to computeScore, scores 1.0', () {
+      expect(computeReferenceScore('', ''), 1.0);
+    });
+
+    test('both whitespace-only → falls through to computeScore, scores 1.0',
+        () {
+      expect(computeReferenceScore('   ', '   '), 1.0);
+    });
+
+    test('typed non-empty, correct empty → 0.0', () {
+      expect(computeReferenceScore('John 3:16', ''), 0.0);
+    });
+
+    test('typed empty, correct non-empty → 0.0', () {
+      expect(computeReferenceScore('', 'John 3:16'), 0.0);
     });
   });
 }

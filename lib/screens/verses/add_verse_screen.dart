@@ -3,11 +3,24 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/verse.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../services/bible_lookup_service.dart';
+import '../../services/esv_lookup_service.dart';
+import '../../widgets/esv_copyright_footer.dart';
+import '../../widgets/inline_status_banner.dart';
+import '../settings/settings_screen.dart';
 
 class AddVerseScreen extends StatefulWidget {
-  const AddVerseScreen({super.key});
+  const AddVerseScreen({
+    super.key,
+    @visibleForTesting BibleLookupService? lookupService,
+    @visibleForTesting EsvLookupService? esvLookupService,
+  })  : _lookupServiceOverride = lookupService,
+        _esvLookupServiceOverride = esvLookupService;
+
+  final BibleLookupService? _lookupServiceOverride;
+  final EsvLookupService? _esvLookupServiceOverride;
 
   @override
   State<AddVerseScreen> createState() => _AddVerseScreenState();
@@ -19,16 +32,32 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _textController = TextEditingController();
   final _searchFocusNode = FocusNode();
   final _previewFocusNode = FocusNode();
-  String _translation = 'BSB';
+  late String _translation;
   bool _isSaving = false;
   bool _isLookingUp = false;
   String? _saveError;
   String? _lookupError;
+  String? _capWarning;
   VerseLookupResult? _preview;
 
-  final _lookupService = BibleLookupService();
+  late final _lookupService =
+      widget._lookupServiceOverride ?? BibleLookupService();
+  late final _esvLookupService =
+      widget._esvLookupServiceOverride ?? EsvLookupService();
 
   static const _consentPrefKey = 'bible_lookup_consent_v1';
+  static const _esvConsentPrefKey = 'esv_lookup_consent_v1';
+  static const _esvCap = 500;
+
+  @override
+  void initState() {
+    super.initState();
+    final defaultTranslation =
+        context.read<SettingsProvider>().settings.defaultTranslation;
+    _translation = (defaultTranslation == 'ESV' && !_esvLookupService.isAvailable)
+        ? 'BSB'
+        : defaultTranslation;
+  }
 
   @override
   void dispose() {
@@ -37,25 +66,25 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     _searchFocusNode.dispose();
     _previewFocusNode.dispose();
     _lookupService.dispose();
+    _esvLookupService.dispose();
     super.dispose();
   }
 
-  Future<bool> _ensureConsent() async {
+  Future<bool> _ensureConsentFor({
+    required String prefsKey,
+    required String title,
+    required String body,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_consentPrefKey) == true) return true;
+    if (prefs.getBool(prefsKey) == true) return true;
 
     if (!mounted) return false;
     final agreed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Online Verse Lookup'),
-        content: const Text(
-          'Tapping Search will send the verse reference to bible.helloao.org '
-          'over HTTPS to retrieve the text. Your IP address will be visible '
-          'to that server. No other data is sent.\n\n'
-          'Do you want to continue?',
-        ),
+        title: Text(title),
+        content: Text(body),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -71,11 +100,31 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     // Restore focus to Search button after dialog closes.
     _searchFocusNode.requestFocus();
     if (agreed == true) {
-      await prefs.setBool(_consentPrefKey, true);
+      await prefs.setBool(prefsKey, true);
       return true;
     }
     return false;
   }
+
+  Future<bool> _ensureConsent() => _ensureConsentFor(
+        prefsKey: _consentPrefKey,
+        title: 'Online Verse Lookup',
+        body: 'Tapping Search will send the verse reference to bible.helloao.org '
+            'over HTTPS to retrieve the text. Your IP address will be visible '
+            'to that server. No other data is sent.\n\n'
+            'Do you want to continue?',
+      );
+
+  Future<bool> _ensureEsvConsent() => _ensureConsentFor(
+        prefsKey: _esvConsentPrefKey,
+        title: 'ESV Verse Lookup',
+        body: 'Tapping Search will send the verse reference to api.esv.org '
+            '(Crossway) over HTTPS to retrieve the text. Your IP address will '
+            'be visible to that server. No other data is sent.\n\n'
+            'ESV lookups are limited to 500 total stored verses by '
+            "Crossway's API terms.\n\n"
+            'Do you want to continue?',
+      );
 
   Future<void> _lookupVerse() async {
     final reference = _referenceController.text.trim();
@@ -84,17 +133,32 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       return;
     }
 
-    final consented = await _ensureConsent();
+    final isEsv = _translation == 'ESV';
+
+    if (isEsv) {
+      final count = context.read<VerseProvider>().esvVerseCount;
+      if (count >= _esvCap) {
+        setState(() => _capWarning =
+            'You have $count ESV verses stored (the maximum). '
+            'Delete an ESV verse to add more.');
+        return;
+      }
+    }
+
+    final consented = isEsv ? await _ensureEsvConsent() : await _ensureConsent();
     if (!consented || !mounted) return;
 
     setState(() {
       _isLookingUp = true;
       _lookupError = null;
+      _capWarning = null;
       _preview = null;
     });
 
     try {
-      final result = await _lookupService.lookup(reference, _translation);
+      final result = isEsv
+          ? await _esvLookupService.lookup(reference)
+          : await _lookupService.lookup(reference, _translation);
       if (mounted) {
         setState(() {
           _preview = result;
@@ -128,6 +192,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       _preview = null;
       _lookupError = null;
     });
+    _searchFocusNode.requestFocus();
   }
 
   void _dismissPreview() {
@@ -135,10 +200,20 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       _preview = null;
       _lookupError = null;
     });
+    _searchFocusNode.requestFocus();
   }
 
   Future<void> _saveVerse() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    if (_translation == 'ESV') {
+      final count = context.read<VerseProvider>().esvVerseCount;
+      if (count >= _esvCap) {
+        setState(() => _saveError =
+            'ESV storage limit reached ($count/$_esvCap). Delete an ESV verse to add more.');
+        return;
+      }
+    }
 
     setState(() => _isSaving = true);
 
@@ -225,19 +300,14 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                 ),
               ],
             ),
-            // Semantics node always in tree so liveRegion fires on label change.
-            Semantics(
-              liveRegion: true,
-              label: _lookupError ?? '',
-              child: _lookupError != null
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 4, bottom: 8),
-                      child: Text(
-                        _lookupError!,
-                        style: tt.bodyMedium?.copyWith(color: cs.error),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+            InlineStatusBanner(
+              severity: BannerSeverity.error,
+              message: _lookupError,
+              filled: false,
+            ),
+            InlineStatusBanner(
+              severity: BannerSeverity.warning,
+              message: _capWarning,
             ),
             if (_preview != null) ...[
               const SizedBox(height: 12),
@@ -315,37 +385,35 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               label: 'Translation',
               container: true,
               child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'BSB', label: Text('BSB')),
-                  ButtonSegment(value: 'KJV', label: Text('KJV')),
-                  ButtonSegment(value: 'WEB', label: Text('WEB')),
+                segments: [
+                  const ButtonSegment(value: 'BSB', label: Text('BSB')),
+                  const ButtonSegment(value: 'KJV', label: Text('KJV')),
+                  const ButtonSegment(value: 'WEB', label: Text('WEB')),
+                  if (_esvLookupService.isAvailable)
+                    const ButtonSegment(value: 'ESV', label: Text('ESV')),
                 ],
                 selected: {_translation},
                 onSelectionChanged: (values) {
                   if (values.isNotEmpty) {
-                    setState(() => _translation = values.first);
+                    setState(() {
+                      _translation = values.first;
+                      _capWarning = null;
+                    });
                   }
                 },
               ),
             ),
+            if (_esvLookupService.isAvailable && _translation == 'ESV') ...[
+              const SizedBox(height: 8),
+              Text(
+                'ESV · Personal use · 500-verse cap',
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
             const SizedBox(height: 32),
-            // Semantics node always in tree so liveRegion fires on label change.
-            Semantics(
-              liveRegion: true,
-              label: _saveError ?? '',
-              child: _saveError != null
-                  ? Card(
-                      color: cs.errorContainer,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          _saveError!,
-                          style: tt.bodyMedium?.copyWith(color: cs.onErrorContainer),
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+            InlineStatusBanner(
+              severity: BannerSeverity.error,
+              message: _saveError,
             ),
             FilledButton(
               onPressed: _isSaving ? null : _saveVerse,
@@ -370,6 +438,12 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                   ? null
                   : () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
+            ),
+            EsvCopyrightFooter(
+              hasEsvContent: _translation == 'ESV' && _preview != null,
+              onViewFullTerms: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              ),
             ),
           ],
         ),

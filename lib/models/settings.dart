@@ -5,6 +5,8 @@ class AppSettings {
   // on the nullable dailyNotificationTime field.
   static const Object _sentinel = Object();
 
+  // UI displays these as "Verse-of-week probability" / its enabling switch —
+  // names are intentionally unchanged here to avoid a pref-key migration.
   final bool audioInterruptEnabled;
   final double audioInterruptProbability; // default 0.5
   final int audioInterruptAfterMinutes; // default 60
@@ -19,6 +21,8 @@ class AppSettings {
   // Consent record persisted for audit; null = not yet consented
   final String? driveConsentAt; // ISO-8601
   final int driveConsentVersion; // disclosure version shown at consent time
+  final bool autoAdvanceVerseOfWeek; // default false
+  final DateTime? lastVerseAdvanceDate;
 
   const AppSettings({
     this.audioInterruptEnabled = false,
@@ -34,6 +38,8 @@ class AppSettings {
     this.lastBackupAt,
     this.driveConsentAt,
     this.driveConsentVersion = 0,
+    this.autoAdvanceVerseOfWeek = false,
+    this.lastVerseAdvanceDate,
   });
 
   AppSettings copyWith({
@@ -51,6 +57,9 @@ class AppSettings {
     bool clearLastBackupAt = false,
     String? driveConsentAt,
     int? driveConsentVersion,
+    bool? autoAdvanceVerseOfWeek,
+    DateTime? lastVerseAdvanceDate,
+    bool clearLastVerseAdvanceDate = false,
   }) {
     return AppSettings(
       audioInterruptEnabled:
@@ -72,6 +81,11 @@ class AppSettings {
           clearLastBackupAt ? null : (lastBackupAt ?? this.lastBackupAt),
       driveConsentAt: driveConsentAt ?? this.driveConsentAt,
       driveConsentVersion: driveConsentVersion ?? this.driveConsentVersion,
+      autoAdvanceVerseOfWeek:
+          autoAdvanceVerseOfWeek ?? this.autoAdvanceVerseOfWeek,
+      lastVerseAdvanceDate: clearLastVerseAdvanceDate
+          ? null
+          : (lastVerseAdvanceDate ?? this.lastVerseAdvanceDate),
     );
   }
 
@@ -91,6 +105,8 @@ class AppSettings {
       'last_backup_at': lastBackupAt?.toIso8601String(),
       'drive_consent_at': driveConsentAt,
       'drive_consent_version': driveConsentVersion,
+      'auto_advance_verse_of_week': autoAdvanceVerseOfWeek,
+      'last_verse_advance_date': lastVerseAdvanceDate?.toIso8601String(),
     };
   }
 
@@ -101,16 +117,10 @@ class AppSettings {
         ? TimeOfDay(hour: hour, minute: minute)
         : null;
 
-    final lastBackupRaw = map['last_backup_at'] as String?;
-    DateTime? lastBackupAt;
-    if (lastBackupRaw != null) {
-      final parsed = DateTime.tryParse(lastBackupRaw);
-      // Reject far-future timestamps (tampered preference guard per security review)
-      if (parsed != null &&
-          parsed.isBefore(DateTime.now().add(const Duration(days: 365)))) {
-        lastBackupAt = parsed;
-      }
-    }
+    final lastBackupAt =
+        _parseGuardedTimestamp(map['last_backup_at'] as String?);
+    final lastVerseAdvanceDate =
+        _parseGuardedTimestamp(map['last_verse_advance_date'] as String?);
 
     final cadenceRaw = map['backup_cadence'] as String? ?? 'weekly';
     const validCadences = {'daily', 'weekly', 'monthly'};
@@ -120,10 +130,15 @@ class AppSettings {
     return AppSettings(
       audioInterruptEnabled: map['audio_interrupt_enabled'] as bool? ?? false,
       audioInterruptProbability:
-          (map['audio_interrupt_probability'] as num?)?.toDouble() ?? 0.5,
+          ((map['audio_interrupt_probability'] as num?)?.toDouble() ?? 0.5)
+              .clamp(0.0, 1.0),
       audioInterruptAfterMinutes:
           map['audio_interrupt_after_minutes'] as int? ?? 60,
-      defaultTranslation: map['default_translation'] as String? ?? 'ESV',
+      defaultTranslation: () {
+        const validTranslations = {'BSB', 'KJV', 'WEB', 'ESV'};
+        final raw = map['default_translation'] as String? ?? 'ESV';
+        return validTranslations.contains(raw) ? raw : 'ESV';
+      }(),
       themeMode: map['theme_mode'] as String? ?? 'system',
       dailyNotificationTime: time,
       notificationType: map['notification_type'] as String? ?? 'verseOfWeek',
@@ -133,6 +148,21 @@ class AppSettings {
       lastBackupAt: lastBackupAt,
       driveConsentAt: map['drive_consent_at'] as String?,
       driveConsentVersion: map['drive_consent_version'] as int? ?? 0,
+      autoAdvanceVerseOfWeek:
+          map['auto_advance_verse_of_week'] as bool? ?? false,
+      lastVerseAdvanceDate: lastVerseAdvanceDate,
     );
+  }
+
+  /// Parses an ISO-8601 timestamp, rejecting far-future values (tampered
+  /// preference guard per security review).
+  static DateTime? _parseGuardedTimestamp(String? raw) {
+    if (raw == null) return null;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+    if (!parsed.isBefore(DateTime.now().add(const Duration(days: 365)))) {
+      return null;
+    }
+    return parsed;
   }
 }

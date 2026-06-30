@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../database/database_helper.dart';
 import '../../models/settings.dart';
@@ -9,7 +10,9 @@ import '../../providers/tracking_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../services/audio_interrupt_service.dart';
 import '../../services/audio_service.dart';
+import '../../services/esv_lookup_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/announce_on_change.dart';
 import 'book_variants_screen.dart';
 import 'data_management_screen.dart';
 import 'test_history_screen.dart';
@@ -38,6 +41,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = settingsProvider.settings;
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    // Saved default may be 'ESV' from a build that had a key configured;
+    // fall back to BSB for display when this build has none, mirroring
+    // AddVerseScreen's fallback for the same situation.
+    final effectiveDefaultTranslation =
+        settings.defaultTranslation == 'ESV' &&
+                !EsvLookupService.isApiKeyConfigured
+            ? 'BSB'
+            : settings.defaultTranslation;
+    final esvSelected = effectiveDefaultTranslation == 'ESV';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -60,8 +72,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           ListTile(
-            title: const Text('Interrupt probability'),
-            subtitle: const Text('How often to interrupt with a verse'),
+            title: const Text('Verse-of-week probability'),
+            subtitle: const Text(
+                'How often the verse of the week is chosen vs. a random memorized verse'),
             trailing: MergeSemantics(
               child: Text(
                 '${(settings.audioInterruptProbability * 100).round()}%',
@@ -142,6 +155,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               }
             },
+          ),
+          SwitchListTile(
+            title: const Text('Auto-advance verse of the week'),
+            subtitle: const Text('Picks a new verse every Sunday'),
+            value: settings.autoAdvanceVerseOfWeek,
+            onChanged: (value) {
+              settingsProvider.update(
+                settings.copyWith(autoAdvanceVerseOfWeek: value),
+                announcement: value
+                    ? 'Auto-advance verse of the week enabled'
+                    : 'Auto-advance verse of the week disabled',
+              );
+            },
+          ),
+          // ----------------------------------------------------------------
+          // Verses
+          // ----------------------------------------------------------------
+          _SectionHeader(label: 'Verses', textTheme: tt),
+          MergeSemantics(
+            child: ListTile(
+              title: const Text('Default translation'),
+              subtitle: AnnounceOnChange(
+                value: esvSelected.toString(),
+                builder: (context, liveRegion) => esvSelected
+                    ? Semantics(
+                        liveRegion: liveRegion,
+                        label:
+                            'ESV is for personal, non-commercial use only.',
+                        child: Text(
+                          'ESV is for personal, non-commercial use only.',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              trailing: SegmentedButton<String>(
+                showSelectedIcon: false,
+                style: SegmentedButton.styleFrom(
+                  minimumSize: const Size(0, 48),
+                ),
+                segments: [
+                  const ButtonSegment(value: 'BSB', label: Text('BSB')),
+                  const ButtonSegment(value: 'KJV', label: Text('KJV')),
+                  const ButtonSegment(value: 'WEB', label: Text('WEB')),
+                  if (EsvLookupService.isApiKeyConfigured)
+                    const ButtonSegment(value: 'ESV', label: Text('ESV')),
+                ],
+                selected: {effectiveDefaultTranslation},
+                onSelectionChanged: (selected) {
+                  settingsProvider.update(
+                    settings.copyWith(defaultTranslation: selected.first),
+                    announcement:
+                        'Default translation set to ${selected.first}',
+                  );
+                },
+              ),
+            ),
           ),
           // ----------------------------------------------------------------
           // Appearance
@@ -235,6 +307,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: Text('Bible Flashcards'),
             subtitle: Text('Built for personal Bible memorization'),
           ),
+          // ----------------------------------------------------------------
+          // ESV Bible
+          // ----------------------------------------------------------------
+          _SectionHeader(label: 'ESV Bible', textTheme: tt),
+          const ListTile(
+            title: Text(
+              'Scripture quotations are from the ESV® Bible '
+              '(The Holy Bible, English Standard Version®), '
+              '© 2001 by Crossway, a publishing ministry of '
+              'Good News Publishers. Used by permission. All rights reserved.',
+            ),
+          ),
+          ListTile(
+            title: const Text('ESV.org'),
+            subtitle: const Text('Full terms and copyright'),
+            trailing: const Icon(Symbols.open_in_new_rounded),
+            onTap: () async {
+              final uri = Uri.parse('https://www.esv.org');
+              bool launched = false;
+              try {
+                launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+              } catch (_) {
+                launched = false;
+              }
+              if (!launched && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not open ESV.org.')),
+                );
+              }
+            },
+          ),
         ],
       ),
     );
@@ -314,7 +417,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             return AlertDialog(
-              title: const Text('Interrupt probability'),
+              title: const Text('Verse-of-week probability'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

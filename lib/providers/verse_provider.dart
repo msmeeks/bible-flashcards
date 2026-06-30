@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../database/database_helper.dart';
+import '../models/settings.dart';
 import '../models/verse.dart';
 
 class VerseProvider extends ChangeNotifier {
@@ -22,6 +23,8 @@ class VerseProvider extends ChangeNotifier {
       _verses.where((v) => !v.isMemorized).toList();
 
   Verse? get verseOfWeek => _verses.where((v) => v.isVerseOfWeek).firstOrNull;
+
+  int get esvVerseCount => _verses.where((v) => v.translation == 'ESV').length;
 
   Map<String, String> get packNames => _packNames;
 
@@ -73,7 +76,11 @@ class VerseProvider extends ChangeNotifier {
   }
 
   Future<void> addCustomVerse(Verse verse) async {
-    await _db.insertVerse(verse);
+    if (verse.translation == 'ESV') {
+      await _db.insertEsvVerse(verse);
+    } else {
+      await _db.insertVerse(verse);
+    }
     await loadVerses();
   }
 
@@ -114,6 +121,47 @@ class VerseProvider extends ChangeNotifier {
     }
 
     return result;
+  }
+
+  /// Returns the verse that should become the new verse of the week, or
+  /// null if no advance should happen right now. Pure decision logic, kept
+  /// separate from the DB write in [autoAdvanceVerseOfWeekIfNeeded] so it can
+  /// be unit tested without a real database.
+  @visibleForTesting
+  Verse? pickVerseForAutoAdvance(AppSettings settings, DateTime now) {
+    if (!settings.autoAdvanceVerseOfWeek) return null;
+    if (now.weekday != DateTime.sunday) return null;
+    if (settings.lastVerseAdvanceDate != null &&
+        _isSameIsoWeek(settings.lastVerseAdvanceDate!, now)) {
+      return null;
+    }
+    final candidates = _verses.where((v) => !v.isVerseOfWeek).toList();
+    if (candidates.isEmpty) return null;
+    return candidates[Random().nextInt(candidates.length)];
+  }
+
+  bool _isSameIsoWeek(DateTime a, DateTime b) {
+    final aMonday = a.subtract(Duration(days: a.weekday - 1));
+    final bMonday = b.subtract(Duration(days: b.weekday - 1));
+    return aMonday.year == bMonday.year &&
+        aMonday.month == bMonday.month &&
+        aMonday.day == bMonday.day;
+  }
+
+  /// Advances the verse of the week when [settings] has auto-advance
+  /// enabled, today is Sunday, and this ISO week hasn't already advanced.
+  /// Calls [onUpdate] with the persisted advance date so the caller can
+  /// write it back through [SettingsProvider].
+  Future<void> autoAdvanceVerseOfWeekIfNeeded(
+    AppSettings settings,
+    void Function(AppSettings) onUpdate, {
+    DateTime? now,
+  }) async {
+    final today = now ?? DateTime.now();
+    final picked = pickVerseForAutoAdvance(settings, today);
+    if (picked == null) return;
+    await setVerseOfWeek(picked.id);
+    onUpdate(settings.copyWith(lastVerseAdvanceDate: today));
   }
 
   @visibleForTesting

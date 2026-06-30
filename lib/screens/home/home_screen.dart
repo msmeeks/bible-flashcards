@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/verse.dart';
 import '../../providers/audio_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../widgets/verse_card.dart';
 
@@ -19,8 +20,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Ensure verse list is fresh when the screen is first shown.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<VerseProvider>().loadVerses();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final verseProvider = context.read<VerseProvider>();
+      await verseProvider.loadVerses();
+      if (!mounted) return;
+      final settingsProvider = context.read<SettingsProvider>();
+      await verseProvider.autoAdvanceVerseOfWeekIfNeeded(
+        settingsProvider.settings,
+        (updated) => settingsProvider.update(updated),
+      );
     });
   }
 

@@ -1,8 +1,33 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
+import 'package:bible_flashcards/models/settings.dart';
 import 'package:bible_flashcards/models/verse.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
+
+const _packsSchema = '''
+  CREATE TABLE packs (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    verse_ids   TEXT NOT NULL DEFAULT '[]'
+  )
+''';
+
+const _versesSchema = '''
+  CREATE TABLE verses (
+    id                TEXT PRIMARY KEY,
+    reference         TEXT NOT NULL,
+    text              TEXT NOT NULL,
+    translation       TEXT NOT NULL,
+    pack_id           TEXT NOT NULL,
+    is_memorized      INTEGER NOT NULL DEFAULT 0,
+    is_verse_of_week  INTEGER NOT NULL DEFAULT 0,
+    memorized_at      TEXT,
+    added_at          TEXT NOT NULL
+  )
+''';
 
 Verse _verse(String id, {bool isMemorized = true, bool isVerseOfWeek = false}) {
   return Verse(
@@ -17,7 +42,45 @@ Verse _verse(String id, {bool isMemorized = true, bool isVerseOfWeek = false}) {
   );
 }
 
+Verse _verseWithTranslation(String id, String translation) {
+  return Verse(
+    id: id,
+    reference: 'Ref $id',
+    text: 'Text $id',
+    translation: translation,
+    packId: 'pack1',
+    isMemorized: true,
+    isVerseOfWeek: false,
+    addedAt: DateTime(2024, 1, 1),
+  );
+}
+
 void main() {
+  group('VerseProvider.esvVerseCount', () {
+    test('is 0 when no ESV verses are stored', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([
+        _verseWithTranslation('a', 'BSB'),
+        _verseWithTranslation('b', 'KJV'),
+      ]);
+
+      expect(provider.esvVerseCount, 0);
+    });
+
+    test('counts only ESV-translation verses, ignoring BSB/KJV/WEB', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([
+        _verseWithTranslation('a', 'ESV'),
+        _verseWithTranslation('b', 'BSB'),
+        _verseWithTranslation('c', 'ESV'),
+        _verseWithTranslation('d', 'KJV'),
+        _verseWithTranslation('e', 'WEB'),
+      ]);
+
+      expect(provider.esvVerseCount, 2);
+    });
+  });
+
   group('VerseProvider.getRandomMemorizedVerses', () {
     test('returns full pool when count exceeds pool size', () {
       final provider = VerseProvider(DatabaseHelper());
@@ -161,6 +224,163 @@ void main() {
         expect(result.length, 1);
         expect(result.first.isVerseOfWeek, isTrue);
       });
+    });
+  });
+
+  group('VerseProvider.pickVerseForAutoAdvance', () {
+    final sunday = DateTime(2026, 6, 21); // confirmed Sunday
+    final monday = DateTime(2026, 6, 22);
+
+    test('returns null when autoAdvanceVerseOfWeek is disabled', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      const settings = AppSettings(autoAdvanceVerseOfWeek: false);
+
+      expect(provider.pickVerseForAutoAdvance(settings, sunday), isNull);
+    });
+
+    test('returns null when today is not Sunday', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+
+      expect(provider.pickVerseForAutoAdvance(settings, monday), isNull);
+    });
+
+    test('returns null when already advanced this ISO week', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      final settings = AppSettings(
+        autoAdvanceVerseOfWeek: true,
+        lastVerseAdvanceDate: sunday,
+      );
+
+      expect(provider.pickVerseForAutoAdvance(settings, sunday), isNull);
+    });
+
+    test('picks a non-current verse on Sunday when not yet advanced', () {
+      final provider = VerseProvider(DatabaseHelper());
+      final vow = _verse('vow', isVerseOfWeek: true);
+      provider.debugSetVerses([vow, _verse('a'), _verse('b')]);
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+
+      final picked = provider.pickVerseForAutoAdvance(settings, sunday);
+
+      expect(picked, isNotNull);
+      expect(picked!.id, isNot('vow'));
+    });
+
+    test('returns null when there is no non-current verse candidate', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('vow', isVerseOfWeek: true)]);
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+
+      expect(provider.pickVerseForAutoAdvance(settings, sunday), isNull);
+    });
+
+    test('treats Dec-28 (prior ISO week) advance as stale on next Sunday',
+        () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      // last advance was the Sunday before New Year's Eve week (ISO 2025-W52);
+      // the following Sunday lands in ISO 2026-W1 — must advance again.
+      final settings = AppSettings(
+        autoAdvanceVerseOfWeek: true,
+        lastVerseAdvanceDate: DateTime(2025, 12, 28),
+      );
+
+      final picked =
+          provider.pickVerseForAutoAdvance(settings, DateTime(2026, 1, 4));
+
+      expect(picked, isNotNull);
+    });
+
+    test('treats Dec-29 advance and Jan-4 Sunday as same ISO week', () {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('a'), _verse('b')]);
+      // 2025-12-29 (Mon) and 2026-01-04 (Sun) both fall in ISO week 2026-W1.
+      final settings = AppSettings(
+        autoAdvanceVerseOfWeek: true,
+        lastVerseAdvanceDate: DateTime(2025, 12, 29),
+      );
+
+      final picked =
+          provider.pickVerseForAutoAdvance(settings, DateTime(2026, 1, 4));
+
+      expect(picked, isNull);
+    });
+  });
+
+  group('VerseProvider.autoAdvanceVerseOfWeekIfNeeded', () {
+    final sunday = DateTime(2026, 6, 21); // confirmed Sunday
+    final monday = DateTime(2026, 6, 22);
+
+    setUpAll(() {
+      sqfliteFfiInit();
+    });
+
+    setUp(() async {
+      final db = await databaseFactoryFfi.openDatabase(
+        inMemoryDatabasePath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, version) async {
+            await db.execute(_packsSchema);
+            await db.execute(_versesSchema);
+          },
+        ),
+      );
+      DatabaseHelper.debugSetDatabase(db);
+    });
+
+    tearDown(() async {
+      final db = await DatabaseHelper().database;
+      await db.close();
+      DatabaseHelper.debugReset();
+    });
+
+    test(
+        'advances the verse of week, persists it to the DB, and reports the '
+        'advance date via onUpdate', () async {
+      final provider = VerseProvider(DatabaseHelper());
+      final db = await DatabaseHelper().database;
+      await db.insert('verses', _verse('vow', isVerseOfWeek: true).toMap());
+      await db.insert('verses', _verse('a').toMap());
+      await provider.loadVerses();
+
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+      AppSettings? updated;
+
+      await provider.autoAdvanceVerseOfWeekIfNeeded(
+        settings,
+        (s) => updated = s,
+        now: sunday,
+      );
+
+      expect(provider.verseOfWeek?.id, 'a');
+      expect(updated, isNotNull);
+      expect(updated!.lastVerseAdvanceDate, sunday);
+    });
+
+    test('does nothing when today is not Sunday: no DB write, no onUpdate',
+        () async {
+      final provider = VerseProvider(DatabaseHelper());
+      final db = await DatabaseHelper().database;
+      await db.insert('verses', _verse('vow', isVerseOfWeek: true).toMap());
+      await db.insert('verses', _verse('a').toMap());
+      await provider.loadVerses();
+
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+      var updateCalls = 0;
+
+      await provider.autoAdvanceVerseOfWeekIfNeeded(
+        settings,
+        (_) => updateCalls++,
+        now: monday,
+      );
+
+      expect(provider.verseOfWeek?.id, 'vow');
+      expect(updateCalls, 0);
     });
   });
 }

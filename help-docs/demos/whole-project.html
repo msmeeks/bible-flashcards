@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo: Whole-Project Walkthrough — Bible Flashcards</title>
+<style>
+  :root {
+    --primary: #1B5E6B; --primary-container: #C8E9EE; --on-primary-container: #001F24;
+    --secondary: #7D5A3C; --tertiary-container: #FDEFC3; --surface: #F8F5F0;
+    --surface-variant: #EDE7DE; --on-surface: #1C1917; --on-surface-variant: #4D453E;
+    --success: #276234; --success-container: #C8F0D0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Google Sans", Roboto, system-ui, sans-serif; background: var(--surface); color: var(--on-surface); }
+  a:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
+  header.hero { background: linear-gradient(135deg, var(--primary) 0%, #4FBDCF 100%); color: #fff; padding: 48px 24px; text-align: center; }
+  header.hero h1 { font-family: Georgia, 'Lora', serif; font-size: 2rem; margin: 0 0 8px; font-weight: 400; }
+  header.hero p { max-width: 600px; margin: 0 auto; opacity: 0.95; }
+  main { max-width: 760px; margin: -20px auto 64px; padding: 0 24px; }
+  .back { display: inline-block; margin: 16px 0; color: var(--on-surface-variant); font-size: 0.9rem; }
+  .pending {
+    background: #fff; border: 1px dashed #8A7E72; border-radius: 8px;
+    padding: 14px 18px; font-size: 0.85rem; color: var(--on-surface-variant); margin: 20px 0 32px;
+  }
+  .scene {
+    background: #fff; border-radius: 12px; border: 1px solid var(--surface-variant);
+    padding: 20px 24px; margin-bottom: 20px; display: flex; gap: 20px; align-items: flex-start;
+  }
+  .scene .frame-num {
+    flex: 0 0 36px; height: 36px; border-radius: 50%; background: var(--primary-container);
+    color: var(--on-primary-container); font-weight: 600; display: flex; align-items: center; justify-content: center;
+  }
+  .scene .body h3 { margin: 0 0 6px; font-size: 1.0rem; color: var(--primary); }
+  .scene .body p { margin: 0; font-size: 0.92rem; color: var(--on-surface-variant); line-height: 1.5; }
+  .mini-mock {
+    margin-top: 10px; border: 1px solid #8A7E72; border-radius: 8px; background: var(--surface-variant);
+    padding: 10px 12px; font-size: 0.78rem; color: var(--on-surface-variant);
+  }
+  .chip { display: inline-block; font-size: 0.65rem; background: var(--success-container); color: var(--success); padding: 2px 8px; border-radius: 4px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>Whole-Project Walkthrough</h1>
+  <p>An end-to-end tour of Bible Flashcards: choosing a verse, learning it, testing yourself, and reviewing with audio.</p>
+</header>
+<main>
+  <a class="back" href="index.html">&larr; Back to Demo Gallery</a>
+  <div class="pending">
+    <strong>Video capture pending.</strong> No screen recording exists yet for this walkthrough — the storyboard below describes each step until one is captured and placed at <code>demos/assets/whole-project.mp4</code> with a matching <code>.srt</code> caption file.
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">1</div>
+    <div class="body">
+      <h3>Choose a verse</h3>
+      <p>From the Verses tab, the Available list is browsed and a verse from the Navigators Topical Memory System is selected, then set as the verse of the week.</p>
+      <div class="mini-mock">Verses &rarr; Available &rarr; "Romans 8:28" &rarr; Set as verse of the week</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">2</div>
+    <div class="body">
+      <h3>Study on Home</h3>
+      <p>The Home tab now shows the verse of the week prominently. Tapping the card cycles through reference-only, text-only, and both — a simple self-test rhythm.</p>
+      <div class="mini-mock">Home &rarr; Verse of the Week card &rarr; tap to cycle states</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">3</div>
+    <div class="body">
+      <h3>Run a test</h3>
+      <p>On the Test tab, Verse of the Week mode and the Type format are chosen. The verse text is typed from memory and scored.</p>
+      <div class="mini-mock">Test &rarr; Verse of the Week &rarr; Type &rarr; Start test<br><span class="chip">Accuracy: 94%</span></div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">4</div>
+    <div class="body">
+      <h3>Mark it memorized</h3>
+      <p>Confident in the verse, "Mark as memorized" is tapped from the verse detail screen. It now appears in the Memorized list.</p>
+      <div class="mini-mock">Verse Detail &rarr; Mark as memorized</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">5</div>
+    <div class="body">
+      <h3>Casual review with audio</h3>
+      <p>From the Review tab, a handful of memorized verses are queued in Play mode. The reference is spoken, followed by a pause, then the verse text — for ESV verses, the real Crossway recording plays instead of a synthesized voice.</p>
+      <div class="mini-mock">Review &rarr; Play &rarr; Now Playing queue</div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

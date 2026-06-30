@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Developer Reference — Bible Flashcards</title>
+<style>
+  :root {
+    --primary: #1B5E6B;
+    --primary-container: #C8E9EE;
+    --on-primary-container: #001F24;
+    --secondary: #7D5A3C;
+    --surface: #F8F5F0;
+    --surface-variant: #EDE7DE;
+    --on-surface: #1C1917;
+    --on-surface-variant: #4D453E;
+    --outline: #8A7E72;
+    --warning-container: #FFDEA3;
+    --code-bg: #1C1917;
+    --code-fg: #EDE7DE;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Google Sans", Roboto, system-ui, sans-serif;
+    background: var(--surface);
+    color: var(--on-surface);
+    display: flex;
+    min-height: 100vh;
+  }
+  a { color: var(--primary); }
+  a:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
+
+  nav.sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: #fff;
+    border-right: 1px solid var(--surface-variant);
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  nav.sidebar h2 { font-size: 0.95rem; color: var(--primary); margin: 0 0 16px; }
+  nav.sidebar a {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--on-surface);
+    font-size: 0.88rem;
+    margin-bottom: 2px;
+  }
+  nav.sidebar a:hover, nav.sidebar a:focus-visible { background: var(--primary-container); color: var(--on-primary-container); }
+  nav.sidebar .back { display: inline-block; margin-bottom: 20px; font-size: 0.85rem; color: var(--on-surface-variant); }
+
+  .content-wrap { flex: 1; min-width: 0; }
+  header.hero {
+    background: linear-gradient(135deg, var(--primary) 0%, #4FBDCF 100%);
+    color: #fff;
+    padding: 48px 40px;
+  }
+  header.hero h1 { font-family: Georgia, 'Lora', serif; font-size: 2rem; margin: 0 0 8px; font-weight: 400; }
+  header.hero p { margin: 0; opacity: 0.95; max-width: 640px; }
+
+  main { max-width: 820px; margin: 0 auto; padding: 32px 40px 80px; }
+  section { margin-bottom: 44px; }
+  section h2 {
+    font-size: 1.3rem;
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary-container);
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    scroll-margin-top: 16px;
+  }
+  section h3 { font-size: 1.0rem; margin: 22px 0 8px; color: var(--secondary); }
+
+  .card {
+    background: #fff;
+    border: 1px solid var(--surface-variant);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; }
+  p code, li code, td code { background: var(--surface-variant); color: var(--on-surface); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--surface-variant); vertical-align: top; }
+  th { color: var(--secondary); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+
+  .callout {
+    border-left: 4px solid #7A5800;
+    background: var(--warning-container);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.88rem;
+    margin: 16px 0;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .badge {
+    display: inline-block;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+<nav class="sidebar" aria-label="API reference sections">
+  <a class="back" href="../index.html">&larr; Back to Help Home</a>
+  <h2>Developer Reference</h2>
+  <a href="#overview">Overview</a>
+  <a href="#auth">Authentication</a>
+  <a href="#text-lookup">Text Lookup</a>
+  <a href="#audio">Audio Fetch &amp; Cache</a>
+  <a href="#consent">Consent &amp; Caps</a>
+  <a href="#errors">Error Handling</a>
+  <a href="#terms">ESV API Terms</a>
+</nav>
+<div class="content-wrap">
+  <header class="hero">
+    <h1>Developer Reference</h1>
+    <p>Bible Flashcards has no public API or backend server of its own — it's a fully offline, single-device Flutter app. This page documents the one outbound integration that exists: the optional ESV Bible API client used for verse lookup and audio playback.</p>
+  </header>
+
+  <main>
+    <section id="overview">
+      <h2>Overview</h2>
+      <div class="card">
+        <p>There is no REST API, no server endpoint, and no client-server contract to document for this app — all core data lives in an encrypted local SQLite database (<code>sqflite_sqlcipher</code>) with no network layer. The only network calls this codebase makes for ESV content are made from two service classes against Crossway's ESV API:</p>
+        <table>
+          <tr><th>File</th><th>Responsibility</th></tr>
+          <tr><td><code>lib/services/esv_lookup_service.dart</code></td><td>Fetches verse text from <code>api.esv.org/v3/passage/text/</code></td></tr>
+          <tr><td><code>lib/services/esv_audio_cache_service.dart</code></td><td>Resolves and caches MP3 recordings from <code>api.esv.org/v3/passage/audio/</code> (redirects to <code>audio.esv.org</code>)</td></tr>
+        </table>
+        <p>A parallel, non-ESV lookup path exists for the free <code>bible.helloao.org</code> API (<code>lib/services/bible_lookup_service.dart</code>) — same shape, different host, no API key required. This page focuses on the ESV integration since it has the additional auth, cap, and attribution requirements developers need to get right.</p>
+      </div>
+    </section>
+
+    <section id="auth">
+      <h2>Authentication</h2>
+      <div class="card">
+        <p>Both ESV service classes read the API key via <code>String.fromEnvironment('ESV_API_KEY')</code>, injected at build time:</p>
+        <pre><code>flutter run --dart-define-from-file=secrets.local</code></pre>
+        <p>The key is never committed to source control and never written to logs, SharedPreferences, or the database. Each class exposes an <code>isAvailable</code> getter that simply checks the key is non-empty — calling code (Add Verse screen, audio playback) uses this to hide the ESV option entirely rather than rendering a feature that can never succeed:</p>
+        <pre><code>EsvLookupService({http.Client? client, String apiKey = const String.fromEnvironment('ESV_API_KEY')})
+    : _client = client ?? http.Client(),
+      _apiKey = apiKey;
+
+bool get isAvailable =&gt; _apiKey.isNotEmpty;</code></pre>
+        <p>The key is sent as an <code>Authorization: Token &lt;key&gt;</code> header — only ever to <code>api.esv.org</code>, never to any redirect target (see Audio Fetch &amp; Cache below).</p>
+      </div>
+    </section>
+
+    <section id="text-lookup">
+      <h2>Text Lookup <span class="badge">EsvLookupService</span></h2>
+      <div class="card">
+        <h3>Request</h3>
+        <pre><code>GET https://api.esv.org/v3/passage/text/
+    ?q=Romans+8:28
+    &amp;include-passage-references=false
+    &amp;include-verse-numbers=false
+    &amp;include-footnotes=false
+    &amp;include-headings=false
+    &amp;include-short-copyright=false
+Authorization: Token &lt;ESV_API_KEY&gt;
+Accept: application/json</code></pre>
+        <h3>Calling it</h3>
+        <pre><code>final service = EsvLookupService();
+final result = await service.lookup('Romans 8:28');
+// result.reference, result.text, result.translation == 'ESV'</code></pre>
+        <h3>Reference parsing &amp; canonicalization</h3>
+        <p>Before the request fires, the raw input is validated against <code>^[A-Za-z0-9 :,\-]{1,100}$</code> and then canonicalized via <code>_canonicalReference()</code>, which splits the input into a book-name span and a <code>chapter:verse(-verse)</code> span using:</p>
+        <pre><code>static final _refParsePattern =
+    RegExp(r'^(.+?)\s+(\d+):(\d+)(?:-(\d+))?\s*$');</code></pre>
+        <p>The book-name span is resolved to a USFM code via the shared <code>bookNameToUsfm</code> table (<code>lib/utils/book_name_variants.dart</code>) and rewritten to the canonical display name before being sent — so "Rom 8:28" and "Romans 8:28" both resolve to the same query and the same cache key.</p>
+        <h3>SSRF guard</h3>
+        <p>Every request is checked with <code>_assertHttps()</code> before it fires:</p>
+        <pre><code>void _assertHttps(Uri uri) {
+  if (uri.scheme != 'https') throw StateError('Non-HTTPS URL rejected.');
+  if (uri.host != 'api.esv.org') throw StateError('Disallowed host: ${'${uri.host}'}');
+}</code></pre>
+        <h3>Caching</h3>
+        <p>A 50-entry, instance-scoped, in-memory LRU cache (<code>Map&lt;String, VerseLookupResult&gt;</code>) keyed by <code>"$reference|ESV"</code> avoids re-fetching the same verse during one screen's lifetime. The cache is disposed with the service instance — there is no persistent or cross-session cache for text lookups (the audio cache, below, is different and persists to disk).</p>
+      </div>
+    </section>
+
+    <section id="audio">
+      <h2>Audio Fetch &amp; Cache <span class="badge">EsvAudioCacheService</span></h2>
+      <div class="card">
+        <p>ESV audio uses a deliberate two-request pattern so the API key is never exposed to the CDN host that actually serves the MP3:</p>
+        <ol>
+          <li><strong>Resolve request</strong> — <code>GET https://api.esv.org/v3/passage/audio/?q=&lt;reference&gt;</code> with <code>Authorization: Token &lt;key&gt;</code> and <code>followRedirects = false</code>. Expects a <code>301</code>/<code>302</code> with a <code>Location</code> header pointing at the CDN.</li>
+          <li><strong>Fetch request</strong> — <code>GET &lt;Location header value&gt;</code>, sent <strong>without</strong> the Authorization header, only after the target host is checked against an allowlist.</li>
+        </ol>
+        <pre><code>static const _allowedAudioHosts = {'audio.esv.org'};
+
+void _assertAllowedAudioHost(Uri uri) {
+  if (uri.scheme != 'https') throw EsvAudioException('Non-HTTPS redirect: ${'${uri.scheme}'}');
+  if (!_allowedAudioHosts.contains(uri.host)) {
+    throw EsvAudioException('Unexpected audio host: ${'${uri.host}'}');
+  }
+}</code></pre>
+        <h3>Calling it</h3>
+        <pre><code>final audio = EsvAudioCacheService();
+final localPath = await audio.getAudioPath('Romans 8:28');
+// localPath points to a cached .mp3 file on disk; play it with audioplayers</code></pre>
+        <h3>Cache key</h3>
+        <p>The cache filename is the SHA-256 hash of the lowercased, trimmed reference — never the raw reference string, which rules out path traversal via a crafted reference value:</p>
+        <pre><code>String _cacheKey(String reference) {
+  final bytes = utf8.encode(reference.toLowerCase().trim());
+  return '${'${sha256.convert(bytes)}'}.mp3';
+}</code></pre>
+        <h3>Cache location and eviction</h3>
+        <p>Files are written under <code>getApplicationCacheDirectory()/esv_audio/</code> (app cache dir, excluded from Android Auto Backup). The cache is capped at 250 files; when a new file would exceed the cap, the oldest-modified files are deleted first (<code>_evictIfNeeded</code>). Concurrent calls to <code>getAudioPath()</code> for the same reference share one in-flight <code>Future</code> via an <code>_inFlight</code> map, so simultaneous callers don't trigger duplicate fetches.</p>
+      </div>
+    </section>
+
+    <section id="consent">
+      <h2>Consent &amp; Storage Caps</h2>
+      <div class="card">
+        <h3>Consent gate</h3>
+        <p>Both ESV services are gated behind the same SharedPreferences flag, checked before any network call fires:</p>
+        <pre><code>static const _consentPrefKey = 'esv_lookup_consent_v1';
+
+final prefs = await SharedPreferences.getInstance();
+if (prefs.getBool(_consentPrefKey) != true) {
+  throw const EsvAudioConsentRequired();
+}</code></pre>
+        <p>This key is isolated from <code>bible_lookup_consent_v1</code> (used by the non-ESV <code>BibleLookupService</code>) — sharing a single key would silently start sending references to Crossway for users who had only consented to the other provider. Audio playback reuses the same <code>esv_lookup_consent_v1</code> flag as text lookup rather than prompting separately, on the reasoning that audio only ever plays for verses already saved as ESV — meaning the user already consented to send that exact reference to Crossway once.</p>
+        <h3>500-verse storage cap</h3>
+        <p>Crossway's API terms cap local ESV storage at 500 verses. This is enforced in <code>DatabaseHelper.insertEsvVerse(Verse verse, {int cap = 500})</code> — not in either service class shown above — via a single transaction that counts existing ESV rows and throws before inserting if the count is already at <code>cap</code>:</p>
+        <pre><code>await db.transaction((txn) async {
+  final count = Sqflite.firstIntValue(await txn.rawQuery(
+    "SELECT COUNT(*) FROM verses WHERE translation = 'ESV'",
+  ))!;
+  if (count &gt;= cap) {
+    throw const LookupException('ESV verse limit (500) reached.');
+  }
+  await txn.insert('verses', verse.toMap());
+});</code></pre>
+        <p>Running the count-check-then-insert inside one transaction prevents a race between two concurrent saves from pushing the stored count past 500.</p>
+      </div>
+    </section>
+
+    <section id="errors">
+      <h2>Error Handling</h2>
+      <div class="card">
+        <p>Both services surface failures through small, typed exception classes rather than generic exceptions, so calling UI code can show specific messages without parsing strings:</p>
+        <table>
+          <tr><th>Condition</th><th>Text lookup throws</th><th>Audio throws</th></tr>
+          <tr><td>Timeout</td><td><code>LookupException('Request timed out...')</code></td><td>(propagates network error)</td></tr>
+          <tr><td>404 / not found</td><td><code>LookupException('Verse not found...')</code></td><td>n/a</td></tr>
+          <tr><td>Non-200 / non-redirect status</td><td><code>LookupException('Lookup failed (...)')</code></td><td><code>EsvAudioException('Unexpected status: ...')</code></td></tr>
+          <tr><td>Disallowed host on redirect</td><td>n/a</td><td><code>EsvAudioException('Unexpected audio host: ...')</code></td></tr>
+          <tr><td>Consent not granted</td><td>n/a (consent is checked by the caller before invoking <code>lookup()</code>)</td><td><code>EsvAudioConsentRequired</code></td></tr>
+          <tr><td>Malformed JSON / empty passage</td><td><code>LookupException('Could not read response...')</code></td><td>n/a</td></tr>
+        </table>
+        <p>UI-facing behavior differs by feature: a failed <em>text lookup</em> surfaces the exception message directly to the user (it's a user-initiated action they need feedback on). A failed <em>audio fetch</em> is caught by <code>AudioService</code> and silently falls back to on-device text-to-speech — no error state is shown, since audio is a background convenience, not something the user is actively waiting on.</p>
+      </div>
+    </section>
+
+    <section id="terms">
+      <h2>ESV API Terms</h2>
+      <div class="callout">
+        <strong>Personal, non-commercial use only</strong>
+        Crossway's ESV API license for this key is for personal, non-commercial use. If this project is ever considered for Play Store publication or any commercial distribution, the ESV API terms must be re-reviewed and a different license/agreement obtained before shipping — do not assume the current key's terms extend to that use case.
+      </div>
+      <div class="card">
+        <p>Full terms: <a href="https://api.esv.org/docs/" target="_blank" rel="noopener">api.esv.org/docs</a>. See also:</p>
+        <ul>
+          <li><code>docs/features/esv-attribution.md</code> — required on-screen copyright notice and the <code>EsvCopyrightFooter</code> widget</li>
+          <li><code>meta/PRIVACY.md</code> — what's transmitted to Crossway, when, and under what consent</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- INTERNET required for BibleGateway verse lookup and optional Google Drive backup -->
+    <!-- INTERNET required for BibleGateway/ESV verse lookup, ESV audio playback (api.esv.org, audio.esv.org), and optional Google Drive backup -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -54,6 +54,12 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Required for url_launcher's canLaunchUrl to see https handlers
+             on Android 11+ package-visibility restrictions. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
@@ -42,6 +43,29 @@ class DatabaseHelper {
   }
 
   Future<Database> get database => _dbFuture ??= _openDatabase();
+
+  /// Injects an already-open [Database] (e.g. an in-memory sqflite_common_ffi
+  /// instance), bypassing path_provider/secure_storage/sqlcipher so tests can
+  /// exercise real transaction logic without platform channels.
+  @visibleForTesting
+  static void debugSetDatabase(Database db) {
+    assert(() {
+      _instance = DatabaseHelper._();
+      _dbFuture = Future.value(db);
+      return true;
+    }(), 'debugSetDatabase is only available in debug/test builds');
+  }
+
+  /// Clears injected/cached state so the next [database] access reopens the
+  /// real (sqlcipher) database.
+  @visibleForTesting
+  static void debugReset() {
+    assert(() {
+      _instance = null;
+      _dbFuture = null;
+      return true;
+    }());
+  }
 
   // ---------------------------------------------------------------------------
   // Initialisation
@@ -274,6 +298,26 @@ class DatabaseHelper {
     );
   }
 
+  /// Inserts an ESV verse, enforcing Crossway's 500-verse storage cap
+  /// atomically inside a transaction to prevent double-save races.
+  Future<void> insertEsvVerse(Verse verse, {int cap = 500}) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      final rows = await txn.rawQuery(
+        "SELECT COUNT(*) AS c FROM verses WHERE translation = 'ESV'",
+      );
+      final count = rows.first['c'] as int;
+      if (count >= cap) {
+        throw const EsvVerseCapExceededException('ESV verse limit reached (500).');
+      }
+      await txn.insert(
+        'verses',
+        verse.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    });
+  }
+
   Future<void> updateVerse(Verse verse) async {
     final db = await database;
     await db.update(
@@ -488,4 +532,15 @@ class DatabaseHelper {
       );
     });
   }
+}
+
+/// Thrown by [DatabaseHelper.insertEsvVerse] when Crossway's 500-verse
+/// storage cap is reached. DB-layer exception, not the service-layer
+/// [LookupException] used by lookup network calls.
+class EsvVerseCapExceededException implements Exception {
+  const EsvVerseCapExceededException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
 }

@@ -52,6 +52,9 @@ class AudioProvider extends ChangeNotifier {
   /// single-verse playback).
   int get queueLength => _queue.length;
 
+  /// Verses in the current playback queue, read-only.
+  List<Verse> get queue => List.unmodifiable(_queue);
+
   /// Index of the verse currently playing within the queue.
   int get currentQueueIndex => _currentIndex;
 

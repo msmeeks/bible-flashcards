@@ -3,6 +3,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/audio_provider.dart';
+import '../../widgets/esv_copyright_footer.dart';
+import '../settings/settings_screen.dart';
 
 /// Fullscreen "Now Playing" presentation for a queued review session.
 ///
@@ -97,6 +99,10 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                             : (audio.isPlaying ? 'Pause' : 'Resume'),
                         enabled: !audio.isCompleted,
                         button: true,
+                        excludeSemantics: true,
+                        onTap: audio.isCompleted
+                            ? null
+                            : (audio.isPlaying ? audio.pause : audio.resume),
                         child: Tooltip(
                           message: audio.isPlaying ? 'Pause' : 'Resume',
                           child: SizedBox(
@@ -126,6 +132,8 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                       Semantics(
                         label: 'Stop playback',
                         button: true,
+                        excludeSemantics: true,
+                        onTap: () => _stop(audio),
                         child: IconButton.filledTonal(
                           iconSize: 32,
                           icon: const Icon(Symbols.stop_rounded),
@@ -134,6 +142,16 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+                  EsvCopyrightFooter(
+                    hasEsvContent:
+                        audio.queue.any((v) => v.translation == 'ESV'),
+                    onViewFullTerms: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    ),
                   ),
                 ],
               ),

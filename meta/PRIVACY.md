@@ -1,7 +1,7 @@
 # Privacy Policy — Bible Flashcards
 
 ## Summary
-Bible Flashcards stores all core data exclusively on the user's device in encrypted SQLite. Two optional features make outbound network requests, both user-initiated and gated by explicit consent: verse lookup/pack import (HTTPS requests to bible.helloao.org) and Google Drive backup (transmits verse data and test history to the user's own Google Drive `appdata` folder, deletable from within the app).
+Bible Flashcards stores all core data exclusively on the user's device in encrypted SQLite. Optional features make outbound network requests, each user-initiated and gated by explicit, separately-recorded consent: verse lookup/pack import (HTTPS requests to bible.helloao.org), ESV verse lookup (HTTPS requests to api.esv.org, operated by Crossway), and Google Drive backup (transmits verse data and test history to the user's own Google Drive `appdata` folder, deletable from within the app).
 
 ## Data Collected
 
@@ -11,10 +11,12 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 | Test session history (scores, timestamps) | Local SQLite (encrypted) | Progress review | Until user deletes app or clears data |
 | Verse of the week selection | Local SQLite (encrypted) | Core app function | Until changed or app deleted |
 | Custom verses entered by user | Local SQLite (encrypted) | Core app function | Until user deletes them or app |
-| User preferences (audio, theme, translation, notification time, notification type, lock-screen toggle) | SharedPreferences (local) | App configuration | Until user changes or uninstalls |
+| User preferences (audio, theme, translation, notification time, notification type, lock-screen toggle, auto-advance verse of the week and its last-advanced date) | SharedPreferences (local) | App configuration | Until user changes or uninstalls |
+| Lookup consent flags (`bible_lookup_consent_v1`, `esv_lookup_consent_v1`) | SharedPreferences (local) | Records that the user agreed to send verse references to the named third party | Until user clears app data |
 | Engagement log (date, event type, aggregate count) | Local SQLite (`engagement_log`) | Streak & activity history display | 90 days auto-purge; user-clearable via Settings → Activity History |
 | Export file (JSON snapshot of above) | App internal storage (temporary) | User-initiated data transfer | Deleted immediately after share |
 | Drive backup (same JSON, encrypted in transit) | Google Drive `appdata` folder | Optional cloud backup | Until user deletes backup from app or removes app access in Google account settings |
+| ESV verse audio cache (MP3 files) | App cache dir (`getApplicationCacheDirectory()/esv_audio/`) | Audio playback for ESV verses | Evicted once cache exceeds 250 files (oldest first); also subject to OS cache eviction under storage pressure; excluded from Android Auto Backup |
 
 ### engagement_log schema
 - `date` — calendar date only (`YYYY-MM-DD`), no time component
@@ -32,7 +34,7 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 - No automatic network requests; all network calls (verse lookup, pack import, Drive backup) are user-initiated and require prior consent
 
 ## Special Category Data (GDPR Art. 9)
-Test history (which verses were studied, when, accuracy) combined with verse content constitutes a profile of religious practice. This data is stored locally by default. If Drive backup is enabled, this data is transmitted to Google's servers. A DPIA assessment is required before enabling this feature for any user other than the app author. See Cloud Backup section below.
+Test history (which verses were studied, when, accuracy) combined with verse content constitutes a profile of religious practice. This data is stored locally by default. If Drive backup is enabled, this data is transmitted to Google's servers. ESV verse lookups send a Bible reference — itself religious-practice data — to Crossway, a commercial third party, each time a lookup is performed. A DPIA assessment is required before enabling either feature for any user other than the app author. See Cloud Backup and ESV Verse Lookup sections below.
 
 ## PII Assessment
 No PII is collected or processed in normal operation. Verse text and references are not personal information. Notification time preference is a local setting with no identifying value. The Google account email used for Drive OAuth is held in memory only and cleared on sign-out.
@@ -51,6 +53,29 @@ Recite-mode tests offer an **opt-in** microphone button as an alternative to typ
 Users may configure a daily reminder notification (off by default). The notification body is always generic — no verse text or reference is included.
 
 **Lock screen visibility** (`showOnLockScreen`) defaults to `false` (`NotificationVisibility.private`). The user may opt in to show notification content on the lock screen. This is opt-in because religious practice is GDPR Art. 9 adjacent — enabling this reveals to lock-screen bystanders that the user uses a Bible memorization app. An explicit bystander warning is shown in the settings UI.
+
+## ESV Verse Lookup (Optional)
+
+This feature is **off by default** and only appears in builds compiled with an ESV API key. Enabling it requires explicit, separate consent from the bible.helloao.org lookup.
+
+- **What is transmitted:** The verse reference (e.g. "Romans 8:28") as a query parameter, the user's IP address, and an API key credential in the `Authorization` header
+- **Destination:** `api.esv.org`, operated by Crossway (see [Crossway's Privacy Policy](https://www.crossway.org/privacy/))
+- **Data processor:** Crossway, a commercial third-party data controller — not Google or any infrastructure already covered by other sections of this document
+- **Storage cap:** Crossway's API terms permit storing at most 500 ESV verses locally. The app enforces this cap both as a pre-lookup advisory warning and as a hard block at save time, with an atomic database check to prevent double-save races
+- **Consent record:** Stored locally under the `esv_lookup_consent_v1` preference key, isolated from the `bible_lookup_consent_v1` key used for bible.helloao.org — sharing keys would silently forward verse references to Crossway for users who only consented to the other provider
+- **Encryption in transit:** HTTPS-only; cleartext is blocked at the OS level
+- **Consent dialog disclosure:** Names `api.esv.org` as the recipient and states the 500-verse cap before the first ESV lookup fires
+
+## ESV Audio Playback (Optional)
+
+This feature plays the real Crossway recording for ESV verses during the text phase of audio playback; it only activates for verses already saved with translation `ESV` (i.e. after ESV Verse Lookup above has been used and consented to).
+
+- **What is transmitted:** The verse reference and the user's IP address, sent twice across two requests — first to `api.esv.org` (with the `Authorization` API key header) to resolve the audio location, then to the CDN host (`audio.esv.org`) to fetch the MP3, **without** the API key header
+- **Destination:** `api.esv.org` to resolve, `audio.esv.org` (Crossway's CDN) to fetch the recording; the CDN host is allowlisted in code so a redirect can never silently retarget another host
+- **Data processor:** Crossway, same processor as ESV Verse Lookup
+- **Consent record:** Reuses the `esv_lookup_consent_v1` preference key — by the time a user has ESV verses saved, they have already consented to send the same Bible reference to Crossway via text lookup, so a separate audio consent prompt is not shown
+- **Local cache:** Fetched MP3s are cached on-device under `esv_audio/`, keyed by the SHA-256 hash of the lowercased, trimmed reference (never the raw reference string, to rule out path traversal). Capped at 250 files; oldest files are evicted first
+- **Offline/error behavior:** Any cache or network failure falls back to on-device text-to-speech silently — no error is shown to the user, and no partial data is transmitted
 
 ## Cloud Backup (Optional)
 
@@ -82,7 +107,7 @@ No camera, contacts, or storage permissions are requested.
 
 ## Network Requests
 
-Verse lookup sends HTTPS requests to `bible.helloao.org` (a free public Bible API). Drive backup, when enabled, sends requests to Google's servers. No other external hosts are contacted.
+Verse lookup sends HTTPS requests to `bible.helloao.org` (a free public Bible API). ESV verse lookup, when available and enabled, sends HTTPS requests to `api.esv.org` (Crossway). ESV audio playback additionally sends HTTPS requests to `api.esv.org` and `audio.esv.org` (Crossway's CDN, allowlisted in code). Drive backup, when enabled, sends requests to Google's servers. No other external hosts are contacted.
 
 - Requests are user-initiated (tap Search, or explicitly enable Drive backup); the app never auto-fetches.
 - The user's IP address is visible to the remote host (`bible.helloao.org` or Google) for each request.

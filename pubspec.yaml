@@ -73,11 +73,20 @@ dependencies:
   # never falls back to cloud recognition)
   speech_to_text: ^7.4.0
 
+  # Opens www.esv.org from the ESV copyright notice (explicit dep — was only
+  # pulled in transitively by share_plus before)
+  url_launcher: ^6.3.0
+
+  # Local MP3 playback for ESV audio recordings
+  audioplayers: ^6.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
+  url_launcher_platform_interface: ^2.3.0
+  sqflite_common_ffi: ^2.4.2
 
 flutter_launcher_icons:
   android: true
