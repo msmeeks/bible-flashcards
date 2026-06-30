@@ -166,6 +166,15 @@ void main() {
       );
       expect(s.lastVerseAdvanceDate, isNull);
     });
+
+    test('lastVerseAdvanceDate just inside the 365-day window is accepted',
+        () {
+      final justInside = DateTime.now().add(const Duration(days: 364));
+      final s = AppSettings.fromMap(
+        {'last_verse_advance_date': justInside.toIso8601String()},
+      );
+      expect(s.lastVerseAdvanceDate, justInside);
+    });
   });
 
   group('AppSettings.copyWith', () {
@@ -206,6 +215,21 @@ void main() {
       const original = AppSettings();
       final updated = original.copyWith(notificationType: 'reviewVerse');
       expect(updated.notificationType, 'reviewVerse');
+    });
+
+    test('clearLastVerseAdvanceDate true clears a previously-set date', () {
+      final original = AppSettings(lastVerseAdvanceDate: DateTime(2026, 6, 21));
+      final updated = original.copyWith(clearLastVerseAdvanceDate: true);
+      expect(updated.lastVerseAdvanceDate, isNull);
+    });
+
+    test(
+        'clearLastVerseAdvanceDate false (default) preserves the existing date',
+        () {
+      final date = DateTime(2026, 6, 21);
+      final original = AppSettings(lastVerseAdvanceDate: date);
+      final updated = original.copyWith(notificationType: 'reviewVerse');
+      expect(updated.lastVerseAdvanceDate, date);
     });
   });
 }

@@ -13,7 +13,15 @@ import '../../widgets/esv_copyright_footer.dart';
 import '../settings/settings_screen.dart';
 
 class AddVerseScreen extends StatefulWidget {
-  const AddVerseScreen({super.key});
+  const AddVerseScreen({
+    super.key,
+    @visibleForTesting BibleLookupService? lookupService,
+    @visibleForTesting EsvLookupService? esvLookupService,
+  })  : _lookupServiceOverride = lookupService,
+        _esvLookupServiceOverride = esvLookupService;
+
+  final BibleLookupService? _lookupServiceOverride;
+  final EsvLookupService? _esvLookupServiceOverride;
 
   @override
   State<AddVerseScreen> createState() => _AddVerseScreenState();
@@ -33,8 +41,10 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   String? _capWarning;
   VerseLookupResult? _preview;
 
-  final _lookupService = BibleLookupService();
-  final _esvLookupService = EsvLookupService();
+  late final _lookupService =
+      widget._lookupServiceOverride ?? BibleLookupService();
+  late final _esvLookupService =
+      widget._esvLookupServiceOverride ?? EsvLookupService();
 
   static const _consentPrefKey = 'bible_lookup_consent_v1';
   static const _esvConsentPrefKey = 'esv_lookup_consent_v1';

@@ -271,5 +271,43 @@ void main() {
       );
       expect(score, 1.0);
     });
+
+    test(
+        'bare-space verse + trailing "and" range does not fully normalize '
+        '(range connector resolves before the bare-space colon insertion)',
+        () {
+      // Documents the ordering tradeoff called out in
+      // _normalizeReferenceInput: "16 and 17" only becomes a range once a
+      // colon already precedes it, but "3 16" hasn't been colonized yet
+      // when the "and" rule runs, so this falls through to plain LCS.
+      final score = computeReferenceScore('John 3 16 and 17', 'John 3:16-17');
+      expect(score, computeScore('John 3 16 and 17', 'John 3:16-17'));
+      expect(score, lessThan(1.0));
+    });
+
+    test('"to" range connector combined with bare-space chapter:verse matches',
+        () {
+      expect(
+        computeReferenceScore('Phil 4 13 to 14', 'Phil 4:13-14'),
+        1.0,
+      );
+    });
+
+    test('both empty → falls through to computeScore, scores 1.0', () {
+      expect(computeReferenceScore('', ''), 1.0);
+    });
+
+    test('both whitespace-only → falls through to computeScore, scores 1.0',
+        () {
+      expect(computeReferenceScore('   ', '   '), 1.0);
+    });
+
+    test('typed non-empty, correct empty → 0.0', () {
+      expect(computeReferenceScore('John 3:16', ''), 0.0);
+    });
+
+    test('typed empty, correct non-empty → 0.0', () {
+      expect(computeReferenceScore('', 'John 3:16'), 0.0);
+    });
   });
 }

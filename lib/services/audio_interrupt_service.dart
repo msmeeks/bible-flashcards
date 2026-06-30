@@ -50,6 +50,11 @@ class AudioInterruptService {
 
   bool get isTracking => _tracking;
 
+  /// Runs an immediate threshold check without waiting for the periodic
+  /// timer — lets tests exercise threshold-crossing deterministically.
+  @visibleForTesting
+  void debugCheckThreshold() => _checkThreshold();
+
   /// Begins accumulation tracking.  Call when audio starts playing.
   void startTracking({
     required Duration threshold,

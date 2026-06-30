@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
@@ -42,6 +43,29 @@ class DatabaseHelper {
   }
 
   Future<Database> get database => _dbFuture ??= _openDatabase();
+
+  /// Injects an already-open [Database] (e.g. an in-memory sqflite_common_ffi
+  /// instance), bypassing path_provider/secure_storage/sqlcipher so tests can
+  /// exercise real transaction logic without platform channels.
+  @visibleForTesting
+  static void debugSetDatabase(Database db) {
+    assert(() {
+      _instance = DatabaseHelper._();
+      _dbFuture = Future.value(db);
+      return true;
+    }(), 'debugSetDatabase is only available in debug/test builds');
+  }
+
+  /// Clears injected/cached state so the next [database] access reopens the
+  /// real (sqlcipher) database.
+  @visibleForTesting
+  static void debugReset() {
+    assert(() {
+      _instance = null;
+      _dbFuture = null;
+      return true;
+    }());
+  }
 
   // ---------------------------------------------------------------------------
   // Initialisation

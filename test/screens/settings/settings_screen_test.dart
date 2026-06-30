@@ -26,6 +26,22 @@ class _ThrowingUrlLauncherPlatform extends UrlLauncherPlatform {
   }
 }
 
+class _SucceedingUrlLauncherPlatform extends UrlLauncherPlatform {
+  String? lastLaunchedUrl;
+
+  @override
+  LinkDelegate? get linkDelegate => null;
+
+  @override
+  Future<bool> canLaunch(String url) async => true;
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    lastLaunchedUrl = url;
+    return true;
+  }
+}
+
 // Mirrors the provider tree BibleFlashcardsApp builds in lib/app.dart.
 Widget _wrap() {
   final dbHelper = DatabaseHelper();
@@ -169,6 +185,53 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Could not open ESV.org.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping ESV.org launches the URL and shows no fallback message on success',
+    (tester) async {
+      final originalPlatform = UrlLauncherPlatform.instance;
+      final fakePlatform = _SucceedingUrlLauncherPlatform();
+      UrlLauncherPlatform.instance = fakePlatform;
+      addTearDown(() => UrlLauncherPlatform.instance = originalPlatform);
+
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+      await tester.scrollUntilVisible(find.text('ESV.org'), 200);
+
+      await tester.tap(find.text('ESV.org'));
+      await tester.pumpAndSettle();
+
+      expect(fakePlatform.lastLaunchedUrl, 'https://www.esv.org');
+      expect(find.text('Could not open ESV.org.'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Auto-advance verse of the week toggle can be turned off once enabled',
+    (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+
+      await tester.tap(find.text('Auto-advance verse of the week'));
+      await tester.pump();
+
+      final switchFinder = find.byType(SwitchListTile);
+      final enabledSwitch = tester
+          .widgetList<SwitchListTile>(switchFinder)
+          .firstWhere((s) => (s.title as Text).data ==
+              'Auto-advance verse of the week');
+      expect(enabledSwitch.value, isTrue);
+
+      await tester.tap(find.text('Auto-advance verse of the week'));
+      await tester.pump();
+
+      final disabledSwitch = tester
+          .widgetList<SwitchListTile>(switchFinder)
+          .firstWhere((s) => (s.title as Text).data ==
+              'Auto-advance verse of the week');
+      expect(disabledSwitch.value, isFalse);
     },
   );
 }

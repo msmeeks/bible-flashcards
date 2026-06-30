@@ -1,5 +1,67 @@
 # Progress Log
 
+## 2026-06-30 — test-esv-coverage-gaps.md (#91, #92, #93, #94, #95, #96)
+
+Picked over `refactor-audio-settings-dedup.md` (3 prior failed attempts —
+mechanical refactor, lower priority than an unattempted plan covering real
+architectural unknowns) and `fix-add-verse-ui-polish.md` (explicit UI
+polish, ranked last per priority order). Test-only cluster; no production
+behavior changes.
+
+- **#91** `test/database/database_helper_test.dart` (new): added
+  `sqflite_common_ffi` as a dev dependency plus a `DatabaseHelper.debugSetDatabase`/
+  `debugReset` `@visibleForTesting` seam so tests can inject an in-memory DB
+  and exercise real transaction logic without platform channels — the
+  codebase's first genuine SQL-transaction test. Covers `insertEsvVerse`:
+  succeeds under cap, throws at cap, doesn't insert the over-cap row,
+  concurrent `Future.wait` inserts at the cap boundary still respect the cap
+  (TOCTOU-safe transaction), and duplicate-id insert is ignored not thrown.
+- **#92** `test/screens/verses/add_verse_screen_test.dart`: added
+  constructor-level DI (`lookupService`/`esvLookupService` optional params)
+  to `AddVerseScreen` so ESV flows are testable without a compiled
+  `ESV_API_KEY`. New widget tests: cap-blocked lookup skips the consent
+  prompt, consent accept proceeds to a preview, consent decline performs no
+  lookup, lookup success/failure rendering with consent already granted, and
+  cap-warning clearing when switching translation away from ESV.
+- **#93** `test/services/audio_interrupt_service_test.dart`: added a
+  `debugCheckThreshold()` `@visibleForTesting` seam on
+  `AudioInterruptService` (ruled out `fakeAsync` — it only fakes
+  `package:clock`, not the service's raw `DateTime.now()`); used
+  `Duration.zero` thresholds for deterministic, real-time-independent
+  triggering tests. Added instance-level coverage for start/stop/pause/resume
+  (including safe-no-op double-calls) and threshold-crossing triggering
+  `stop()` + notification + `playVerse()`, plus two missing
+  `pickVerseForInterrupt` branch tests (`verseOfWeek == null`,
+  `memorizedVerses.isEmpty`).
+- **#94** `test/providers/verse_provider_test.dart`: added a real-DB-backed
+  test (via the new `debugSetDatabase` seam) exercising the public
+  `autoAdvanceVerseOfWeekIfNeeded` end-to-end — asserts the new verse is
+  persisted and becomes `verseOfWeek`, and `onUpdate` fires with the
+  advance date; plus a same-call negative case (non-Sunday: no DB write, no
+  `onUpdate`).
+- **#95** `test/utils/scoring_test.dart`: added regression tests for
+  compound/colliding reference inputs, including one that documents an
+  intentional limitation noted in `_normalizeReferenceInput`'s docstring
+  (bare-space + trailing "and" range doesn't fully normalize because the
+  "and" rule runs before the bare-space colon insertion), plus
+  empty/whitespace-only boundary cases for `computeReferenceScore`.
+- **#96** Smaller branch/boundary tests: `settings_screen_test.dart` —
+  auto-advance toggle-off (existing test only covered toggle-on) and
+  ESV.org `launchUrl` success path (existing test only covered the
+  no-handler fallback); `esv_copyright_footer_test.dart` — reduced-motion
+  branch skips the `AnimatedSize` wrapper; `settings_test.dart` —
+  `copyWith(clearLastVerseAdvanceDate: true)` and the just-inside-365-day
+  acceptance boundary for `fromMap`'s tampered-timestamp guard.
+- Also fixed an `unnecessary_import` lint in `add_verse_screen.dart`
+  (foundation.dart's `visibleForTesting` is already re-exported by
+  material.dart, which the file already imports).
+
+`flutter test` passes (395 of 396; the only failure is the pre-existing,
+unrelated `test/widget_test.dart` stale-`MyApp`-constructor compile error,
+confirmed present via `git stash` before this work started). `flutter
+analyze` clean for all touched files (same pre-existing deprecation infos
+and the `widget_test.dart` issue remain, unrelated to this change).
+
 ## 2026-06-28 — fix-esv-copyright-footer.md (#80, #81, #82, #83, #87)
 
 Picked over the other unblocked pending plans (`refactor-audio-settings-dedup.md`,

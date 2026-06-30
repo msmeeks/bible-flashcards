@@ -1,9 +1,33 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/models/settings.dart';
 import 'package:bible_flashcards/models/verse.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
+
+const _packsSchema = '''
+  CREATE TABLE packs (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    verse_ids   TEXT NOT NULL DEFAULT '[]'
+  )
+''';
+
+const _versesSchema = '''
+  CREATE TABLE verses (
+    id                TEXT PRIMARY KEY,
+    reference         TEXT NOT NULL,
+    text              TEXT NOT NULL,
+    translation       TEXT NOT NULL,
+    pack_id           TEXT NOT NULL,
+    is_memorized      INTEGER NOT NULL DEFAULT 0,
+    is_verse_of_week  INTEGER NOT NULL DEFAULT 0,
+    memorized_at      TEXT,
+    added_at          TEXT NOT NULL
+  )
+''';
 
 Verse _verse(String id, {bool isMemorized = true, bool isVerseOfWeek = false}) {
   return Verse(
@@ -284,6 +308,79 @@ void main() {
           provider.pickVerseForAutoAdvance(settings, DateTime(2026, 1, 4));
 
       expect(picked, isNull);
+    });
+  });
+
+  group('VerseProvider.autoAdvanceVerseOfWeekIfNeeded', () {
+    final sunday = DateTime(2026, 6, 21); // confirmed Sunday
+    final monday = DateTime(2026, 6, 22);
+
+    setUpAll(() {
+      sqfliteFfiInit();
+    });
+
+    setUp(() async {
+      final db = await databaseFactoryFfi.openDatabase(
+        inMemoryDatabasePath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, version) async {
+            await db.execute(_packsSchema);
+            await db.execute(_versesSchema);
+          },
+        ),
+      );
+      DatabaseHelper.debugSetDatabase(db);
+    });
+
+    tearDown(() async {
+      final db = await DatabaseHelper().database;
+      await db.close();
+      DatabaseHelper.debugReset();
+    });
+
+    test(
+        'advances the verse of week, persists it to the DB, and reports the '
+        'advance date via onUpdate', () async {
+      final provider = VerseProvider(DatabaseHelper());
+      final db = await DatabaseHelper().database;
+      await db.insert('verses', _verse('vow', isVerseOfWeek: true).toMap());
+      await db.insert('verses', _verse('a').toMap());
+      await provider.loadVerses();
+
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+      AppSettings? updated;
+
+      await provider.autoAdvanceVerseOfWeekIfNeeded(
+        settings,
+        (s) => updated = s,
+        now: sunday,
+      );
+
+      expect(provider.verseOfWeek?.id, 'a');
+      expect(updated, isNotNull);
+      expect(updated!.lastVerseAdvanceDate, sunday);
+    });
+
+    test('does nothing when today is not Sunday: no DB write, no onUpdate',
+        () async {
+      final provider = VerseProvider(DatabaseHelper());
+      final db = await DatabaseHelper().database;
+      await db.insert('verses', _verse('vow', isVerseOfWeek: true).toMap());
+      await db.insert('verses', _verse('a').toMap());
+      await provider.loadVerses();
+
+      const settings = AppSettings(autoAdvanceVerseOfWeek: true);
+      var updateCalls = 0;
+
+      await provider.autoAdvanceVerseOfWeekIfNeeded(
+        settings,
+        (_) => updateCalls++,
+        now: monday,
+      );
+
+      expect(provider.verseOfWeek?.id, 'vow');
+      expect(updateCalls, 0);
     });
   });
 }

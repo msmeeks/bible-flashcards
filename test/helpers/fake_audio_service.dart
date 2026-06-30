@@ -47,6 +47,7 @@ class FakeAudioService extends AudioService {
 class FakeNotificationService extends NotificationService {
   int showCalls = 0;
   int cancelCalls = 0;
+  int showInterruptCalls = 0;
 
   @override
   Future<void> showPlaybackNotification() async {
@@ -56,5 +57,10 @@ class FakeNotificationService extends NotificationService {
   @override
   Future<void> cancelNotification() async {
     cancelCalls++;
+  }
+
+  @override
+  Future<void> showVerseInterruptNotification() async {
+    showInterruptCalls++;
   }
 }

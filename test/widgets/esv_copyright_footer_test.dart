@@ -160,6 +160,24 @@ void main() {
       expect(iconButton.onPressed, isNotNull);
     });
 
+    testWidgets(
+        'reduced-motion (disableAnimations) skips the AnimatedSize wrapper',
+        (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: _wrap(EsvCopyrightFooter(
+            hasEsvContent: true,
+            onViewFullTerms: () {},
+          )),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AnimatedSize), findsNothing);
+      expect(find.textContaining('Scripture quotations'), findsOneWidget);
+    });
+
     testWidgets('collapsed toggle meets the 48x48dp minimum tap target',
         (tester) async {
       SharedPreferences.setMockInitialValues({'esv_footer_collapsed_v1': true});
