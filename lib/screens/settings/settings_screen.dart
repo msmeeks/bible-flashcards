@@ -193,6 +193,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : const SizedBox.shrink(),
               ),
               trailing: SegmentedButton<String>(
+                showSelectedIcon: false,
+                style: SegmentedButton.styleFrom(
+                  minimumSize: const Size(0, 48),
+                ),
                 segments: [
                   const ButtonSegment(value: 'BSB', label: Text('BSB')),
                   const ButtonSegment(value: 'KJV', label: Text('KJV')),

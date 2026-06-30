@@ -99,6 +99,10 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                             : (audio.isPlaying ? 'Pause' : 'Resume'),
                         enabled: !audio.isCompleted,
                         button: true,
+                        excludeSemantics: true,
+                        onTap: audio.isCompleted
+                            ? null
+                            : (audio.isPlaying ? audio.pause : audio.resume),
                         child: Tooltip(
                           message: audio.isPlaying ? 'Pause' : 'Resume',
                           child: SizedBox(
@@ -128,6 +132,8 @@ class _ReviewPlayScreenState extends State<ReviewPlayScreen> {
                       Semantics(
                         label: 'Stop playback',
                         button: true,
+                        excludeSemantics: true,
+                        onTap: () => _stop(audio),
                         child: IconButton.filledTonal(
                           iconSize: 32,
                           icon: const Icon(Symbols.stop_rounded),

@@ -147,6 +147,28 @@ void main() {
   );
 
   testWidgets(
+    'Default translation control enforces a minimum 48x40 touch target per segment, '
+    'matching the Backup Frequency control idiom for cramped ListTile trailing widgets',
+    (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+      await tester.scrollUntilVisible(find.text('Default translation'), 200);
+
+      final segmentedButton = tester.widget<SegmentedButton<String>>(
+        find.byWidgetPredicate(
+          (w) =>
+              w is SegmentedButton<String> &&
+              w.segments.any((s) => s.value == 'KJV'),
+        ),
+      );
+      final minimumSize =
+          segmentedButton.style?.minimumSize?.resolve(<WidgetState>{});
+      expect(minimumSize, isNotNull);
+      expect(minimumSize!.height, greaterThanOrEqualTo(40));
+    },
+  );
+
+  testWidgets(
     'Selecting a non-ESV default translation hides the personal-use notice and persists',
     (tester) async {
       await tester.pumpWidget(_wrap());

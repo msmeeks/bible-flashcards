@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -106,6 +107,32 @@ void main() {
 
     final button = tester.widget<FilledButton>(find.byType(FilledButton));
     expect(button.onPressed, isNull);
+  });
+
+  testWidgets(
+      'Stop and Pause controls each expose a single actionable semantics '
+      'node with the visible label, not a separate unlabeled descendant node',
+      (tester) async {
+    final provider = AudioProvider(
+      notificationService: FakeNotificationService(),
+      audioService: FakeAudioService(),
+    );
+    await provider.playQueue([makeVerse('a')]);
+
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(_wrap(provider));
+    await tester.pump();
+
+    final stopData = tester.getSemantics(find.byTooltip('Stop')).getSemanticsData();
+    expect(stopData.label, 'Stop playback');
+    expect(stopData.hasAction(SemanticsAction.tap), isTrue);
+
+    final pauseData =
+        tester.getSemantics(find.byTooltip('Pause')).getSemanticsData();
+    expect(pauseData.label, 'Pause');
+    expect(pauseData.hasAction(SemanticsAction.tap), isTrue);
+
+    handle.dispose();
   });
 
   testWidgets(

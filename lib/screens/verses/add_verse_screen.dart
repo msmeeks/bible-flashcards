@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,8 +7,8 @@ import '../../providers/settings_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../services/bible_lookup_service.dart';
 import '../../services/esv_lookup_service.dart';
-import '../../theme/app_colors.dart';
 import '../../widgets/esv_copyright_footer.dart';
+import '../../widgets/inline_status_banner.dart';
 import '../settings/settings_screen.dart';
 
 class AddVerseScreen extends StatefulWidget {
@@ -301,57 +300,14 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                 ),
               ],
             ),
-            // Semantics node always in tree so liveRegion fires on label change.
-            Semantics(
-              liveRegion: true,
-              label: _lookupError ?? '',
-              child: _lookupError != null
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 4, bottom: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(Symbols.error_rounded, size: 16, color: cs.error),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              _lookupError!,
-                              style: tt.bodyMedium?.copyWith(color: cs.error),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+            InlineStatusBanner(
+              severity: BannerSeverity.error,
+              message: _lookupError,
+              filled: false,
             ),
-            // Semantics node always in tree so liveRegion fires on label change.
-            Semantics(
-              liveRegion: true,
-              label: _capWarning ?? '',
-              child: _capWarning != null
-                  ? Card(
-                      color: cs.warningContainer,
-                      margin: const EdgeInsets.only(top: 4, bottom: 8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Symbols.warning_rounded,
-                                size: 16, color: cs.onWarningContainer),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                _capWarning!,
-                                style: tt.bodyMedium
-                                    ?.copyWith(color: cs.onWarningContainer),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+            InlineStatusBanner(
+              severity: BannerSeverity.warning,
+              message: _capWarning,
             ),
             if (_preview != null) ...[
               const SizedBox(height: 12),
@@ -455,34 +411,9 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               ),
             ],
             const SizedBox(height: 32),
-            // Semantics node always in tree so liveRegion fires on label change.
-            Semantics(
-              liveRegion: true,
-              label: _saveError ?? '',
-              child: _saveError != null
-                  ? Card(
-                      color: cs.errorContainer,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Symbols.error_rounded,
-                                size: 16, color: cs.onErrorContainer),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                _saveError!,
-                                style: tt.bodyMedium
-                                    ?.copyWith(color: cs.onErrorContainer),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+            InlineStatusBanner(
+              severity: BannerSeverity.error,
+              message: _saveError,
             ),
             FilledButton(
               onPressed: _isSaving ? null : _saveVerse,

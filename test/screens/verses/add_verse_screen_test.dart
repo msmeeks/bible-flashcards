@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -107,6 +108,44 @@ void main() {
         segmentedButton.segments.any((s) => s.value == 'ESV'),
         isFalse,
       );
+    },
+  );
+
+  testWidgets(
+    'ESV selection in the translation control is conveyed by semantics and a '
+    'non-color check icon, not background color alone',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      await settingsProvider.update(
+        const AppSettings().copyWith(defaultTranslation: 'BSB'),
+      );
+      final esvService = EsvLookupService(
+        client: MockClient((_) async => http.Response('{}', 200)),
+        apiKey: 'test-key',
+      );
+
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_wrap(
+        settingsProvider,
+        esvLookupService: esvService,
+      ));
+      await tester.pump();
+
+      final segmentedButton = tester.widget<SegmentedButton<String>>(
+        find.byWidgetPredicate(
+          (w) => w is SegmentedButton<String> && w.selected.contains('BSB'),
+        ),
+      );
+      expect(segmentedButton.showSelectedIcon, isTrue);
+
+      await tester.tap(find.text('ESV'));
+      await tester.pump();
+
+      final esvSemantics =
+          tester.getSemantics(find.text('ESV')).getSemanticsData();
+      expect(esvSemantics.hasFlag(SemanticsFlag.isSelected), isTrue);
+
+      handle.dispose();
     },
   );
 
