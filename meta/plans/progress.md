@@ -1,5 +1,67 @@
 # Progress Log
 
+## 2026-06-30 — fix-add-verse-ui-polish.md (#84, #85, #86, #89, #90)
+
+This was the only remaining `"status": "pending"` entry in `prd.json`
+(`blocked_by: fix-translation-selection-consistency.md`, which is `done`) —
+last plan in the queue, picked by elimination per the "UI polish last"
+prioritization rule.
+
+- `lib/screens/settings/settings_screen.dart` (#84): the "Default
+  translation" `SegmentedButton` in the `ListTile.trailing` slot was below
+  the ~48dp minimum touch target at narrow widths. Added
+  `showSelectedIcon: false` and `style: SegmentedButton.styleFrom(minimumSize:
+  const Size(0, 48))`, mirroring the existing precedent in
+  `data_management_screen.dart`'s Backup Frequency control. RED test
+  asserted the resolved `minimumSize.height >= 40` (initially `null`),
+  GREEN after the style change. While probing this at a simulated 375px
+  width I found a **real, separate, out-of-scope layout overflow bug**: the
+  "Notification type" `ListTile` throws "Trailing widget consumes the
+  entire tile width" at 375px, cascading into render-box-not-laid-out
+  failures for everything below it in the list. Not covered by #84/85/86/
+  89/90 — did not fix; needs a new GitHub issue.
+- `lib/screens/review/review_play_screen.dart` (#86): the outer `Semantics`
+  wrappers around the Pause/Resume and Stop controls merged into a single
+  SemanticsNode that — confirmed via a RED test reading
+  `tester.getSemantics(...).getSemanticsData().label` — carried an **empty**
+  label, not just a redundant one as the plan described; the actionable
+  node had no announceable text at all. Fixed with `excludeSemantics: true`
+  plus an explicit `onTap:` mirroring the real button's `onPressed` on both
+  wrappers, so the merged node carries the correct label and a working tap
+  action.
+- `lib/widgets/inline_status_banner.dart` (#90, new file): extracted the
+  three duplicated error/warning Semantics+Card/Row banner blocks in
+  `add_verse_screen.dart` (`_lookupError`, `_capWarning`, `_saveError`) into
+  a shared `InlineStatusBanner` widget (`BannerSeverity {error, warning}`,
+  nullable `message`, `filled` flag). The three originals weren't visually
+  identical — the lookup-error banner had no Card background — so `filled`
+  (default `true`) preserves that distinction; `_lookupError` now passes
+  `filled: false`. Foreground color also branches on `filled` (caught
+  before finalizing: the original filled banner used
+  `cs.onErrorContainer`, not `cs.error`, which would otherwise have been a
+  silent contrast regression). Built via TDD (5 RED→GREEN cycles in
+  `test/widgets/inline_status_banner_test.dart`), then wired into
+  `add_verse_screen.dart`, removing two now-unused imports.
+- #85 and #89 were investigated and found **already resolved** by prior
+  work: #85's ESV-selection-by-color-alone concern is already satisfied by
+  the existing `SegmentedButton` (non-color check icon + per-segment
+  `isSelected` semantics) from an earlier ActionChip→SegmentedButton
+  migration; #89's "footer inside AlertDialog" no longer applies — the only
+  `AlertDialog` in `add_verse_screen.dart` is the consent dialog, which
+  never contains `EsvCopyrightFooter`. No code changes for either; added a
+  regression test for each (`add_verse_screen_test.dart`,
+  `review_play_screen_test.dart` already covers #86) to lock the verified
+  behavior in rather than leaving it implicit.
+
+`flutter analyze`: clean except pre-existing infos (deprecated
+`surfaceVariant`/`hasFlag` usages predating this change) and the documented
+pre-existing `test/widget_test.dart` `MyApp` compile error. `flutter test`:
+406 of 406 pass (the only failure is that same pre-existing
+`test/widget_test.dart` load error). A stray `probe3_test.dart` left over
+from local 375px-layout probing during this session was not cleaned up
+before an earlier full-suite run and caused a 10-minute hang/timeout in
+that run; deleted before the final clean run.
+
 ## 2026-06-30 — refactor-audio-settings-dedup.md (#75, #78)
 
 Picked this over `fix-add-verse-ui-polish.md` (the only other unblocked
