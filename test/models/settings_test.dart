@@ -175,6 +175,22 @@ void main() {
       );
       expect(s.lastVerseAdvanceDate, justInside);
     });
+
+    test('lastBackupAt far in the future is rejected', () {
+      final tampered = DateTime.now().add(const Duration(days: 400));
+      final s = AppSettings.fromMap(
+        {'last_backup_at': tampered.toIso8601String()},
+      );
+      expect(s.lastBackupAt, isNull);
+    });
+
+    test('lastBackupAt just inside the 365-day window is accepted', () {
+      final justInside = DateTime.now().add(const Duration(days: 364));
+      final s = AppSettings.fromMap(
+        {'last_backup_at': justInside.toIso8601String()},
+      );
+      expect(s.lastBackupAt, justInside);
+    });
   });
 
   group('AppSettings.copyWith', () {

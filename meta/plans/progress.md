@@ -1,5 +1,40 @@
 # Progress Log
 
+## 2026-06-30 — refactor-audio-settings-dedup.md (#75, #78)
+
+Picked this over `fix-add-verse-ui-polish.md` (the only other unblocked
+pending plan) per the prioritization rule ranking UI polish last — this is a
+mechanical DRY cleanup, not UI work. 4 prior attempts had left no commits and
+no working-tree changes; found no evidence of what previously blocked them.
+
+- `lib/services/audio_service.dart` (#75): extracted `_runFromPhase(_PlayPhase
+  startPhase, Verse verse)`, replacing the duplicated reference→pause→text
+  cascade previously inlined separately in `playVerse` and three times across
+  `resume`'s phase `switch`. `_runFromPhase` runs each stage conditionally
+  based on `startPhase` (skipping stages before it), so `playVerse` always
+  starts at `_PlayPhase.reference` and `resume` starts at the recorded
+  `_pausedPhase`. Behavior preserved exactly, including `resume()`'s no-op
+  when `_pausedPhase == _PlayPhase.none` (was a `switch` `break`, now an early
+  return). No direct unit test exists for `AudioService` in this repo — every
+  caller substitutes `FakeAudioService` because `flutter_tts`/`audioplayers`
+  require platform channels with no mock harness here (same untested boundary
+  documented in every prior `feat-esv-audio.md`-adjacent entry) — verified by
+  manual side-by-side comparison against the pre-refactor logic instead, plus
+  `flutter analyze` and the full `flutter test` run showing no regressions.
+- `lib/models/settings.dart` (#78): extracted `_parseGuardedTimestamp(String?
+  raw)`, replacing the duplicated far-future-timestamp tamper guard previously
+  inlined separately for `lastBackupAt` and `lastVerseAdvanceDate` in
+  `fromMap`. Unlike the audio side, this is fully unit-testable (no platform
+  channels) — found `lastBackupAt`'s far-future/just-inside-window guard had
+  no test coverage at all (only `lastVerseAdvanceDate`'s was tested), so added
+  the missing two cases to `test/models/settings_test.dart` before
+  refactoring, giving both fields equal coverage of the shared helper.
+
+`flutter analyze`: 0 issues on both touched files. `flutter test`: 397 of 398
+pass; the only failure is the same pre-existing, unrelated
+`test/widget_test.dart` stale-`MyApp`-constructor compile error confirmed via
+`git stash` before this work started (consistent with every prior entry).
+
 ## 2026-06-30 — test-esv-coverage-gaps.md (#91, #92, #93, #94, #95, #96)
 
 Picked over `refactor-audio-settings-dedup.md` (3 prior failed attempts —

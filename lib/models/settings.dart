@@ -117,27 +117,10 @@ class AppSettings {
         ? TimeOfDay(hour: hour, minute: minute)
         : null;
 
-    final lastBackupRaw = map['last_backup_at'] as String?;
-    DateTime? lastBackupAt;
-    if (lastBackupRaw != null) {
-      final parsed = DateTime.tryParse(lastBackupRaw);
-      // Reject far-future timestamps (tampered preference guard per security review)
-      if (parsed != null &&
-          parsed.isBefore(DateTime.now().add(const Duration(days: 365)))) {
-        lastBackupAt = parsed;
-      }
-    }
-
-    final lastVerseAdvanceRaw = map['last_verse_advance_date'] as String?;
-    DateTime? lastVerseAdvanceDate;
-    if (lastVerseAdvanceRaw != null) {
-      final parsed = DateTime.tryParse(lastVerseAdvanceRaw);
-      // Reject far-future timestamps (tampered preference guard per security review)
-      if (parsed != null &&
-          parsed.isBefore(DateTime.now().add(const Duration(days: 365)))) {
-        lastVerseAdvanceDate = parsed;
-      }
-    }
+    final lastBackupAt =
+        _parseGuardedTimestamp(map['last_backup_at'] as String?);
+    final lastVerseAdvanceDate =
+        _parseGuardedTimestamp(map['last_verse_advance_date'] as String?);
 
     final cadenceRaw = map['backup_cadence'] as String? ?? 'weekly';
     const validCadences = {'daily', 'weekly', 'monthly'};
@@ -169,5 +152,17 @@ class AppSettings {
           map['auto_advance_verse_of_week'] as bool? ?? false,
       lastVerseAdvanceDate: lastVerseAdvanceDate,
     );
+  }
+
+  /// Parses an ISO-8601 timestamp, rejecting far-future values (tampered
+  /// preference guard per security review).
+  static DateTime? _parseGuardedTimestamp(String? raw) {
+    if (raw == null) return null;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+    if (!parsed.isBefore(DateTime.now().add(const Duration(days: 365)))) {
+      return null;
+    }
+    return parsed;
   }
 }

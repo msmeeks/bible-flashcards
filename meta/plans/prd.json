@@ -111,8 +111,8 @@
         78
       ],
       "size": "S",
-      "status": "pending",
-      "attempts": 3,
+      "status": "done",
+      "attempts": 4,
       "blocked_by": []
     },
     {
