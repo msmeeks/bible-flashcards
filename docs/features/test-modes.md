@@ -83,6 +83,9 @@ When the prompt direction is `textToReference` (user types or recites the refere
 
 Custom variants are loaded once per session in `initState` via `_loadCustomVariants()` → `DatabaseHelper.getCustomVariantLookup()`, which merges all stored rows into a normalized-key → USFM-code map layered on top of the built-in table (built-in never mutated).
 
+### Natural Separator/Range Normalization (typed references)
+Before `computeReferenceScore` splits a typed reference into book-name + chapter:verse spans, `_normalizeReferenceInput()` (`lib/utils/scoring.dart`) rewrites common natural-language separator and range variants into the canonical `Chapter:Verse` / `Verse-Verse` form, so e.g. "Phil 4.13", "Phil 4 13", and "Phil 4 colon 13" all score identically to "Phil 4:13", and "John 3:16 to/through/and 17" scores identically to "John 3:16-17". Rewrite order is significant — word-based connectors (`colon`, `dot`, `dash`, `to`/`through`, `and`) are resolved before the bare two-number-with-space rule, otherwise a range like "16 to 17" would become "16:to 17" before "to" is replaced. This only runs on the *typed* side; the stored `correct` reference is assumed already canonical.
+
 ### Custom Book-Name Variants (Settings)
 `lib/screens/settings/book_variants_screen.dart`, linked from Settings → Data ("Book Name Variants"), lets the user add/remove their own variant spellings per book (e.g. a personal abbreviation). Add flow: book `DropdownButtonFormField` (from `bookDisplayNames`) + free-text `TextFormField` (capped at `maxVariantLength` = 60 chars), inline `errorText` validation, focus returned to the offending field on error. List view shows existing variants with an accessible (48x48, `Semantics`-labeled) delete button per row. Stored variants are capped at `maxCustomVariants` = 200 total (data minimization) and validated server-side (in `DatabaseHelper.addBookNameVariant`) for unknown book code, empty/over-length text, and duplicate (book, variant) pairs — the count-check-then-insert runs inside one `db.transaction` to avoid a race past the cap.
 
@@ -95,6 +98,9 @@ Typed test input is held only in ephemeral widget state. It is discarded immedia
 ### History
 Each completed session is stored with: timestamp, mode, list of (reference, score) pairs, and total score. The Settings screen exposes a "Clear History" action. The home screen shows recent memorized verses as chips. Results screen displays verse refs via `formatVerseReference` instead of raw slug.
 
+### ESV Attribution
+`test_session_screen.dart` renders `EsvCopyrightFooter(hasEsvContent: _currentVerse.translation == 'ESV')` below the answer area. See `docs/features/esv-attribution.md` for the shared widget's behavior.
+
 ### Accessibility
 Fill-blank feedback in `test_session_screen.dart` uses `TextField` `errorText`/`helperText` (not just color/icon) so screen readers announce "Incorrect — correct: <word>" or "Correct".
 
@@ -104,6 +110,7 @@ Fill-blank feedback in `test_session_screen.dart` uses `TextField` `errorText`/`
 ## Changelog
 | Date | Change |
 |---|---|
+| 2026-06-26 | Normalized natural separator/range variants in typed references before scoring (#43, #44): `_normalizeReferenceInput()` handles "colon"/"dot"/"dash" words, "to"/"through"/"and" ranges, bare-dot, and bare-space chapter:verse forms |
 | 2026-06-25 | Retrofitted Review mode (#49) with a user-chosen count slider/chips + verse-of-week toggle, replacing the hardcoded 5-verse selection; wired into `getRandomMemorizedVerses(count, includeVerseOfWeek)` (#46/#53) |
 | 2026-06-24 | Added lenient book-name matching for `textToRef` answers (#30): `computeReferenceScore` in `scoring.dart` canonicalizes the typed book-name span before LCS scoring; new shared `lib/utils/book_name_variants.dart` table (built-in variants + longhand/spoken-number forms), `book_name_variants` DB table (v2→v3) for user-added variants with CRUD + caps, new Settings screen `book_variants_screen.dart` |
 | 2026-05-27 | Initial documentation |
