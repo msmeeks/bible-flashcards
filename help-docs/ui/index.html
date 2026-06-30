@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Guide — Bible Flashcards</title>
+<style>
+  :root {
+    --primary: #1B5E6B;
+    --primary-container: #C8E9EE;
+    --on-primary-container: #001F24;
+    --secondary: #7D5A3C;
+    --secondary-container: #F5DFC8;
+    --tertiary: #8A6914;
+    --tertiary-container: #FDEFC3;
+    --surface: #F8F5F0;
+    --surface-variant: #EDE7DE;
+    --on-surface: #1C1917;
+    --on-surface-variant: #4D453E;
+    --outline: #8A7E72;
+    --warning-container: #FFDEA3;
+    --success: #276234;
+    --success-container: #C8F0D0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Google Sans", Roboto, system-ui, sans-serif;
+    background: var(--surface);
+    color: var(--on-surface);
+    display: flex;
+    min-height: 100vh;
+  }
+  a { color: var(--primary); }
+  a:focus-visible, button:focus-visible { outline: 3px solid var(--tertiary); outline-offset: 2px; }
+
+  nav.sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: #fff;
+    border-right: 1px solid var(--surface-variant);
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  nav.sidebar h2 {
+    font-size: 0.95rem;
+    color: var(--primary);
+    margin: 0 0 16px;
+  }
+  nav.sidebar a {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--on-surface);
+    font-size: 0.92rem;
+    margin-bottom: 2px;
+  }
+  nav.sidebar a:hover, nav.sidebar a:focus-visible {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+  nav.sidebar .back {
+    display: inline-block;
+    margin-bottom: 20px;
+    font-size: 0.85rem;
+    color: var(--on-surface-variant);
+  }
+
+  .content-wrap { flex: 1; min-width: 0; }
+
+  header.hero {
+    background: linear-gradient(135deg, var(--primary) 0%, #4FBDCF 100%);
+    color: #fff;
+    padding: 48px 40px;
+  }
+  header.hero h1 {
+    font-family: Georgia, 'Lora', serif;
+    font-size: 2rem;
+    margin: 0 0 8px;
+    font-weight: 400;
+  }
+  header.hero p { margin: 0; opacity: 0.95; max-width: 640px; }
+
+  main { max-width: 760px; margin: 0 auto; padding: 32px 40px 80px; }
+
+  section { margin-bottom: 48px; }
+  section h2 {
+    font-size: 1.4rem;
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary-container);
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    scroll-margin-top: 16px;
+  }
+  section h3 { font-size: 1.05rem; margin: 24px 0 8px; color: var(--secondary); }
+
+  .card {
+    background: #fff;
+    border: 1px solid var(--surface-variant);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+
+  ol.steps { padding-left: 0; list-style: none; counter-reset: step; }
+  ol.steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 8px 0 8px 40px;
+    line-height: 1.5;
+  }
+  ol.steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    font-weight: 600;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mockup {
+    border: 1px solid var(--outline);
+    border-radius: 16px;
+    background: var(--surface-variant);
+    padding: 16px;
+    margin: 16px 0;
+    font-size: 0.85rem;
+    color: var(--on-surface-variant);
+  }
+  .mockup .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--outline);
+    margin-bottom: 8px;
+  }
+  .phone-frame {
+    width: 220px;
+    border: 3px solid #1C1917;
+    border-radius: 20px;
+    padding: 10px;
+    background: #fff;
+    margin: 8px 0;
+  }
+  .verse-card-mock {
+    background: var(--tertiary-container);
+    border-radius: 12px;
+    padding: 12px;
+    font-family: Georgia, 'Lora', serif;
+  }
+  .verse-card-mock .ref { font-family: -apple-system, sans-serif; font-weight: 600; font-size: 0.8rem; color: #5c4a0d; }
+  .verse-card-mock .chip {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.65rem;
+    background: var(--success-container);
+    color: var(--success);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: -apple-system, sans-serif;
+  }
+  .nav-mock {
+    display: flex;
+    justify-content: space-around;
+    border-top: 1px solid var(--surface-variant);
+    margin-top: 12px;
+    padding-top: 8px;
+    font-size: 0.6rem;
+    color: var(--on-surface-variant);
+  }
+  .nav-mock span.active { color: var(--primary); font-weight: 600; }
+
+  .callout {
+    border-left: 4px solid var(--tertiary);
+    background: var(--tertiary-container);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+    margin: 16px 0;
+  }
+  .callout.warning { border-left-color: #7A5800; background: var(--warning-container); }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  details.faq {
+    border: 1px solid var(--surface-variant);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: #fff;
+  }
+  details.faq summary {
+    padding: 14px 16px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  details.faq summary:focus-visible { outline: 3px solid var(--tertiary); outline-offset: -2px; }
+  details.faq .answer { padding: 0 16px 16px; color: var(--on-surface-variant); line-height: 1.5; }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--surface-variant); }
+  th { color: var(--secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+
+  code { background: var(--surface-variant); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<nav class="sidebar" aria-label="User guide sections">
+  <a class="back" href="../index.html">&larr; Back to Help Home</a>
+  <h2>Bible Flashcards Guide</h2>
+  <a href="#getting-started">Getting Started</a>
+  <a href="#adding-verses">Adding Verses</a>
+  <a href="#esv-lookup">ESV Lookup &amp; Attribution</a>
+  <a href="#verse-of-week">Verse of the Week</a>
+  <a href="#reviewing-testing">Reviewing &amp; Testing</a>
+  <a href="#review-presentation">Review Tab (Show &amp; Play)</a>
+  <a href="#audio">Audio Playback</a>
+  <a href="#settings">Settings</a>
+  <a href="#backup">Backup &amp; Restore</a>
+  <a href="#faq">FAQ</a>
+</nav>
+<div class="content-wrap">
+  <header class="hero">
+    <h1>User Guide</h1>
+    <p>Everything you need to memorize and review Scripture with Bible Flashcards. This app is yours alone — there's no sign-in, no account, and no one else sees your verses or your progress.</p>
+  </header>
+
+  <main>
+    <section id="getting-started">
+      <h2>Getting Started</h2>
+      <div class="card">
+        <p>Bible Flashcards comes preloaded with the Navigators Topical Memory System — a set of verse packs organized by topic. When you open the app for the first time, you'll see an empty "Verse of the Week" card on the Home tab.</p>
+        <ol class="steps">
+          <li>Open the <strong>Verses</strong> tab and browse the <strong>Available</strong> list.</li>
+          <li>Tap any verse, then choose <strong>Set as verse of the week</strong>.</li>
+          <li>Return to <strong>Home</strong> — your verse now appears at the top, ready to study.</li>
+        </ol>
+        <div class="mockup">
+          <div class="label">Mock-up — Home tab, empty state</div>
+          <div class="phone-frame">
+            <div class="verse-card-mock" style="background: var(--surface-variant);">
+              <div class="ref">Verse of the Week</div>
+              <div style="margin-top:6px; font-size:0.8rem; font-family: -apple-system, sans-serif; color: var(--on-surface-variant);">
+                No memorized verses yet. Select a verse of the week to get started.
+              </div>
+            </div>
+            <div class="nav-mock">
+              <span class="active">Home</span><span>Verses</span><span>Review</span><span>Test</span><span>Settings</span>
+            </div>
+          </div>
+        </div>
+        <p><em>Note: screenshots above are mock-ups built for this guide, not captures from a live device.</em></p>
+      </div>
+    </section>
+
+    <section id="adding-verses">
+      <h2>Adding Verses</h2>
+      <div class="card">
+        <p>Most people study the built-in Navigator packs, but you can also add your own verses — typed by hand or looked up automatically from the ESV Bible (if your build includes ESV lookup).</p>
+        <h3>Add a verse by typing it</h3>
+        <ol class="steps">
+          <li>From <strong>Verses</strong>, tap the <strong>+</strong> button.</li>
+          <li>Choose a Bible version (BSB, KJV, WEB, or ESV).</li>
+          <li>Type the reference (e.g. "Romans 8:28") and the verse text.</li>
+          <li>Tap <strong>Save</strong>.</li>
+        </ol>
+        <h3>Add a verse by looking it up online</h3>
+        <p>If you've enabled an internet-connected lookup source, you can fetch verse text automatically instead of typing it.</p>
+        <ol class="steps">
+          <li>On the Add Verse screen, type just the reference.</li>
+          <li>Tap <strong>Look up verse</strong>.</li>
+          <li>The first time you do this, you'll see a consent dialog naming the lookup source. Read it, then confirm if you're comfortable sending the reference to that service.</li>
+          <li>Review the verse text that appears, then tap <strong>Save</strong>.</li>
+        </ol>
+        <div class="callout">
+          <strong>Why a consent dialog?</strong>
+          Looking up a verse online sends the reference (e.g. "Romans 8:28") to an outside service so it can return the text. This only happens when you tap "Look up verse" — the app never does this automatically, and your choice is remembered so you're not asked again for that same source.
+        </div>
+      </div>
+    </section>
+
+    <section id="esv-lookup">
+      <h2>ESV Lookup &amp; Attribution</h2>
+      <div class="card">
+        <p>If your copy of the app was built with ESV access, you'll see an extra <strong>ESV</strong> option on the Add Verse screen, labeled "ESV &middot; Personal use &middot; 500-verse cap". This uses Crossway's official ESV Bible API.</p>
+        <ol class="steps">
+          <li>On Add Verse, tap the <strong>ESV</strong> chip.</li>
+          <li>Type a reference and tap <strong>Look up verse</strong>.</li>
+          <li>The first ESV lookup shows its own consent dialog, separate from any other lookup source — it names <code>api.esv.org</code> directly and explains the 500-verse storage limit.</li>
+          <li>Review the text, then <strong>Save</strong>.</li>
+        </ol>
+        <div class="callout warning">
+          <strong>500-verse limit</strong>
+          Crossway's ESV API terms only allow storing up to 500 ESV verses on a device at once. If you're close to the limit, the app shows a gentle warning before it looks anything up. If you're already at the limit when you try to save, the save is blocked outright.
+        </div>
+        <h3>Why you'll see "ESV®" notices</h3>
+        <p>Crossway requires a visible copyright notice anywhere ESV verse text appears. You'll see a small collapsible "ESV®" footer under any ESV verse — on Add Verse, Verse Detail, Test, and Review screens. Tap it to expand the full notice, or collapse it to a compact chip if it's in your way; your choice is remembered everywhere it appears.</p>
+        <div class="mockup">
+          <div class="label">Mock-up — collapsed and expanded ESV footer</div>
+          <div class="phone-frame">
+            <div style="display:flex; align-items:center; justify-content:space-between; background: var(--surface-variant); border-radius: 8px; padding: 10px 12px; font-size: 0.75rem; font-family: -apple-system, sans-serif;">
+              <span>ESV®</span><span>&#9662;</span>
+            </div>
+            <div style="margin-top:8px; background: var(--surface-variant); border-radius: 8px; padding: 10px 12px; font-size: 0.65rem; font-family: -apple-system, sans-serif; color: var(--on-surface-variant);">
+              Scripture quotations are from the ESV® Bible... &copy; 2001 by Crossway. Used by permission. All rights reserved.
+              <div style="margin-top:6px; color: var(--primary);">Full terms in Settings</div>
+            </div>
+          </div>
+        </div>
+        <p>For the complete legal notice and a link to esv.org, open <strong>Settings → ESV Bible</strong>. That section is always visible, even if you've never saved an ESV verse.</p>
+      </div>
+    </section>
+
+    <section id="verse-of-week">
+      <h2>Verse of the Week</h2>
+      <div class="card">
+        <p>The verse of the week is the single verse you're actively memorizing. It's featured on the Home tab and used by audio interruptions and notifications.</p>
+        <h3>Choosing a verse manually</h3>
+        <ol class="steps">
+          <li>Open <strong>Verses → Available</strong>.</li>
+          <li>Tap a verse, then confirm <strong>Set as verse of the week</strong>.</li>
+        </ol>
+        <h3>Marking it memorized</h3>
+        <ol class="steps">
+          <li>Open the verse's detail screen.</li>
+          <li>Tap <strong>Mark as memorized</strong> once you're confident you know it.</li>
+        </ol>
+        <p>Choosing a new verse of the week does not automatically mark the old one memorized — that's always your explicit decision.</p>
+        <h3>Letting it advance automatically</h3>
+        <p>If you'd rather not pick a new verse each week yourself, turn on <strong>Settings → Auto-advance verse of the week</strong>. With this on, the app will pick a new verse of the week for you each Sunday — no action needed.</p>
+      </div>
+    </section>
+
+    <section id="reviewing-testing">
+      <h2>Reviewing &amp; Testing</h2>
+      <div class="card">
+        <p>The <strong>Test</strong> tab confirms what you've memorized through active recall, with three response formats.</p>
+        <table>
+          <tr><th>Format</th><th>What you do</th></tr>
+          <tr><td>Recite</td><td>Speak the answer aloud, or rate yourself "I knew it" / "Didn't know"</td></tr>
+          <tr><td>Type</td><td>Type the verse text or the reference</td></tr>
+          <tr><td>Fill Blanks</td><td>Type or select the missing words in the verse</td></tr>
+        </table>
+        <h3>Starting a test</h3>
+        <ol class="steps">
+          <li>Open the <strong>Test</strong> tab.</li>
+          <li>Choose <strong>Verse of the Week</strong> (just the current verse) or <strong>Review</strong> (a batch of memorized verses).</li>
+          <li>In Review mode, choose how many verses with the slider or the 5/10/20/All shortcuts, and whether to include the verse of the week.</li>
+          <li>Pick a format, then tap <strong>Start test</strong>.</li>
+        </ol>
+        <h3>Typing references naturally</h3>
+        <p>When a test asks you to type a reference, you don't need to get the punctuation exact. "Phil 4 13", "Phil 4.13", and "Phil 4:13" all score the same way, and "John 3:16 to 17" scores the same as "John 3:16-17". Common book-name spellings and abbreviations are recognized too.</p>
+        <div class="callout">
+          <strong>Privacy note</strong>
+          Anything you type or say during a test is scored immediately and then discarded. It's never saved to your verse history or written to any log.
+        </div>
+      </div>
+    </section>
+
+    <section id="review-presentation">
+      <h2>Review Tab (Show &amp; Play)</h2>
+      <div class="card">
+        <p>The <strong>Review</strong> tab is for casual, unscored review — no grading, just a quick pass through verses you already know.</p>
+        <ol class="steps">
+          <li>Open <strong>Review</strong> and choose how many verses to include.</li>
+          <li>Choose <strong>Show</strong> (a tap-to-reveal list of references) or <strong>Play</strong> (audio playback, see below).</li>
+          <li>Tap <strong>Start</strong>.</li>
+        </ol>
+        <p>In Show mode, tap any verse card to reveal its text, then tap again to see both reference and text together.</p>
+      </div>
+    </section>
+
+    <section id="audio">
+      <h2>Audio Playback</h2>
+      <div class="card">
+        <p>Audio review lets you hear a verse spoken aloud — the reference first, then a pause to recite from memory, then the verse text.</p>
+        <ol class="steps">
+          <li>From Review → Play, or by letting an audio interruption fire automatically (if enabled in Settings), playback starts with the reference spoken aloud.</li>
+          <li>After a short pause, you'll hear the verse text.</li>
+          <li>Use the player bar at the bottom of the screen to pause, skip, or dismiss playback.</li>
+        </ol>
+        <h3>Real ESV recordings</h3>
+        <p>For verses saved in the ESV translation, Bible Flashcards plays the genuine Crossway audio recording during the text phase instead of a synthesized voice. If that recording can't be fetched (for example, no internet connection), the app quietly falls back to the synthesized voice — you won't see an error.</p>
+        <h3>Audio interruptions</h3>
+        <p>If you turn on interruptions in Settings, the app will occasionally play a verse aloud while you're using your phone for something else, as a gentle memory prompt. You control how often this happens and after how long.</p>
+      </div>
+    </section>
+
+    <section id="settings">
+      <h2>Settings</h2>
+      <div class="card">
+        <h3>Default translation</h3>
+        <p>Settings → Verses lets you choose which Bible version (BSB, KJV, WEB, or ESV) is pre-selected whenever you add a new verse. If you choose ESV but your build doesn't include ESV access, the app falls back to BSB automatically.</p>
+        <h3>Audio &amp; interruptions</h3>
+        <p>Turn audio interruptions on or off, set how often they happen (10%–90% chance the verse of the week is chosen versus a random memorized verse), and how long the app needs to be in use before the first one can fire (30, 60, or 90 minutes).</p>
+        <h3>Daily reminder</h3>
+        <p>Set a time for a daily notification reminding you to review. Choose whether it reminds you about the verse of the week or a memorized review verse, and whether the reminder text is visible on your lock screen (off by default, since it reveals that you use a Scripture memorization app to anyone who sees your phone).</p>
+        <h3>ESV Bible</h3>
+        <p>A permanent section with the full Crossway copyright notice and a link to esv.org — always visible, regardless of whether you've saved any ESV verses.</p>
+        <h3>Auto-advance verse of the week</h3>
+        <p>When on, a new verse of the week is chosen for you automatically each Sunday. Off by default.</p>
+      </div>
+    </section>
+
+    <section id="backup">
+      <h2>Backup &amp; Restore</h2>
+      <div class="card">
+        <p>Your verses, test history, and settings can be backed up as a single file, or to your own Google Drive.</p>
+        <ol class="steps">
+          <li>Open <strong>Settings → Data &amp; Backup</strong>.</li>
+          <li>Choose <strong>Export Data</strong> to share a backup file, or <strong>Save Locally</strong> to write one directly to your device.</li>
+          <li>Choose <strong>Import</strong> to restore from a backup file, with the option to merge or replace your current data.</li>
+          <li>Optionally connect <strong>Google Drive</strong> for automatic cloud backup — the app keeps your 3 most recent backups and lets you delete them at any time.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2>FAQ</h2>
+      <details class="faq">
+        <summary>Does this app share my data with anyone?</summary>
+        <div class="answer">No, by default everything stays on your device in an encrypted database. The only exceptions are features you turn on yourself: looking up a verse online, ESV audio playback, and Google Drive backup. Each requires your explicit, separately recorded consent before any data leaves your device.</div>
+      </details>
+      <details class="faq">
+        <summary>What does the ESV® footer mean, and can I get rid of it?</summary>
+        <div class="answer">It's a copyright notice Crossway requires whenever ESV Scripture text is shown, naming the publisher and linking to the full terms. You can collapse it to a small "ESV®" chip, but it can't be removed entirely — that's a condition of using the ESV translation at all.</div>
+      </details>
+      <details class="faq">
+        <summary>Why don't I see an ESV option when adding a verse?</summary>
+        <div class="answer">ESV lookup only appears in builds that include an ESV API key. If your build doesn't have one, you'll only see BSB, KJV, and WEB.</div>
+      </details>
+      <details class="faq">
+        <summary>I hit the 500-verse ESV limit. What now?</summary>
+        <div class="answer">Crossway's API terms cap local ESV storage at 500 verses per device. You can still add verses in other translations (BSB, KJV, WEB) without any limit, or remove an existing ESV verse to make room.</div>
+      </details>
+      <details class="faq">
+        <summary>Does the app listen to me or record audio?</summary>
+        <div class="answer">Only if you choose to use the optional microphone button during Recite-mode tests, and only while you're actively speaking your answer. Speech recognition happens entirely on your device — nothing is sent anywhere — and the transcript is discarded the instant it's scored. Typing or self-rating during Recite mode never uses the microphone at all.</div>
+      </details>
+      <details class="faq">
+        <summary>Can someone else use this app with their own verses?</summary>
+        <div class="answer">No — Bible Flashcards is built for a single person. There are no accounts, no profiles, and no way to separate data between users on one device.</div>
+      </details>
+    </section>
+  </main>
+</div>
+</body>
+</html>

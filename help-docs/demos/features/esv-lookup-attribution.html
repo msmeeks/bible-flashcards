@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo: ESV Lookup &amp; Attribution — Bible Flashcards</title>
+<style>
+  :root {
+    --primary: #1B5E6B; --primary-container: #C8E9EE; --on-primary-container: #001F24;
+    --secondary: #7D5A3C; --tertiary-container: #FDEFC3; --surface: #F8F5F0;
+    --surface-variant: #EDE7DE; --on-surface: #1C1917; --on-surface-variant: #4D453E;
+    --warning-container: #FFDEA3;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Google Sans", Roboto, system-ui, sans-serif; background: var(--surface); color: var(--on-surface); }
+  a:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
+  header.hero { background: linear-gradient(135deg, var(--primary) 0%, #4FBDCF 100%); color: #fff; padding: 48px 24px; text-align: center; }
+  header.hero h1 { font-family: Georgia, 'Lora', serif; font-size: 1.9rem; margin: 0 0 8px; font-weight: 400; }
+  header.hero p { max-width: 600px; margin: 0 auto; opacity: 0.95; }
+  main { max-width: 760px; margin: -20px auto 64px; padding: 0 24px; }
+  .back { display: inline-block; margin: 16px 0; color: var(--on-surface-variant); font-size: 0.9rem; }
+  .pending { background: #fff; border: 1px dashed #8A7E72; border-radius: 8px; padding: 14px 18px; font-size: 0.85rem; color: var(--on-surface-variant); margin: 20px 0 32px; }
+  .scene { background: #fff; border-radius: 12px; border: 1px solid var(--surface-variant); padding: 20px 24px; margin-bottom: 20px; display: flex; gap: 20px; align-items: flex-start; }
+  .scene .frame-num { flex: 0 0 36px; height: 36px; border-radius: 50%; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .scene .body h3 { margin: 0 0 6px; font-size: 1.0rem; color: var(--primary); }
+  .scene .body p { margin: 0; font-size: 0.92rem; color: var(--on-surface-variant); line-height: 1.5; }
+  .mini-mock { margin-top: 10px; border: 1px solid #8A7E72; border-radius: 8px; background: var(--surface-variant); padding: 10px 12px; font-size: 0.78rem; color: var(--on-surface-variant); }
+  .warn { background: var(--warning-container); border-radius: 6px; padding: 6px 10px; font-size: 0.75rem; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>ESV Lookup &amp; Attribution</h1>
+  <p>Looking up a verse from Crossway's ESV Bible API, with the consent dialog and copyright footer that come with it.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; Back to Demo Gallery</a>
+  <div class="pending">
+    <strong>Video capture pending.</strong> Storyboard below describes the flow until a real recording is captured.
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">1</div>
+    <div class="body">
+      <h3>Choose the ESV chip</h3>
+      <p>On Add Verse, the ESV chip — labeled "ESV &middot; Personal use &middot; 500-verse cap" — is tapped below the BSB/KJV/WEB segmented control.</p>
+      <div class="mini-mock">Add Verse &rarr; [ESV &middot; Personal use &middot; 500-verse cap]</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">2</div>
+    <div class="body">
+      <h3>First-time consent</h3>
+      <p>Typing a reference and tapping "Look up verse" for the first time shows a consent dialog naming <code>api.esv.org</code> directly and disclosing the 500-verse cap, separate from any other lookup source's consent.</p>
+      <div class="mini-mock">"This sends the reference to api.esv.org (Crossway). Up to 500 ESV verses may be stored. Continue?"</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">3</div>
+    <div class="body">
+      <h3>Preview with attribution</h3>
+      <p>Once the verse text returns, a preview appears. Saving opens a confirmation dialog that includes the collapsible ESV copyright footer.</p>
+      <div class="mini-mock">
+        Romans 8:28 (ESV) — "And we know that for those who love God all things work together for good..."
+        <div class="warn">ESV® &middot; tap to expand full copyright notice</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">4</div>
+    <div class="body">
+      <h3>Persistent attribution everywhere</h3>
+      <p>The same collapsible footer reappears on Verse Detail, Test, and Review screens whenever an ESV verse is shown — its collapsed/expanded state is remembered across all of them.</p>
+      <div class="mini-mock">Verse Detail &rarr; ESV® footer (state remembered from Add Verse)</div>
+    </div>
+  </div>
+</main>
+</body>
+</html>
