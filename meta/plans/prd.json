@@ -1,0 +1,28 @@
+{
+  "plans": [
+    {
+      "file": "fix-dark-theme-contrast.md",
+      "issues": [97, 101],
+      "size": "L",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "feat-fill-blank-difficulty.md",
+      "issues": [98, 99],
+      "size": "M",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "feat-verse-reference-normalization.md",
+      "issues": [100],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    }
+  ]
+}
