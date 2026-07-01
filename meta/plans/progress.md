@@ -29,3 +29,17 @@ Changes:
 - Rewrote `test/utils/scoring_test.dart`'s `blankIndices` group (old hardcoded-position assertions no longer apply) and added a `blankCountForPercentage` group; added `BlankDensityLabel` tests to `test/screens/test/test_enums_test.dart`; added density-row and wiring tests to `test/screens/test/test_screen_test.dart` and a density-affects-blank-count widget test to `test/screens/test/test_session_screen_test.dart`.
 
 All 432 tests pass, `flutter analyze` clean (only pre-existing unrelated deprecation infos). Doc update for `docs/features/test-modes.md` handled by sdlc-doc-writer subagent.
+
+## 2026-06-30 — feat-verse-reference-normalization.md (issue #100)
+
+Added save-time verse reference normalization so manually typed or web-lookup-accepted references are always stored as full book name + standard `Book Chapter:Verse[-VerseEnd]` format, with user confirmation before commit (#100).
+
+Changes:
+- New `lib/utils/reference_normalization.dart`: `normalizeReferenceForSave(raw, {customVariants})` resolves abbreviated/variant book names (built-in + caller-supplied custom variants from Book Name Variants settings), normalizes non-standard separators/range connectors, and renders the full display name. Returns a `ReferenceNormalizationResult` (success/failure result type, no exceptions) with `ReferenceNormalizationFailure.invalidFormat` / `.unresolvedBook`.
+- `lib/utils/scoring.dart`: made `_referenceSplitPattern`/`_normalizeReferenceInput` public (`referenceSplitPattern`/`normalizeReferenceInput`) so the new module reuses the same regex/normalization logic instead of duplicating it.
+- `lib/screens/verses/add_verse_screen.dart`: `_saveVerse()` now normalizes first and shows a confirm-before-commit card ("Will save as: <normalized>", Confirm & Save / Edit) before writing to the DB, reusing the existing lookup-preview card styling. Unresolved book names block save and surface both a field-level `errorText` (screen-reader association) and an actionable `InlineStatusBanner` with a link to Book Name Variants settings — the dual-surfacing was a deliberate accessibility/design tradeoff from the plan's pre-implementation review. Editing the reference field after normalization clears the pending confirmation so a stale normalized string can't be committed silently.
+- Custom variants are read via `DatabaseHelper().getCustomVariantLookup()` at save time; already-saved verses are untouched (no backfill), matching the plan's acceptance criteria.
+- Added `test/utils/reference_normalization_test.dart` (5 tests) and 3 new widget tests in `test/screens/verses/add_verse_screen_test.dart` covering the confirm-then-commit flow and the unresolved-book-name block, plus a new `test/helpers/fake_database_helper.dart` (in-memory `sqflite_common_ffi` DB injected via `DatabaseHelper.debugSetDatabase`) so the screen's DB-backed custom-variant lookup and verse persistence can be exercised without platform channels.
+- Debugging note for future test authors: widget tests that mix `WidgetTester.runAsync` (needed for real sqflite_common_ffi round-trips) with plain `await` calls on DB queries *after* the `runAsync` block will deadlock — any DB access following a `runAsync`-wrapped tap must itself be wrapped in `runAsync`, since the surrounding test body still runs in the fake-clock zone.
+
+All 440 tests pass, `flutter analyze` clean (only pre-existing unrelated deprecation infos).

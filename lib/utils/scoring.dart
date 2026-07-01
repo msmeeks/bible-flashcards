@@ -4,14 +4,14 @@ import 'book_name_variants.dart' show bookNameToUsfm;
 
 /// Matches "Book Chapter:Verse" or "Book Chapter:Verse-Verse" strings,
 /// capturing the book-name span separately from the chapter:verse span.
-final RegExp _referenceSplitPattern =
+final RegExp referenceSplitPattern =
     RegExp(r'^(.+?)\s+(\d+:\d+(?:-\d+)?)\s*$');
 
 /// Normalizes natural separator/range variants in a typed reference so they
-/// match the canonical "Book Chapter:Verse" form before [_referenceSplitPattern]
+/// match the canonical "Book Chapter:Verse" form before [referenceSplitPattern]
 /// runs. Order matters: range connectors must resolve before the bare-space
 /// rule, or "16 to 17" would become "16:to" before "to" is replaced.
-String _normalizeReferenceInput(String s) {
+String normalizeReferenceInput(String s) {
   s = s.replaceAll(RegExp(r'\s*\bcolon\b\s*', caseSensitive: false), ':');
   s = s.replaceAll(RegExp(r'\s*\bdot\b\s*', caseSensitive: false), '.');
   s = s.replaceAll(RegExp(r'\s*\bdash\b\s*', caseSensitive: false), '-');
@@ -44,8 +44,8 @@ double computeReferenceScore(
   Map<String, String> customVariants = const {},
 }) {
   final typedMatch =
-      _referenceSplitPattern.firstMatch(_normalizeReferenceInput(typed.trim()));
-  final correctMatch = _referenceSplitPattern.firstMatch(correct.trim());
+      referenceSplitPattern.firstMatch(normalizeReferenceInput(typed.trim()));
+  final correctMatch = referenceSplitPattern.firstMatch(correct.trim());
   if (typedMatch == null || correctMatch == null) {
     return computeScore(typed, correct);
   }

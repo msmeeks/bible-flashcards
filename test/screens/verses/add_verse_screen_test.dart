@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/models/settings.dart';
@@ -13,6 +14,7 @@ import 'package:bible_flashcards/providers/verse_provider.dart';
 import 'package:bible_flashcards/screens/verses/add_verse_screen.dart';
 import 'package:bible_flashcards/services/esv_lookup_service.dart';
 
+import '../../helpers/fake_database_helper.dart';
 import '../../helpers/verse_factory.dart';
 
 Widget _wrap(
@@ -34,6 +36,20 @@ Widget _wrap(
     ),
   );
 }
+
+/// Taps [finder] inside [WidgetTester.runAsync] so a real (non-fake-clock)
+/// async gap — e.g. the sqflite_common_ffi round-trip used by the
+/// reference-normalization save flow — has a chance to complete. Uses
+/// explicit pumps rather than `pumpAndSettle`, which can deadlock when
+/// nested inside `runAsync`.
+Future<void> _tapAndSettle(WidgetTester tester, Finder finder) =>
+    tester.runAsync(() async {
+      await tester.tap(finder);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 500));
+    });
 
 Future<SettingsProvider> _esvDefaultSettings() async {
   final settingsProvider = SettingsProvider();
@@ -343,4 +359,99 @@ void main() {
       },
     );
   });
+
+  setUpAll(() {
+    sqfliteFfiInit();
+  });
+
+  setUp(() async {
+    await setUpFakeDatabase();
+  });
+
+  tearDown(() async {
+    await tearDownFakeDatabase();
+  });
+
+  testWidgets(
+    'save-time reference normalization: first Save tap shows the normalized reference for confirmation without saving',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await _tapAndSettle(tester, find.text('Save Verse'));
+
+      expect(find.textContaining('Philippians 4:13'), findsOneWidget);
+      expect(find.text('Confirm & Save'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        final db = await DatabaseHelper().database;
+        expect(await db.query('verses'), isEmpty);
+      });
+    },
+  );
+
+  testWidgets(
+    'save-time reference normalization: confirming the normalized reference saves the verse with the full book name',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapAndSettle(tester, find.text('Confirm & Save'));
+
+      await tester.runAsync(() async {
+        final db = await DatabaseHelper().database;
+        final rows = await db.query('verses');
+        expect(rows, hasLength(1));
+        expect(rows.single['reference'], 'Philippians 4:13');
+      });
+    },
+  );
+
+  testWidgets(
+    'save-time reference normalization: unresolved book name blocks save and surfaces both a field error and a banner',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Xyzzy 1:1');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'Some verse text.',
+      );
+      await _tapAndSettle(tester, find.text('Save Verse'));
+
+      expect(find.text('Confirm & Save'), findsNothing);
+      await tester.runAsync(() async {
+        final db = await DatabaseHelper().database;
+        expect(await db.query('verses'), isEmpty);
+      });
+      expect(find.textContaining('Book Name Variants'), findsWidgets);
+    },
+  );
 }
