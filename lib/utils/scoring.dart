@@ -98,30 +98,44 @@ double computeScore(String typed, String correct) {
   return lcs / maxLen;
 }
 
-/// Returns the word indices that should be blanked in a fill-blank question,
-/// selecting approximately every 3rd–5th candidate word (step cycles
-/// 3→4→5→3→…). Standalone ':' separator tokens (see [splitAnswerTokens])
-/// are never blanked.
-List<int> blankIndices(List<String> words) {
+/// Computes how many words to blank for a given blank-density [percentage]
+/// (e.g. 20, 30, 50, 75) applied to [candidateWordCount] candidate words.
+///
+/// Rounds `percentage% × candidateWordCount` to the nearest whole blank
+/// count, then floors the result at 1 for the 20% density and 2 for the
+/// denser 30/50/75% options, so short verses still get a meaningful number
+/// of blanks instead of rounding down to zero.
+int blankCountForPercentage(int candidateWordCount, int percentage) {
+  final floor = percentage <= 20 ? 1 : 2;
+  final computed = (percentage / 100 * candidateWordCount).round();
+  return computed < floor ? floor : computed;
+}
+
+/// Returns [count] randomly-selected, duplicate-free word indices to blank
+/// in a fill-blank question. Standalone ':' separator tokens (see
+/// [splitAnswerTokens]) are never candidates. If [count] exceeds the number
+/// of candidate words, all candidates are blanked. The result is sorted
+/// ascending to match word order. [random] is injectable for deterministic
+/// tests; production callers should omit it and get a real [Random].
+List<int> blankIndices(List<String> words, int count, {Random? random}) {
   final candidatePositions = <int>[
     for (var i = 0; i < words.length; i++) if (words[i] != ':') i,
   ];
-  if (candidatePositions.isEmpty) return [];
+  if (candidatePositions.isEmpty || count <= 0) return [];
 
-  final indices = <int>[];
-  var step = 3;
-  var nextBlank = step - 1;
-  for (var i = 0; i < candidatePositions.length; i++) {
-    if (i == nextBlank) {
-      indices.add(candidatePositions[i]);
-      step = 3 + (indices.length % 3);
-      nextBlank = i + step;
-    }
+  if (count >= candidatePositions.length) {
+    return candidatePositions;
   }
-  if (indices.isEmpty) {
-    indices.add(candidatePositions[candidatePositions.length ~/ 2]);
+
+  final rng = random ?? Random();
+  final pool = [...candidatePositions];
+  final selected = <int>[];
+  for (var i = 0; i < count; i++) {
+    final pick = rng.nextInt(pool.length);
+    selected.add(pool.removeAt(pick));
   }
-  return indices;
+  selected.sort();
+  return selected;
 }
 
 /// Splits answer text into fill-blank tokens, treating ':' as its own

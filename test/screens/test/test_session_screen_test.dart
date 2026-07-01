@@ -149,4 +149,49 @@ void main() {
       expect(find.text('Try Again'), findsOneWidget);
     },
   );
+
+  Verse longVerse() => Verse(
+        id: 'rom_8_28',
+        reference: 'Romans 8:28',
+        text: 'And we know that all things work together for good to them '
+            'that love God to them who are the called according to his purpose',
+        translation: 'ESV',
+        packId: 'pack_1',
+        addedAt: DateTime(2024, 1, 1),
+      );
+
+  Widget wrapFillBlankWithDensity(Verse verse, BlankDensity density) =>
+      MaterialApp(
+        home: TestSessionScreen(
+          // Forces a fresh State (and thus a fresh initState blank-count
+          // computation) each time this test re-pumps with a new density —
+          // otherwise Flutter would reuse the existing element/state since
+          // the widget type and tree position are unchanged.
+          key: ValueKey(density),
+          verses: [verse],
+          testMode: TestMode.review,
+          selectedFormats: const {TestFormat.fillBlank},
+          selectedDirections: const {PromptDirection.refToText},
+          blankDensity: density,
+        ),
+      );
+
+  testWidgets(
+    'a higher blank density selection produces more blank fields',
+    (tester) async {
+      await tester.pumpWidget(
+        wrapFillBlankWithDensity(longVerse(), BlankDensity.twenty),
+      );
+      await tester.pump();
+      final lowCount = tester.widgetList<TextField>(find.byType(TextField)).length;
+
+      await tester.pumpWidget(
+        wrapFillBlankWithDensity(longVerse(), BlankDensity.seventyFive),
+      );
+      await tester.pump();
+      final highCount = tester.widgetList<TextField>(find.byType(TextField)).length;
+
+      expect(highCount, greaterThan(lowCount));
+    },
+  );
 }

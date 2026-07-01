@@ -23,6 +23,7 @@ class TestSessionScreen extends StatefulWidget {
     required this.testMode,
     required this.selectedFormats,
     required this.selectedDirections,
+    this.blankDensity = BlankDensity.twenty,
     this.speechService,
   });
 
@@ -30,6 +31,7 @@ class TestSessionScreen extends StatefulWidget {
   final TestMode testMode;
   final Set<TestFormat> selectedFormats;
   final Set<PromptDirection> selectedDirections;
+  final BlankDensity blankDensity;
 
   // Lets tests inject a fake recognizer; production code omits this and
   // gets a real SpeechRecognitionService (see initState).
@@ -94,20 +96,21 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   String get _answerText =>
       _promptIsReference ? _currentVerse.text : _currentVerse.reference;
 
+  final Random _rng = Random();
+
   @override
   void initState() {
     super.initState();
     _speechService = widget.speechService ?? SpeechRecognitionService();
-    final rng = Random();
     final formats = widget.selectedFormats.toList();
     final directions = widget.selectedDirections.toList();
     _verseFormats = List.generate(
       widget.verses.length,
-      (_) => formats[rng.nextInt(formats.length)],
+      (_) => formats[_rng.nextInt(formats.length)],
     );
     _verseDirections = List.generate(
       widget.verses.length,
-      (_) => directions[rng.nextInt(directions.length)],
+      (_) => directions[_rng.nextInt(directions.length)],
     );
     _initBlankState();
     _loadCustomVariants();
@@ -133,7 +136,15 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
   void _initBlankState() {
     _currentBlankWords = splitAnswerTokens(_answerText);
-    _currentBlankIndices = blankIndices(_currentBlankWords);
+    final percentage = widget.blankDensity == BlankDensity.random
+        ? BlankDensityLabel
+            .fixedPercentages[_rng.nextInt(BlankDensityLabel.fixedPercentages.length)]
+        : widget.blankDensity.percentage;
+    final candidateCount =
+        _currentBlankWords.where((w) => w != ':').length;
+    final blankCount = blankCountForPercentage(candidateCount, percentage);
+    _currentBlankIndices =
+        blankIndices(_currentBlankWords, blankCount, random: _rng);
     _blankCorrectness = [];
     _blankControllers = List.generate(
       _currentBlankIndices.length,

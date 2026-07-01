@@ -22,7 +22,7 @@ A test session is a sequence of verse cards. The user first configures mode, for
 | `lib/screens/test/test_result_screen.dart` | Per-card scores, session total |
 | `lib/screens/test/test_enums.dart` | `TestMode`, `TestFormat`, `PromptDirection` enums |
 | `lib/models/test_result.dart` | `VerseTestResult` and `TestSessionResult` models |
-| `lib/utils/scoring.dart` | `computeScore` (LCS), `computeReferenceScore` (lenient book-name matching), `blankIndices` |
+| `lib/utils/scoring.dart` | `computeScore` (LCS), `computeReferenceScore` (lenient book-name matching), `blankCountForPercentage`, `blankIndices` |
 | `lib/utils/book_name_variants.dart` | Shared book-name-variant table (`builtInBookNameVariants`, `bookDisplayNames`, `normalizeBookNameKey`, `bookNameToUsfm`); single source of truth, also used by `BibleLookupService` |
 | `lib/services/speech_recognition_service.dart` | On-device speech-to-text wrapper for recite mode (mic permission, listen/stop/cancel) |
 | `lib/utils/verse_reference_format.dart` | `formatVerseReference` — slug ("esv_phil_4_13") to display string ("Phil 4:13 (ESV)") |
@@ -90,7 +90,11 @@ Before `computeReferenceScore` splits a typed reference into book-name + chapter
 `lib/screens/settings/book_variants_screen.dart`, linked from Settings → Data ("Book Name Variants"), lets the user add/remove their own variant spellings per book (e.g. a personal abbreviation). Add flow: book `DropdownButtonFormField` (from `bookDisplayNames`) + free-text `TextFormField` (capped at `maxVariantLength` = 60 chars), inline `errorText` validation, focus returned to the offending field on error. List view shows existing variants with an accessible (48x48, `Semantics`-labeled) delete button per row. Stored variants are capped at `maxCustomVariants` = 200 total (data minimization) and validated server-side (in `DatabaseHelper.addBookNameVariant`) for unknown book code, empty/over-length text, and duplicate (book, variant) pairs — the count-check-then-insert runs inside one `db.transaction` to avoid a race past the cap.
 
 ### Fill-in-Blank Word Selection
-Words to mask are selected by `blankIndices()` in `lib/utils/scoring.dart`. The step cycles 3→4→5→3→… using `step = 3 + (blankCount % 3)` after each blank is placed, starting with the word at index 2. There is no difficulty setting and no short-word skipping.
+Blank count and positions are now percentage-driven and randomized, replacing the old fixed 3→4→5 step cycle (#98/#99).
+
+`test_enums.dart` defines `BlankDensity` (twenty/thirty/fifty/seventyFive/random), each with a `.label` ("20%" etc.) and `.percentage` getter; `random` has no single percentage and instead re-rolls one of `BlankDensityLabel.fixedPercentages` ([20, 30, 50, 75]) independently per verse. `test_screen.dart` shows a single-select `ChoiceChip` row for density (unlike the multi-select `FilterChip` rows for Format/Direction), visible only when Fill Blank format is selected, default 20%, in a live region so screen readers announce its appearance/disappearance. `TestSessionScreen` takes a `blankDensity` param (default `BlankDensity.twenty`).
+
+For each verse, `blankCountForPercentage(candidateWordCount, percentage)` in `lib/utils/scoring.dart` computes `round(percentage / 100 * candidateWordCount)`, floored at 1 (for 20%) or 2 (for 30/50/75%) so at least one blank always appears. `blankIndices(words, count, {Random? random})` then randomly selects `count` distinct non-`':'` candidate positions (falls back to all candidates if `count` exceeds availability), sorted ascending to preserve word order. `random` is injectable for deterministic tests; `TestSessionScreen` keeps one instance-level `Random` for its whole session and re-rolls the percentage (not the RNG) per verse when density is `random`.
 
 ### Privacy
 Typed test input is held only in ephemeral widget state. It is discarded immediately after the scoring function runs and is never written to the database or logs. Voice transcripts from the recite-mode mic option follow the same rule — held in memory only, discarded immediately after `computeScore` runs, never persisted or logged. See `meta/PRIVACY.md` ("Voice Recitation (Recite Mode)" section) for the full data-handling statement.
@@ -110,6 +114,7 @@ Fill-blank feedback in `test_session_screen.dart` uses `TextField` `errorText`/`
 ## Changelog
 | Date | Change |
 |---|---|
+| 2026-06-30 | Fill-blank difficulty now percentage-based and randomized (#98/#99): `blankIndices` reworked to take an explicit `count` and pick random distinct positions (was fixed 3→4→5 step cycle); new `blankCountForPercentage`; new `BlankDensity` enum + `ChoiceChip` density picker in `test_screen.dart`; `TestSessionScreen` re-rolls percentage per verse for the "random" density option |
 | 2026-06-26 | Normalized natural separator/range variants in typed references before scoring (#43, #44): `_normalizeReferenceInput()` handles "colon"/"dot"/"dash" words, "to"/"through"/"and" ranges, bare-dot, and bare-space chapter:verse forms |
 | 2026-06-25 | Retrofitted Review mode (#49) with a user-chosen count slider/chips + verse-of-week toggle, replacing the hardcoded 5-verse selection; wired into `getRandomMemorizedVerses(count, includeVerseOfWeek)` (#46/#53) |
 | 2026-06-24 | Added lenient book-name matching for `textToRef` answers (#30): `computeReferenceScore` in `scoring.dart` canonicalizes the typed book-name span before LCS scoring; new shared `lib/utils/book_name_variants.dart` table (built-in variants + longhand/spoken-number forms), `book_name_variants` DB table (v2→v3) for user-added variants with CRUD + caps, new Settings screen `book_variants_screen.dart` |

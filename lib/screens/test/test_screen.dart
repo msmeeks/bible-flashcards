@@ -20,6 +20,7 @@ class _TestScreenState extends State<TestScreen> {
   String? _prerequisiteError;
   int _reviewCount = 5;
   bool _includeVerseOfWeek = true;
+  BlankDensity _blankDensity = BlankDensity.twenty;
 
   void _startTest(VerseProvider provider) {
     if (_selectedFormats.isEmpty) {
@@ -69,6 +70,7 @@ class _TestScreenState extends State<TestScreen> {
           testMode: _mode,
           selectedFormats: _selectedFormats,
           selectedDirections: _selectedDirections,
+          blankDensity: _blankDensity,
         ),
         fullscreenDialog: true,
       ),
@@ -167,6 +169,35 @@ class _TestScreenState extends State<TestScreen> {
                     ],
                   ),
                 ),
+                if (_selectedFormats.contains(TestFormat.fillBlank)) ...[
+                  const SizedBox(height: 24),
+                  Semantics(
+                    liveRegion: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SectionLabel('Blank density'),
+                        const SizedBox(height: 8),
+                        Semantics(
+                          label: 'Blank density — select one',
+                          explicitChildNodes: true,
+                          child: Wrap(
+                            spacing: 8,
+                            children: [
+                              for (final density in BlankDensity.values)
+                                ChoiceChip(
+                                  label: Text(density.label),
+                                  selected: _blankDensity == density,
+                                  onSelected: (_) =>
+                                      setState(() => _blankDensity = density),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 const SectionLabel('Prompt direction'),
                 const SizedBox(height: 8),

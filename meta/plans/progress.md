@@ -16,3 +16,16 @@ Fixed:
 All 421 tests pass, `flutter analyze` clean (only pre-existing unrelated deprecation infos).
 
 Follow-up (not blocking, logged by design review): dark on-success/on-warning-container colors reuse the light theme's container hex verbatim rather than being independently derived — verified via contrast test, but flagged as a shortcut worth a closer look later. Also, applying `onSurface` uniformly to every text role (incl. `labelSmall`/`bodySmall`) fixes the bug but flattens M3's visual hierarchy; consider swapping de-emphasized roles to `onSurfaceVariant` in a future pass once contrast is reconfirmed for those roles.
+
+## 2026-06-30 — feat-fill-blank-difficulty.md (issues #98, #99)
+
+Replaced the old fully-deterministic fill-blank algorithm (fixed 3→4→5 step cycle in `blankIndices()`) with a percentage-based density model, addressing both the "predictable which words are blanked" (#99) and "no control over blank count" (#98) reports.
+
+Changes:
+- `lib/utils/scoring.dart`: added `blankCountForPercentage(candidateWordCount, percentage)` — pure function, `round(pct% × count)` floored at 1 (20%) or 2 (30/50/75%). Rewrote `blankIndices()` to take a target count + injectable `Random` and return that many randomly-selected, duplicate-free, non-`:` candidate positions (sorted ascending; falls back to all candidates if count exceeds availability).
+- `lib/screens/test/test_enums.dart`: new `BlankDensity` enum (20/30/50/75/Random) with `.label`/`.percentage`; `random` rolls one of the four fixed percentages independently per verse.
+- `lib/screens/test/test_screen.dart`: new `ChoiceChip` row (single-select, unlike the Format/Direction `FilterChip` rows) shown only when Fill Blank is selected, defaulting to 20%, wrapped in a live region so its appearance/disappearance is announced to screen readers.
+- `lib/screens/test/test_session_screen.dart`: threaded `blankDensity` through the constructor (default 20%); each verse re-rolls its own percentage when density is Random, using a single instance-level `Random` shared with format/direction randomization.
+- Rewrote `test/utils/scoring_test.dart`'s `blankIndices` group (old hardcoded-position assertions no longer apply) and added a `blankCountForPercentage` group; added `BlankDensityLabel` tests to `test/screens/test/test_enums_test.dart`; added density-row and wiring tests to `test/screens/test/test_screen_test.dart` and a density-affects-blank-count widget test to `test/screens/test/test_session_screen_test.dart`.
+
+All 432 tests pass, `flutter analyze` clean (only pre-existing unrelated deprecation infos). Doc update for `docs/features/test-modes.md` handled by sdlc-doc-writer subagent.
