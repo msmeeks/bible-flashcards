@@ -1,0 +1,47 @@
+{
+  "plans": [
+    {
+      "file": "fix-persistent-app-shell.md",
+      "issues": [104, 106],
+      "size": "M",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-fill-blank-test-scoring-ux.md",
+      "issues": [107, 36],
+      "size": "M",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-book-variants-crash.md",
+      "issues": [103],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-verse-list-scroll-position.md",
+      "issues": [105],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-web-lookup-book-variants.md",
+      "issues": [108],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    }
+  ],
+  "integration_branch": "integration/2026-07-01-persistent-app-shell",
+  "smoke_test": null,
+  "feature_branches": []
+}
