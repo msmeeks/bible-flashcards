@@ -40,5 +40,8 @@
       "attempts": 0,
       "blocked_by": []
     }
-  ]
+  ],
+  "integration_branch": "integration/2026-07-01-persistent-app-shell",
+  "smoke_test": null,
+  "feature_branches": []
 }
