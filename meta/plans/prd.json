@@ -35,5 +35,7 @@
   ],
   "integration_branch": "integration/2026-06-30-dark-theme-contrast",
   "smoke_test": null,
-  "feature_branches": []
+  "feature_branches": [],
+  "sdlc_review_status": "complete",
+  "sdlc_finding_issues": []
 }
