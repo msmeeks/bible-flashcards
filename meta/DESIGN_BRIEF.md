@@ -50,17 +50,28 @@ All values chosen for WCAG AA contrast (4.5:1 text, 3:1 UI).
 | `onInverseSurface` | `#F5EFE9` | Text on dark surfaces |
 
 ### Semantic States
-| State | Token | Hex |
-|---|---|---|
-| Error | `error` | `#BA1A1A` |
-| Success | custom `success` | `#276234` |
-| Success container | custom `successContainer` | `#C8F0D0` |
-| Warning | custom `warning` | `#7A5800` |
-| Warning container | custom `warningContainer` | `#FFDEA3` |
+| State | Token | Light | Dark |
+|---|---|---|---|
+| Error | `error` | `#BA1A1A` | `#FFB4AB` |
+| Error container | `errorContainer` | (MD3 default from seed) | `#93000A` |
+| On error container | `onErrorContainer` | (MD3 default from seed) | `#FFDAD6` |
+| Success | custom `success` | `#276234` | `#7DD996` |
+| Success container | custom `successContainer` | `#C8F0D0` | `#0F3D1E` |
+| On success container | custom `onSuccessContainer` | `#002111` | `#C8F0D0` |
+| Warning | custom `warning` | `#7A5800` | `#E8C24C` |
+| Warning container | custom `warningContainer` | `#FFDEA3` | `#4A3800` |
+| On warning container | custom `onWarningContainer` | `#281900` | `#FFDEA3` |
 
-Custom success/warning tokens applied via `ColorScheme.copyWith()` + `AppColors` extension class. Never use hex literals in widget code.
+Custom success/warning tokens applied via `ColorScheme.copyWith()` + `AppColors` extension class, branching on `ColorScheme.brightness`. Never use hex literals in widget code. Dark values are chosen from the same hue lines as light (green/gold) and individually verified to meet ≥4.5:1 (container pairs) / ≥3:1 (foreground vs. surface) contrast — see `test/theme/contrast_test.dart`.
 
-Dark theme: surface → `#1C1917`, onSurface → `#EDE7DE`, primary → `#4FBDCF`.
+### Dark Theme Overrides
+| Token | Hex |
+|---|---|
+| `surface` | `#1C1917` |
+| `onSurface` | `#EDE7DE` |
+| `primary` | `#4FBDCF` |
+
+All other dark-theme tokens are derived from `ColorScheme.fromSeed(brightness: Brightness.dark)`. The shared `TextTheme` (`_buildTextTheme` in `app_theme.dart`) applies `scheme.onSurface` to every text role, so text color always tracks the active theme instead of defaulting to Google Fonts' fixed near-black.
 
 ## 4. Typography
 
