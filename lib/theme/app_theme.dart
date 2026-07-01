@@ -156,40 +156,74 @@ class AppTheme {
   /// Lora for headline/body (Scripture text), system sans for label/title (UI chrome).
   static TextTheme _buildTextTheme(ColorScheme scheme) {
     final loraBase = GoogleFonts.loraTextTheme();
+    final onSurface = scheme.onSurface;
     return TextTheme(
       // Scripture text — Lora serif
-      displayLarge: loraBase.displayLarge,
-      displayMedium: loraBase.displayMedium,
-      displaySmall: loraBase.displaySmall,
+      displayLarge: loraBase.displayLarge?.copyWith(color: onSurface),
+      displayMedium: loraBase.displayMedium?.copyWith(color: onSurface),
+      displaySmall: loraBase.displaySmall?.copyWith(color: onSurface),
       headlineLarge: loraBase.headlineLarge?.copyWith(
         fontSize: 32,
         fontWeight: FontWeight.w400,
+        color: onSurface,
       ),
       headlineMedium: loraBase.headlineMedium?.copyWith(
         fontSize: 28,
         fontWeight: FontWeight.w400,
+        color: onSurface,
       ),
       headlineSmall: loraBase.headlineSmall?.copyWith(
         fontSize: 24,
         fontWeight: FontWeight.w400,
+        color: onSurface,
       ),
       bodyLarge: loraBase.bodyLarge?.copyWith(
         fontSize: 16,
         fontWeight: FontWeight.w400,
+        color: onSurface,
       ),
       bodyMedium: loraBase.bodyMedium?.copyWith(
         fontSize: 14,
         fontWeight: FontWeight.w400,
+        color: onSurface,
       ),
 
       // UI chrome — system sans
-      titleLarge: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
-      titleMedium: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-      titleSmall: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      bodySmall: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
-      labelLarge: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      labelMedium: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-      labelSmall: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+      titleLarge: TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.w500,
+        color: onSurface,
+      ),
+      titleMedium: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        color: onSurface,
+      ),
+      titleSmall: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: onSurface,
+      ),
+      bodySmall: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: onSurface,
+      ),
+      labelLarge: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: onSurface,
+      ),
+      labelMedium: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: onSurface,
+      ),
+      labelSmall: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: onSurface,
+      ),
     );
   }
 }

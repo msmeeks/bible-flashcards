@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/models/verse.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
+import 'package:bible_flashcards/screens/test/test_enums.dart';
 import 'package:bible_flashcards/screens/test/test_screen.dart';
 import 'package:bible_flashcards/screens/test/test_session_screen.dart';
 
@@ -206,6 +207,57 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(TestSessionScreen), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'blank density row is shown by default (Fill Blanks selected by default) '
+    'and defaults to 20%',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('vow', isVerseOfWeek: true)]);
+
+      await tester.pumpWidget(_wrap(provider));
+
+      expect(find.widgetWithText(ChoiceChip, '20%'), findsOneWidget);
+      final chip =
+          tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '20%'));
+      expect(chip.selected, isTrue);
+    },
+  );
+
+  testWidgets(
+    'blank density row disappears when Fill Blanks is deselected',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('vow', isVerseOfWeek: true)]);
+
+      await tester.pumpWidget(_wrap(provider));
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Fill Blanks'));
+      await tester.pump();
+
+      expect(find.widgetWithText(ChoiceChip, '20%'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'choosing a blank density passes it into the test session',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('vow', isVerseOfWeek: true)]);
+
+      await tester.pumpWidget(_wrap(provider));
+
+      await tester.tap(find.widgetWithText(ChoiceChip, '75%'));
+      await tester.pump();
+
+      await tester.tap(find.text('Start Test'));
+      await tester.pumpAndSettle();
+
+      final session =
+          tester.widget<TestSessionScreen>(find.byType(TestSessionScreen));
+      expect(session.blankDensity, BlankDensity.seventyFive);
     },
   );
 

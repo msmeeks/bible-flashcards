@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../services/bible_lookup_service.dart';
 import '../../services/esv_lookup_service.dart';
+import '../../utils/reference_normalization.dart';
 import '../../widgets/esv_copyright_footer.dart';
 import '../../widgets/inline_status_banner.dart';
+import '../settings/book_variants_screen.dart';
 import '../settings/settings_screen.dart';
 
 class AddVerseScreen extends StatefulWidget {
@@ -32,6 +35,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _textController = TextEditingController();
   final _searchFocusNode = FocusNode();
   final _previewFocusNode = FocusNode();
+  final _confirmFocusNode = FocusNode();
   late String _translation;
   bool _isSaving = false;
   bool _isLookingUp = false;
@@ -39,6 +43,9 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   String? _lookupError;
   String? _capWarning;
   VerseLookupResult? _preview;
+  String? _pendingNormalizedReference;
+  String? _referenceFieldError;
+  bool _referenceUnresolved = false;
 
   late final _lookupService =
       widget._lookupServiceOverride ?? BibleLookupService();
@@ -57,14 +64,32 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     _translation = (defaultTranslation == 'ESV' && !_esvLookupService.isAvailable)
         ? 'BSB'
         : defaultTranslation;
+    _referenceController.addListener(_onReferenceEdited);
+  }
+
+  /// A pending save-confirmation is only valid for the reference text it was
+  /// computed from — clear it if the user edits the field afterward, so a
+  /// stale normalized reference can never be silently committed.
+  void _onReferenceEdited() {
+    if (_pendingNormalizedReference != null ||
+        _referenceFieldError != null ||
+        _referenceUnresolved) {
+      setState(() {
+        _pendingNormalizedReference = null;
+        _referenceFieldError = null;
+        _referenceUnresolved = false;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _referenceController.removeListener(_onReferenceEdited);
     _referenceController.dispose();
     _textController.dispose();
     _searchFocusNode.dispose();
     _previewFocusNode.dispose();
+    _confirmFocusNode.dispose();
     _lookupService.dispose();
     _esvLookupService.dispose();
     super.dispose();
@@ -215,9 +240,61 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       }
     }
 
+    if (_pendingNormalizedReference == null) {
+      await _normalizeAndAwaitConfirmation();
+      return;
+    }
+
+    await _commitSave(_pendingNormalizedReference!);
+  }
+
+  Future<void> _normalizeAndAwaitConfirmation() async {
     setState(() => _isSaving = true);
 
-    final reference = _referenceController.text.trim();
+    var customVariants = const <String, String>{};
+    try {
+      customVariants = await DatabaseHelper().getCustomVariantLookup();
+    } catch (_) {
+      // Fall through with no custom variants; built-in resolution still applies.
+    }
+    if (!mounted) return;
+
+    final result = normalizeReferenceForSave(
+      _referenceController.text.trim(),
+      customVariants: customVariants,
+    );
+
+    if (!result.isSuccess) {
+      final unresolved =
+          result.failure == ReferenceNormalizationFailure.unresolvedBook;
+      setState(() {
+        _isSaving = false;
+        _referenceUnresolved = unresolved;
+        _referenceFieldError = unresolved
+            ? 'Unrecognized book name'
+            : 'Invalid reference format. Try e.g. "Romans 8:28".';
+        _saveError = unresolved
+            ? 'Unrecognized book name. Add a custom variant in Book Name '
+                'Variants settings, or fix the spelling.'
+            : 'Invalid reference format. Try e.g. "Romans 8:28".';
+      });
+      _formKey.currentState?.validate();
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+      _referenceFieldError = null;
+      _referenceUnresolved = false;
+      _saveError = null;
+      _pendingNormalizedReference = result.reference;
+    });
+    _confirmFocusNode.requestFocus();
+  }
+
+  Future<void> _commitSave(String reference) async {
+    setState(() => _isSaving = true);
+
     final text = _textController.text.trim();
 
     final id =
@@ -275,7 +352,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                       if (value == null || value.trim().isEmpty) {
                         return 'Reference is required';
                       }
-                      return null;
+                      return _referenceFieldError;
                     },
                   ),
                 ),
@@ -415,23 +492,82 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               severity: BannerSeverity.error,
               message: _saveError,
             ),
-            FilledButton(
-              onPressed: _isSaving ? null : _saveVerse,
-              child: _isSaving
-                  ? Semantics(
-                      liveRegion: true,
-                      label: 'Saving, please wait',
-                      child: SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: cs.onPrimary,
-                        ),
+            if (_referenceUnresolved)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const BookVariantsScreen(),
+                    ),
+                  ),
+                  child: const Text('Open Book Name Variants settings'),
+                ),
+              ),
+            if (_pendingNormalizedReference != null) ...[
+              Semantics(
+                label: 'Will save as $_pendingNormalizedReference. '
+                    'Use Confirm & Save or Edit buttons below.',
+                focusable: true,
+                child: Focus(
+                  focusNode: _confirmFocusNode,
+                  child: Card(
+                    color: cs.secondaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Will save as: $_pendingNormalizedReference',
+                            style: tt.bodyLarge
+                                ?.copyWith(color: cs.onSecondaryContainer),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              FilledButton.tonal(
+                                onPressed: _isSaving
+                                    ? null
+                                    : () => _commitSave(
+                                        _pendingNormalizedReference!),
+                                child: const Text('Confirm & Save'),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: _isSaving
+                                    ? null
+                                    : () => setState(() =>
+                                        _pendingNormalizedReference = null),
+                                child: const Text('Edit'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    )
-                  : const Text('Save Verse'),
-            ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ] else
+              FilledButton(
+                onPressed: _isSaving ? null : _saveVerse,
+                child: _isSaving
+                    ? Semantics(
+                        liveRegion: true,
+                        label: 'Saving, please wait',
+                        child: SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: cs.onPrimary,
+                          ),
+                        ),
+                      )
+                    : const Text('Save Verse'),
+              ),
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: _isSaving

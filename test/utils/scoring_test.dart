@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:bible_flashcards/utils/scoring.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -71,64 +73,90 @@ void main() {
     });
   });
 
+  group('blankCountForPercentage', () {
+    test('20% floors at 1 blank even when the percentage math rounds to 0', () {
+      expect(blankCountForPercentage(2, 20), 1);
+    });
+
+    test('30/50/75% floor at 2 blanks even when the percentage math rounds lower',
+        () {
+      expect(blankCountForPercentage(2, 30), 2);
+      expect(blankCountForPercentage(2, 50), 2);
+      expect(blankCountForPercentage(2, 75), 2);
+    });
+
+    test('rounds to nearest whole blank count for larger word counts', () {
+      // 20% of 10 = 2 exactly
+      expect(blankCountForPercentage(10, 20), 2);
+      // 30% of 10 = 3 exactly
+      expect(blankCountForPercentage(10, 30), 3);
+      // 50% of 11 = 5.5 → rounds to 6
+      expect(blankCountForPercentage(11, 50), 6);
+      // 75% of 9 = 6.75 → rounds to 7
+      expect(blankCountForPercentage(9, 75), 7);
+    });
+  });
+
   group('blankIndices', () {
     test('empty list → empty result', () {
-      expect(blankIndices([]), isEmpty);
+      expect(blankIndices([], 3), isEmpty);
     });
 
-    test('fewer than 3 words → still guarantees at least one blank', () {
-      expect(blankIndices(['the', 'world']), isNotEmpty);
+    test('count of 0 → empty result', () {
+      expect(blankIndices(['for', 'God', 'so'], 0), isEmpty);
     });
 
-    test('single word → blanks that word', () {
-      expect(blankIndices(['grace']), [0]);
+    test('single word, count 1 → blanks that word', () {
+      expect(blankIndices(['grace'], 1), [0]);
     });
 
-    test('exactly 3 words → first blank at index 2', () {
-      expect(blankIndices(['for', 'God', 'so']), [2]);
+    test('count exceeds available candidate words → blanks all of them', () {
+      final words = ['for', 'God', 'so'];
+      expect(blankIndices(words, 10), [0, 1, 2]);
     });
 
-    test('step cycle: 3→4→5→3 produces correct indices', () {
-      // word 0..11 (12 words)
-      // step=3 → blank at index 2
-      // step=4 → blank at index 2+4=6
-      // step=5 → blank at index 6+5=11
-      final words = List.generate(12, (i) => 'w$i');
-      expect(blankIndices(words), [2, 6, 11]);
+    test('colon tokens are never selected as candidates', () {
+      final words = ['John', '3', ':', '16'];
+      final indices = blankIndices(words, 3);
+      expect(indices, isNot(contains(2)));
+      expect(indices, [0, 1, 3]);
     });
 
-    test('fourth blank resets step to 3 (cycle repeats)', () {
-      // after 3rd blank at index 11, step resets to 3 → nextBlank = 14
-      final words = List.generate(15, (i) => 'w$i');
-      expect(blankIndices(words), [2, 6, 11, 14]);
+    test('returns exactly the requested count when enough candidates exist', () {
+      final words = List.generate(20, (i) => 'w$i');
+      final indices = blankIndices(words, 5, random: Random(42));
+      expect(indices.length, 5);
     });
 
-    test('list ending before next blank produces no trailing blank', () {
-      // 8 words: blank at 2 (step→4), blank at 6 (step→5), next would be 11 but only 8 words
-      final words = List.generate(8, (i) => 'w$i');
-      expect(blankIndices(words), [2, 6]);
-    });
-
-    test('no index out of bounds for a typical verse length', () {
-      final words = 'For God so loved the world that he gave his only Son'.split(' ');
-      final indices = blankIndices(words);
+    test('all returned indices are unique and within bounds', () {
+      final words = List.generate(20, (i) => 'w$i');
+      final indices = blankIndices(words, 5, random: Random(1));
+      expect(indices.toSet().length, indices.length);
       for (final idx in indices) {
-        expect(idx, lessThan(words.length));
         expect(idx, greaterThanOrEqualTo(0));
+        expect(idx, lessThan(words.length));
       }
     });
 
-    test('all returned indices are unique', () {
+    test('result is sorted ascending to match word order', () {
       final words = List.generate(20, (i) => 'w$i');
-      final indices = blankIndices(words);
-      expect(indices.toSet().length, indices.length);
+      final indices = blankIndices(words, 5, random: Random(7));
+      final sorted = [...indices]..sort();
+      expect(indices, sorted);
     });
 
-    test('colon tokens are never blanked', () {
-      final words = ['John', '3', ':', '16'];
-      final indices = blankIndices(words);
-      expect(indices, isNot(contains(2)));
-      expect(indices, isNotEmpty);
+    test('same seed produces the same positions (deterministic given RNG)', () {
+      final words = List.generate(20, (i) => 'w$i');
+      final a = blankIndices(words, 5, random: Random(99));
+      final b = blankIndices(words, 5, random: Random(99));
+      expect(a, b);
+    });
+
+    test('different RNG state can produce different position sets', () {
+      final words = List.generate(30, (i) => 'w$i');
+      final a = blankIndices(words, 5, random: Random(1));
+      final b = blankIndices(words, 5, random: Random(2));
+      expect(a, isNot(b));
     });
   });
 
