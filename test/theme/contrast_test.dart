@@ -2,15 +2,10 @@ import 'package:bible_flashcards/theme/app_colors.dart';
 import 'package:bible_flashcards/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../helpers/contrast.dart';
 
 void main() {
-  setUpAll(() {
-    GoogleFonts.config.allowRuntimeFetching = false;
-  });
-
   group('dark theme text contrast', () {
     testWidgets('bodyLarge text color meets 4.5:1 against surface', (
       tester,

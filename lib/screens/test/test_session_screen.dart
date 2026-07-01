@@ -633,6 +633,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
+          key: const Key('type-answer-field'),
           controller: _typeController,
           decoration: InputDecoration(labelText: labelText),
           maxLines: isVerseInput ? null : 1,
@@ -649,6 +650,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
           SizedBox(
             height: 48,
             child: FilledButton(
+              key: const Key('type-check-button'),
               focusNode: _checkFocusNode,
               onPressed: _onTypeCheck,
               child: const Text('Check Answer'),

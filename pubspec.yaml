@@ -21,9 +21,6 @@ dependencies:
   # State management
   provider: ^6.1.5+1
 
-  # Typography
-  google_fonts: ^8.1.0
-
   # Icons
   material_symbols_icons: ^4.2928.1
 
@@ -83,6 +80,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
   url_launcher_platform_interface: ^2.3.0
@@ -100,3 +99,8 @@ flutter:
   assets:
     - assets/packs/
     - assets/icon/
+
+  fonts:
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Regular.ttf

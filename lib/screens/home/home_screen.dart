@@ -126,6 +126,7 @@ class _VerseOfWeekSection extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               FilledButton(
+                key: const Key('home-choose-verse-button'),
                 onPressed: () =>
                     Navigator.of(context).pushNamed('/verse-add'),
                 child: const Text('Choose Verse'),
@@ -147,7 +148,7 @@ class _VerseOfWeekSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        VerseCard(verse: verseOfWeek!),
+        VerseCard(key: const Key('verse-of-week-card'), verse: verseOfWeek!),
       ],
     );
   }
@@ -168,6 +169,7 @@ class _QuickActionsRow extends StatelessWidget {
       children: [
         Expanded(
           child: FilledButton.tonal(
+            key: const Key('home-start-test-button'),
             onPressed: () => Navigator.of(context).pushNamed('/test'),
             child: const Text('Start Test'),
           ),

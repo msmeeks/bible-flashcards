@@ -42,6 +42,6 @@
     }
   ],
   "integration_branch": "integration/2026-07-01-persistent-shell",
-  "smoke_test": null,
+  "smoke_test": "bash scripts/smoke_test.sh",
   "feature_branches": []
 }

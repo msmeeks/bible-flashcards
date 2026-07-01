@@ -342,6 +342,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               children: [
                 Expanded(
                   child: TextFormField(
+                    key: const Key('add-verse-reference-field'),
                     controller: _referenceController,
                     decoration: const InputDecoration(
                       labelText: 'Reference e.g. Romans 8:28',
@@ -436,6 +437,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
             ],
             const SizedBox(height: 4),
             TextFormField(
+              key: const Key('add-verse-text-field'),
               controller: _textController,
               decoration: const InputDecoration(
                 labelText: 'Verse text',
@@ -527,6 +529,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                           Row(
                             children: [
                               FilledButton.tonal(
+                                key: const Key('add-verse-confirm-save-button'),
                                 onPressed: _isSaving
                                     ? null
                                     : () => _commitSave(
@@ -552,6 +555,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               const SizedBox(height: 12),
             ] else
               FilledButton(
+                key: const Key('add-verse-save-button'),
                 onPressed: _isSaving ? null : _saveVerse,
                 child: _isSaving
                     ? Semantics(

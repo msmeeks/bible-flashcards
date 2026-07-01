@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   AppTheme._();
@@ -155,7 +154,10 @@ class AppTheme {
 
   /// Lora for headline/body (Scripture text), system sans for label/title (UI chrome).
   static TextTheme _buildTextTheme(ColorScheme scheme) {
-    final loraBase = GoogleFonts.loraTextTheme();
+    // Lora is bundled locally (assets/fonts/) rather than fetched via
+    // google_fonts — the app disables runtime font fetching (see main.dart)
+    // so there's no network egress and no dependency on a device-side cache.
+    final loraBase = const TextTheme().apply(fontFamily: 'Lora');
     final onSurface = scheme.onSurface;
     return TextTheme(
       // Scripture text — Lora serif

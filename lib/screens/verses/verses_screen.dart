@@ -390,7 +390,10 @@ class _AvailableListTile extends StatelessWidget {
     return ListTile(
       title: Text(verse.reference),
       subtitle: Text(verse.translation),
-      trailing: _MemorizeButton(verse: verse),
+      trailing: _MemorizeButton(
+        key: Key('memorize-button-${verse.id}'),
+        verse: verse,
+      ),
     );
   }
 }
@@ -398,7 +401,7 @@ class _AvailableListTile extends StatelessWidget {
 class _MemorizeButton extends StatelessWidget {
   final Verse verse;
 
-  const _MemorizeButton({required this.verse});
+  const _MemorizeButton({super.key, required this.verse});
 
   @override
   Widget build(BuildContext context) {
