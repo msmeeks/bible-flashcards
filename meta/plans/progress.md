@@ -198,3 +198,32 @@ Completed on the 1st attempt.
 Verification: `flutter analyze` clean (no new issues), `flutter test` 452/452 passing,
 and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
 passed end-to-end.
+
+## 2026-07-03 — fix-fill-blank-test-scoring-ux.md (issues #107, #36)
+
+Recovered on the 7th attempt. A prior interrupted session had left the full
+implementation done, tested, and passing, but uncommitted — `git status` at the start
+of this session showed modified `scoring.dart`, `test_session_screen.dart`, and their
+test files with no corresponding commit. Verified the work against the plan's
+acceptance criteria and pre-implementation review notes rather than redoing it:
+
+- `scoreBlankedBookNameTokens` in `scoring.dart` scopes lenient abbreviation matching
+  strictly to a reference's book-name token span (via `referenceSplitPattern` +
+  `bookNameToUsfm`), leaving verse-body and chapter/verse-number blanks on exact-match
+  scoring.
+- `_onBlankCheck` wires the new function in for reference prompts; typed text now
+  persists after checking (no more `_blankControllers[i].clear()`), with the clear
+  moved to `_onBlankRetry` instead so retries start fresh.
+- `_buildFillBlankArea` drops the `labelText`/placeholder in favor of a
+  `Semantics(label: 'Blank N of M', textField: true)` wrapper, reuses the existing
+  `errorText` slot to show the expected word beneath incorrect blanks instead of a
+  text label, and swaps `Icons.check`/`Icons.close` for
+  `Symbols.check_circle_rounded`/`Symbols.cancel_rounded` (the app's existing Material
+  Symbols standard), each wrapped in `Semantics(label: 'Correct'/'Incorrect')` so both
+  outcomes are announced, not just failure.
+- Added a `debugBlankIndices` constructor param on `TestSessionScreen` so tests can
+  force which word indices get blanked instead of relying on random selection.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 464/464 passing,
+and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
+passed end-to-end.
