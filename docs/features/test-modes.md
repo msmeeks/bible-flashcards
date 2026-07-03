@@ -89,6 +89,8 @@ Before `computeReferenceScore` splits a typed reference into book-name + chapter
 ### Custom Book-Name Variants (Settings)
 `lib/screens/settings/book_variants_screen.dart`, linked from Settings → Data ("Book Name Variants"), lets the user add/remove their own variant spellings per book (e.g. a personal abbreviation). Add flow: book `DropdownButtonFormField` (from `bookDisplayNames`) + free-text `TextFormField` (capped at `maxVariantLength` = 60 chars), inline `errorText` validation, focus returned to the offending field on error. List view shows existing variants with an accessible (48x48, `Semantics`-labeled) delete button per row. Stored variants are capped at `maxCustomVariants` = 200 total (data minimization) and validated server-side (in `DatabaseHelper.addBookNameVariant`) for unknown book code, empty/over-length text, and duplicate (book, variant) pairs — the count-check-then-insert runs inside one `db.transaction` to avoid a race past the cap.
 
+The Add-variant dialog guards against double-tap submission with an `isSubmitting` flag (#103): while true, the Book dropdown and variant text field are disabled, the Add button shows a spinner, and `PopScope(canPop: !isSubmitting)` blocks dismissing the dialog mid-submit — mirroring the async-button pattern already used in `add_verse_screen.dart`. Rapid double-taps on Add previously fired two concurrent `addBookNameVariant` calls, one of which could hit a disposed `FocusNode`/`TextEditingController` when the dialog closed early. The fix also defers disposal of the dialog's `FocusNode`s/controller by one frame (`WidgetsBinding.instance.addPostFrameCallback`), since the dialog route's exit transition still renders the about-to-be-removed content for one more frame after `showDialog`'s future resolves.
+
 ### Fill-in-Blank Word Selection
 Blank count and positions are now percentage-driven and randomized, replacing the old fixed 3→4→5 step cycle (#98/#99).
 
@@ -114,6 +116,7 @@ Fill-blank feedback in `test_session_screen.dart` uses `TextField` `errorText`/`
 ## Changelog
 | Date | Change |
 |---|---|
+| 2026-07-02 | Fixed double-tap crash in Book Name Variants Add dialog (#103): `isSubmitting` guard disables inputs/Add button and shows a spinner; `PopScope` blocks dismiss mid-submit; dialog `FocusNode`/controller disposal deferred by a frame |
 | 2026-06-30 | Fill-blank difficulty now percentage-based and randomized (#98/#99): `blankIndices` reworked to take an explicit `count` and pick random distinct positions (was fixed 3→4→5 step cycle); new `blankCountForPercentage`; new `BlankDensity` enum + `ChoiceChip` density picker in `test_screen.dart`; `TestSessionScreen` re-rolls percentage per verse for the "random" density option |
 | 2026-06-26 | Normalized natural separator/range variants in typed references before scoring (#43, #44): `_normalizeReferenceInput()` handles "colon"/"dot"/"dash" words, "to"/"through"/"and" ranges, bare-dot, and bare-space chapter:verse forms |
 | 2026-06-25 | Retrofitted Review mode (#49) with a user-chosen count slider/chips + verse-of-week toggle, replacing the hardcoded 5-verse selection; wired into `getRandomMemorizedVerses(count, includeVerseOfWeek)` (#46/#53) |
