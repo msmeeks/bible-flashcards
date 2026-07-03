@@ -331,3 +331,37 @@ matching code — reset here by moving that increment into this entry).
 Verification: `flutter analyze` clean (no new issues), `flutter test` 472/472 passing,
 and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
 passed end-to-end.
+
+## 2026-07-03 — test-book-variants-coverage.md (issues #122, #123)
+
+Completed on the 2nd attempt (a prior interrupted session had bumped `attempts` to 1
+with no matching code change; working tree was otherwise clean at the start of this
+session).
+
+Added seven tests to `book_variants_screen_test.dart`, covering the branches the file
+only exercised incidentally via its two existing double-tap/spinner tests:
+
+- Submitting with no book selected shows the "Select a book." validation error and
+  adds nothing.
+- Submitting with empty variant text shows "Enter a variant." and adds nothing.
+- A duplicate variant add surfaces `DatabaseHelper`'s real `ArgumentError` message,
+  keeps the dialog open, and resets `isSubmitting` so Add is usable again (seeded the
+  duplicate via a direct `DatabaseHelper().addBookNameVariant` call rather than
+  mocking the DB, since the throw path already exists and is easy to trigger for
+  real).
+- Cancel closes the dialog without adding a variant.
+- Removing a variant via the trailing delete icon deletes the row and reloads the
+  list (list no longer shows the removed variant's text).
+- The empty-list state renders "No custom variants yet..." when there are no stored
+  variants.
+- A blocked dismiss attempt (system back while `isSubmitting`) keeps the dialog
+  present — the existing tests only asserted the accessibility announcement fired,
+  not that the dialog itself survived the blocked pop.
+
+All seven passed against the existing implementation with no production code changes
+needed — the plan was purely closing coverage gaps in already-correct behavior, not a
+bug fix.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 479/479 passing,
+and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
+passed end-to-end.

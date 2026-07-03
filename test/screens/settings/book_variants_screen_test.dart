@@ -129,6 +129,173 @@ void main() {
   );
 
   testWidgets(
+    'submitting with no book selected shows a validation error and adds nothing',
+    (tester) async {
+      await _pumpScreen(tester);
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField), 'Gen');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pump();
+
+      expect(find.text('Select a book.'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget,
+          reason: 'dialog must stay open on validation failure');
+
+      final variants = await tester.runAsync(
+        () => DatabaseHelper().getBookNameVariants(),
+      );
+      expect(variants, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'submitting with empty variant text shows a validation error and adds nothing',
+    (tester) async {
+      await _pumpScreen(tester);
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Genesis').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pump();
+
+      expect(find.text('Enter a variant.'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget,
+          reason: 'dialog must stay open on validation failure');
+
+      final variants = await tester.runAsync(
+        () => DatabaseHelper().getBookNameVariants(),
+      );
+      expect(variants, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'a duplicate variant surfaces the DB error, keeps the dialog open, and '
+    'resets the submitting state',
+    (tester) async {
+      await tester.runAsync(
+        () => DatabaseHelper().addBookNameVariant('GEN', 'Gen'),
+      );
+
+      await _pumpScreen(tester);
+      await _openAddDialogWithInput(tester, 'Gen');
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pump();
+      await pumpUntilAsyncSettled(tester,
+          finalPump: const Duration(milliseconds: 500));
+      await tester.pump();
+
+      expect(find.byType(AlertDialog), findsOneWidget,
+          reason: 'dialog must stay open when the save throws');
+      expect(
+        find.text('That variant has already been added for this book.'),
+        findsOneWidget,
+      );
+
+      final filled = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Add'),
+      );
+      expect(filled.onPressed, isNotNull,
+          reason: 'submitting state must reset so Add is usable again');
+
+      final variants = await tester.runAsync(
+        () => DatabaseHelper().getBookNameVariants(),
+      );
+      expect(variants, hasLength(1),
+          reason: 'the failed duplicate add must not create a second row');
+    },
+  );
+
+  testWidgets(
+    'Cancel closes the dialog without adding a variant',
+    (tester) async {
+      await _pumpScreen(tester);
+      await _openAddDialogWithInput(tester, 'Gen');
+
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pump();
+
+      expect(find.byType(AlertDialog), findsNothing);
+
+      final variants = await tester.runAsync(
+        () => DatabaseHelper().getBookNameVariants(),
+      );
+      expect(variants, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'removing a variant deletes it and reloads the list',
+    (tester) async {
+      await tester.runAsync(
+        () => DatabaseHelper().addBookNameVariant('GEN', 'Gen'),
+      );
+
+      await _pumpScreen(tester);
+      expect(find.text('Gen'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        await tester.pump();
+      });
+      await tester.pump();
+
+      expect(find.text('Gen'), findsNothing);
+      final variants = await tester.runAsync(
+        () => DatabaseHelper().getBookNameVariants(),
+      );
+      expect(variants, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'renders the empty-state message when there are no custom variants',
+    (tester) async {
+      await _pumpScreen(tester);
+
+      expect(find.textContaining('No custom variants yet'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a blocked dismiss attempt while submitting keeps the dialog present',
+    (tester) async {
+      await _pumpScreen(tester);
+      await _openAddDialogWithInput(tester, 'Gen');
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pump();
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(find.byType(AlertDialog), findsOneWidget,
+          reason: 'a blocked dismiss attempt must not close the dialog');
+
+      await pumpUntilAsyncSettled(tester,
+          finalPump: const Duration(milliseconds: 500));
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'a normal dismiss (Cancel, not submitting) does not announce',
     (tester) async {
       final accessibilityEvents = <Map<Object?, Object?>>[];
