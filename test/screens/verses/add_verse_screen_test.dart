@@ -526,4 +526,78 @@ void main() {
       expect(find.textContaining('Invalid reference format'), findsNothing);
     },
   );
+
+  testWidgets(
+    'web lookup surfaces the "Open Book Name Variants settings" shortcut on '
+    'an unresolved book name, same as a failed save',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+      final lookupService = BibleLookupService(
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          settingsProvider,
+          verseProvider: verseProvider,
+          lookupService: lookupService,
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Xyzzy 1:1');
+      await _tapAndSettle(tester, find.text('Search'));
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await _tapAndSettle(tester, find.text('Continue'));
+
+      expect(find.text('Open Book Name Variants settings'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'web lookup falls back to built-in book-name resolution when reading '
+    'custom variants from the database throws',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+      final lookupService = BibleLookupService(
+        client: MockClient(
+          (_) async => http.Response(
+            '{"verses": [{"verse": 16, "text": "For God so loved the world."}]}',
+            200,
+          ),
+        ),
+      );
+
+      // Swap in an in-memory database with no book_name_variants table, so
+      // getCustomVariantLookup() throws "no such table" instead of returning.
+      await tester.runAsync(() async {
+        final brokenDb = await databaseFactoryFfi.openDatabase(
+          inMemoryDatabasePath,
+          options: OpenDatabaseOptions(version: 1),
+        );
+        DatabaseHelper.debugSetDatabase(brokenDb);
+      });
+
+      await tester.pumpWidget(
+        _wrap(
+          settingsProvider,
+          verseProvider: verseProvider,
+          lookupService: lookupService,
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'John 3:16');
+      await _tapAndSettle(tester, find.text('Search'));
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await _tapAndSettle(tester, find.text('Continue'));
+
+      expect(find.textContaining('For God so loved the world.'), findsOneWidget);
+      expect(find.textContaining('Unrecognized book name'), findsNothing);
+    },
+  );
 }

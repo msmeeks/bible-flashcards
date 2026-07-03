@@ -56,6 +56,13 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   static const _esvConsentPrefKey = 'esv_lookup_consent_v1';
   static const _esvCap = 500;
 
+  static const _invalidFormatMessage =
+      'Invalid reference format. Try e.g. "Romans 8:28".';
+  static const _unresolvedBookMessage =
+      'Unrecognized book name. Add a custom variant in Book Name '
+      'Variants settings, or fix the spelling.';
+  static const _unresolvedBookFieldError = 'Unrecognized book name';
+
   @override
   void initState() {
     super.initState();
@@ -151,6 +158,36 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
             'Do you want to continue?',
       );
 
+  /// Fetches custom book-name variants (falling back to built-in resolution
+  /// only if that read fails) and normalizes [rawReference] against them.
+  /// Returns the resolved reference, or null with [unresolved] set if the
+  /// failure was specifically an unrecognized book name (as opposed to a
+  /// malformed reference), so callers can show the same "Open Book Name
+  /// Variants settings" shortcut regardless of which flow triggered it.
+  Future<({String? reference, bool unresolved})> _resolveReference(
+    String rawReference,
+  ) async {
+    var customVariants = const <String, String>{};
+    try {
+      customVariants = await DatabaseHelper().getCustomVariantLookup();
+    } catch (_) {
+      // Fall through with no custom variants; built-in resolution still applies.
+    }
+
+    final result = normalizeReferenceForSave(
+      rawReference,
+      customVariants: customVariants,
+    );
+    if (!result.isSuccess) {
+      return (
+        reference: null,
+        unresolved:
+            result.failure == ReferenceNormalizationFailure.unresolvedBook,
+      );
+    }
+    return (reference: result.reference, unresolved: false);
+  }
+
   Future<void> _lookupVerse() async {
     final reference = _referenceController.text.trim();
     if (reference.isEmpty) {
@@ -180,31 +217,19 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       _preview = null;
     });
 
-    var customVariants = const <String, String>{};
-    try {
-      customVariants = await DatabaseHelper().getCustomVariantLookup();
-    } catch (_) {
-      // Fall through with no custom variants; built-in resolution still applies.
-    }
+    final resolution = await _resolveReference(reference);
     if (!mounted) return;
 
-    final normalized = normalizeReferenceForSave(
-      reference,
-      customVariants: customVariants,
-    );
-    if (!normalized.isSuccess) {
-      final unresolved =
-          normalized.failure == ReferenceNormalizationFailure.unresolvedBook;
+    if (resolution.reference == null) {
       setState(() {
         _isLookingUp = false;
-        _lookupError = unresolved
-            ? 'Unrecognized book name. Add a custom variant in Book Name '
-                'Variants settings, or fix the spelling.'
-            : 'Invalid reference format. Try e.g. "Romans 8:28".';
+        _referenceUnresolved = resolution.unresolved;
+        _lookupError =
+            resolution.unresolved ? _unresolvedBookMessage : _invalidFormatMessage;
       });
       return;
     }
-    final resolvedReference = normalized.reference!;
+    final resolvedReference = resolution.reference!;
 
     try {
       final result = isEsv
@@ -221,7 +246,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       if (mounted) {
         setState(() {
           _isLookingUp = false;
-          _lookupError = 'Invalid reference format. Try e.g. "Romans 8:28".';
+          _lookupError = _invalidFormatMessage;
         });
       }
     } on LookupException catch (e) {
@@ -277,32 +302,20 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   Future<void> _normalizeAndAwaitConfirmation() async {
     setState(() => _isSaving = true);
 
-    var customVariants = const <String, String>{};
-    try {
-      customVariants = await DatabaseHelper().getCustomVariantLookup();
-    } catch (_) {
-      // Fall through with no custom variants; built-in resolution still applies.
-    }
+    final resolution =
+        await _resolveReference(_referenceController.text.trim());
     if (!mounted) return;
 
-    final result = normalizeReferenceForSave(
-      _referenceController.text.trim(),
-      customVariants: customVariants,
-    );
-
-    if (!result.isSuccess) {
-      final unresolved =
-          result.failure == ReferenceNormalizationFailure.unresolvedBook;
+    if (resolution.reference == null) {
       setState(() {
         _isSaving = false;
-        _referenceUnresolved = unresolved;
-        _referenceFieldError = unresolved
-            ? 'Unrecognized book name'
-            : 'Invalid reference format. Try e.g. "Romans 8:28".';
-        _saveError = unresolved
-            ? 'Unrecognized book name. Add a custom variant in Book Name '
-                'Variants settings, or fix the spelling.'
-            : 'Invalid reference format. Try e.g. "Romans 8:28".';
+        _referenceUnresolved = resolution.unresolved;
+        _referenceFieldError = resolution.unresolved
+            ? _unresolvedBookFieldError
+            : _invalidFormatMessage;
+        _saveError = resolution.unresolved
+            ? _unresolvedBookMessage
+            : _invalidFormatMessage;
       });
       _formKey.currentState?.validate();
       return;
@@ -313,7 +326,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       _referenceFieldError = null;
       _referenceUnresolved = false;
       _saveError = null;
-      _pendingNormalizedReference = result.reference;
+      _pendingNormalizedReference = resolution.reference;
     });
     _confirmFocusNode.requestFocus();
   }

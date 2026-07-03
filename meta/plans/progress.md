@@ -227,3 +227,35 @@ acceptance criteria and pre-implementation review notes rather than redoing it:
 Verification: `flutter analyze` clean (no new issues), `flutter test` 464/464 passing,
 and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
 passed end-to-end.
+
+## 2026-07-03 — fix-verse-reference-resolution-dedup.md (issues #111, #125)
+
+Completed on the 5th attempt (4 prior attempts had left no uncommitted trace — working
+tree was clean at the start of this session, only `prd.json`'s attempts counter showed
+prior tries).
+
+- Added `_resolveReference(rawReference)` to `add_verse_screen.dart`: fetches custom
+  book-name variants (swallowing a DB-read failure and falling back to built-in
+  resolution only), then normalizes via the existing `normalizeReferenceForSave`,
+  returning a `({String? reference, bool unresolved})` record. Both `_lookupVerse()`
+  and `_normalizeAndAwaitConfirmation()` now call this one helper instead of
+  duplicating the fetch+normalize+classify logic.
+- `_lookupVerse()` now sets `_referenceUnresolved = true` on an unresolved-book web
+  lookup failure, the same flag the save path already set — so the "Open Book Name
+  Variants settings" shortcut (a single existing widget gated on that one flag) shows
+  after a failed Search, not just a failed Save. This was the actual behavior gap
+  (#111); no new shortcut widget was needed since the existing one is flag-driven.
+- Hoisted the three drifted error strings (`_invalidFormatMessage`,
+  `_unresolvedBookMessage`, `_unresolvedBookFieldError`) to `static const` fields, used
+  by both flows and the lookup service's `ArgumentError` catch.
+- Added a test (TDD, confirmed red before the flag fix) asserting the shortcut appears
+  after a failed web lookup. Added a second test (#125) that swaps in an in-memory
+  database missing the `book_name_variants` table via `DatabaseHelper.debugSetDatabase`
+  mid-test, forcing `getCustomVariantLookup()` to throw during web lookup, and asserts
+  the lookup still succeeds via built-in resolution — this passed immediately (no code
+  change needed), confirming the existing bare `catch (_) {}` fallback already worked
+  correctly, it was just untested.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 466/466 passing,
+and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
+passed end-to-end.
