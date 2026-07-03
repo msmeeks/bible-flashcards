@@ -51,6 +51,100 @@
       "status": "done",
       "attempts": 2,
       "blocked_by": []
+    },
+    {
+      "file": "fix-verse-reference-resolution-dedup.md",
+      "issues": [
+        111,
+        125
+      ],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-main-scaffold-tab-and-back-nav.md",
+      "issues": [
+        112,
+        115,
+        117
+      ],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-verses-navigation-boilerplate.md",
+      "issues": [
+        113,
+        114
+      ],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-inflight-button-focus-and-announcements.md",
+      "issues": [
+        118,
+        119
+      ],
+      "size": "M",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "test-dedupe-async-settle-helper.md",
+      "issues": [
+        116
+      ],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "test-main-scaffold-coverage.md",
+      "issues": [
+        120,
+        121
+      ],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": [
+        "test-dedupe-async-settle-helper.md"
+      ]
+    },
+    {
+      "file": "test-book-variants-coverage.md",
+      "issues": [
+        122,
+        123
+      ],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": [
+        "test-dedupe-async-settle-helper.md"
+      ]
+    },
+    {
+      "file": "test-verses-boundary-and-theme-coverage.md",
+      "issues": [
+        124,
+        126
+      ],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": [
+        "test-dedupe-async-settle-helper.md"
+      ]
     }
   ],
   "integration_branch": "integration/2026-07-01-persistent-shell",
