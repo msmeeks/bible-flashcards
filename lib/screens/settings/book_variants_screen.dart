@@ -33,92 +33,128 @@ class _BookVariantsScreenState extends State<BookVariantsScreen> {
     final variantFocusNode = FocusNode();
     String? bookErrorText;
     String? variantErrorText;
+    bool isSubmitting = false;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          semanticLabel: 'Add custom variant',
-          title: const Text('Add custom variant'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: selectedBookCode,
-                autofocus: true,
-                focusNode: bookFocusNode,
-                decoration: InputDecoration(
-                  labelText: 'Book',
-                  errorText: bookErrorText,
+        builder: (ctx, setS) => PopScope(
+          canPop: !isSubmitting,
+          child: AlertDialog(
+            semanticLabel: 'Add custom variant',
+            title: const Text('Add custom variant'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: selectedBookCode,
+                  autofocus: true,
+                  focusNode: bookFocusNode,
+                  decoration: InputDecoration(
+                    labelText: 'Book',
+                    errorText: bookErrorText,
+                  ),
+                  items: [
+                    for (final entry in bookDisplayNames.entries)
+                      DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      ),
+                  ],
+                  onChanged: isSubmitting
+                      ? null
+                      : (value) => setS(() {
+                            selectedBookCode = value;
+                            bookErrorText = null;
+                          }),
                 ),
-                items: [
-                  for (final entry in bookDisplayNames.entries)
-                    DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    ),
-                ],
-                onChanged: (value) => setS(() {
-                  selectedBookCode = value;
-                  bookErrorText = null;
-                }),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: textController,
+                  focusNode: variantFocusNode,
+                  enabled: !isSubmitting,
+                  decoration: InputDecoration(
+                    labelText: 'Variant text',
+                    errorText: variantErrorText,
+                  ),
+                  maxLength: maxVariantLength,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                    isSubmitting ? null : () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: textController,
-                focusNode: variantFocusNode,
-                decoration: InputDecoration(
-                  labelText: 'Variant text',
-                  errorText: variantErrorText,
-                ),
-                maxLength: maxVariantLength,
+              FilledButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final book = selectedBookCode;
+                        final text = textController.text.trim();
+                        setS(() {
+                          bookErrorText =
+                              book == null ? 'Select a book.' : null;
+                          variantErrorText =
+                              text.isEmpty ? 'Enter a variant.' : null;
+                        });
+                        if (book == null) {
+                          bookFocusNode.requestFocus();
+                          return;
+                        }
+                        if (text.isEmpty) {
+                          variantFocusNode.requestFocus();
+                          return;
+                        }
+                        setS(() => isSubmitting = true);
+                        try {
+                          await _db.addBookNameVariant(book, text);
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                        } catch (e) {
+                          if (!ctx.mounted) return;
+                          setS(() => variantErrorText = e is ArgumentError
+                              ? (e.message?.toString() ??
+                                  'Could not add variant.')
+                              : 'Could not add variant.');
+                          variantFocusNode.requestFocus();
+                        } finally {
+                          if (ctx.mounted) {
+                            setS(() => isSubmitting = false);
+                          }
+                        }
+                      },
+                child: isSubmitting
+                    ? Semantics(
+                        liveRegion: true,
+                        label: 'Adding variant, please wait',
+                        child: SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(ctx).colorScheme.onPrimary,
+                          ),
+                        ),
+                      )
+                    : const Text('Add'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final book = selectedBookCode;
-                final text = textController.text.trim();
-                setS(() {
-                  bookErrorText = book == null ? 'Select a book.' : null;
-                  variantErrorText = text.isEmpty ? 'Enter a variant.' : null;
-                });
-                if (book == null) {
-                  bookFocusNode.requestFocus();
-                  return;
-                }
-                if (text.isEmpty) {
-                  variantFocusNode.requestFocus();
-                  return;
-                }
-                try {
-                  await _db.addBookNameVariant(book, text);
-                } catch (e) {
-                  if (!ctx.mounted) return;
-                  setS(() => variantErrorText = e is ArgumentError
-                      ? (e.message?.toString() ?? 'Could not add variant.')
-                      : 'Could not add variant.');
-                  variantFocusNode.requestFocus();
-                  return;
-                }
-                if (ctx.mounted) Navigator.of(ctx).pop();
-              },
-              child: const Text('Add'),
-            ),
-          ],
         ),
       ),
     );
 
-    textController.dispose();
-    bookFocusNode.dispose();
-    variantFocusNode.dispose();
+    // Defer disposal by a frame: the dialog route's exit transition still
+    // renders the (about-to-be-removed) content for one more frame after
+    // showDialog's future resolves, so disposing synchronously here throws
+    // "FocusNode used after being disposed" mid-transition.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      textController.dispose();
+      bookFocusNode.dispose();
+      variantFocusNode.dispose();
+    });
     if (mounted) setState(_loadVariants);
   }
 
