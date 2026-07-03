@@ -60,7 +60,7 @@
       ],
       "size": "S",
       "status": "pending",
-      "attempts": 0,
+      "attempts": 1,
       "blocked_by": []
     },
     {
@@ -71,8 +71,8 @@
         117
       ],
       "size": "S",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 1,
       "blocked_by": []
     },
     {
@@ -149,5 +149,24 @@
   ],
   "integration_branch": "integration/2026-07-01-persistent-shell",
   "smoke_test": "bash scripts/smoke_test.sh",
-  "feature_branches": []
+  "feature_branches": [],
+  "sdlc_review_status": "complete",
+  "sdlc_finding_issues": [
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126
+  ]
 }

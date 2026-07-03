@@ -24,10 +24,13 @@ Provides the persistent bottom navigation bar, the always-visible audio mini-bar
 ## Technical Detail
 
 ### Nested Per-Tab Navigators
-`_tabNavigatorKeys` is a `List<GlobalKey<NavigatorState>>` of length 5 (one per tab), created once in `_MainScaffoldState` so each tab's navigation stack survives `MainScaffold` rebuilds and tab switches. `_tabNavigator(index, root)` wraps each tab's root screen in a `Navigator` whose single initial `MaterialPage` is keyed `ValueKey('tab-$index-root')` — the root page is never itself poppable. Screens within a tab push further pages via ordinary `Navigator.of(context).push(MaterialPageRoute(...))` calls; because `IndexedStack` keeps all tabs mounted (just not visible), each tab's push history is preserved when switching away and back.
+`_tabNavigatorKeys` is a `List<GlobalKey<NavigatorState>>` sized from `_destinations.length` (currently 5, one per tab), created once in `_MainScaffoldState` so each tab's navigation stack survives `MainScaffold` rebuilds and tab switches — and so the list automatically stays in sync if a destination is added or removed. `_tabNavigator(index, root)` wraps each tab's root screen in a `Navigator` whose single initial `MaterialPage` is keyed `ValueKey('tab-$index-root')` — the root page is never itself poppable. Screens within a tab push further pages via ordinary `Navigator.of(context).push(MaterialPageRoute(...))` calls; because `IndexedStack` keeps all tabs mounted (just not visible), each tab's push history is preserved when switching away and back.
 
 ### Back Navigation
-The outer `Scaffold` is wrapped in `PopScope(canPop: false, ...)`. On a system back invocation, it checks whether the *currently selected* tab's nested `Navigator` can pop (`tabNavigator.canPop()`); if so it pops that nested Navigator, otherwise it calls `SystemNavigator.pop()` to exit the app. This means back navigation is always scoped to the active tab's own history, never to some other tab's stack.
+The outer `Scaffold` is wrapped in `PopScope(canPop: false, ...)`. On a system back invocation, it checks whether the *currently selected* tab's nested `Navigator` can pop (`tabNavigator.canPop()`); if so it pops that nested Navigator. If not, and the active tab isn't Home, it switches to the Home tab (`_selectedIndex = 0`) instead of exiting. Only a root back-press while already on the Home tab calls `SystemNavigator.pop()` to exit the app. This means back navigation is always scoped to the active tab's own history first, then falls back to a "back to Home, then exit" convention rather than exiting from any tab's root.
+
+### Inactive Tab Semantics
+Each `_tabNavigator(index, root)` wraps its `Navigator` in `ExcludeSemantics(excluding: index != _selectedIndex)`, so only the currently selected tab's widget tree is exposed to the accessibility semantics tree. Because `IndexedStack` keeps all tabs mounted (for state preservation), without this a screen reader could otherwise traverse into off-screen tabs' controls.
 
 ### Persistent Audio Bar
 `AudioPlayerBar` renders inside the `Scaffold.bottomNavigationBar` `Column`, above the `NavigationBar`, so it is visible on every tab and every pushed sub-screen — it does not need special-casing per screen since it lives in the one `Scaffold` that wraps the entire `IndexedStack`.
@@ -41,4 +44,5 @@ This architecture (nested per-tab `Navigator` inside an `IndexedStack`) was the 
 ## Changelog
 | Date | Change |
 |---|---|
+| 2026-07-03 | Back press on a tab root now switches to Home instead of exiting (exits only from Home root); inactive tabs excluded from semantics tree via `ExcludeSemantics`; `_tabNavigatorKeys` length derived from `_destinations.length` |
 | 2026-07-02 | Initial documentation: persistent app shell via nested per-tab `Navigator` + `IndexedStack` (#104, #106) |

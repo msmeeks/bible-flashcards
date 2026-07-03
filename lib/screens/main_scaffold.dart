@@ -24,7 +24,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   // rebuilds and tab switches — this is what keeps the navbar/audio bar
   // visible while a tab drills into a sub-screen.
   final List<GlobalKey<NavigatorState>> _tabNavigatorKeys =
-      List.generate(5, (_) => GlobalKey<NavigatorState>());
+      List.generate(_destinations.length, (_) => GlobalKey<NavigatorState>());
 
   static const _destinations = [
     NavigationDestination(
@@ -57,15 +57,18 @@ class _MainScaffoldState extends State<MainScaffold> {
   }
 
   Widget _tabNavigator(int index, Widget root) {
-    return Navigator(
-      key: _tabNavigatorKeys[index],
-      onDidRemovePage: (page) {
-        // The tab root page is never poppable (guarded by PopScope below),
-        // so there is nothing to react to here.
-      },
-      pages: [
-        MaterialPage(key: ValueKey('tab-$index-root'), child: root),
-      ],
+    return ExcludeSemantics(
+      excluding: index != _selectedIndex,
+      child: Navigator(
+        key: _tabNavigatorKeys[index],
+        onDidRemovePage: (page) {
+          // The tab root page is never poppable (guarded by PopScope below),
+          // so there is nothing to react to here.
+        },
+        pages: [
+          MaterialPage(key: ValueKey('tab-$index-root'), child: root),
+        ],
+      ),
     );
   }
 
@@ -78,6 +81,8 @@ class _MainScaffoldState extends State<MainScaffold> {
         final tabNavigator = _tabNavigatorKeys[_selectedIndex].currentState;
         if (tabNavigator != null && tabNavigator.canPop()) {
           tabNavigator.pop();
+        } else if (_selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
         } else {
           SystemNavigator.pop();
         }

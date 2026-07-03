@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -162,5 +163,74 @@ void main() {
     expect(navBar.selectedIndex, 1);
     // ...and the shell (navbar) is still present, i.e. the app did not exit.
     expect(find.byType(NavigationBar), findsOneWidget);
+  });
+
+  testWidgets(
+      'system back on a non-Home tab root switches to Home instead of exiting',
+      (tester) async {
+    await tester.pumpWidget(_wrap());
+    await _settleAsync(tester);
+
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Settings'));
+    await _settleAsync(tester);
+
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(handled, isTrue);
+    final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(navBar.selectedIndex, 0);
+  });
+
+  testWidgets('system back on the Home tab root exits the app', (tester) async {
+    final calls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        calls.add(call);
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await tester.pumpWidget(_wrap());
+    await _settleAsync(tester);
+
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(handled, isTrue);
+    expect(calls.map((c) => c.method), contains('SystemNavigator.pop'));
+  });
+
+  testWidgets(
+      'controls in inactive tabs are excluded from the semantics tree until selected',
+      (tester) async {
+    final handle = tester.ensureSemantics();
+
+    await tester.pumpWidget(_wrap());
+    await _settleAsync(tester);
+
+    // Home tab is active, so "ESV.org" (a control inside the inactive
+    // Settings tab, underneath the IndexedStack) must not be reachable via
+    // the semantics tree at all.
+    expect(
+      () => tester.getSemantics(find.text('Interrupt audio for verse reminders')),
+      throwsA(isA<StateError>()),
+    );
+
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Settings'));
+    await _settleAsync(tester);
+
+    // Now that Settings is active, its control is reachable again.
+    expect(
+      () => tester.getSemantics(find.text('Interrupt audio for verse reminders')),
+      returnsNormally,
+    );
+
+    handle.dispose();
   });
 }

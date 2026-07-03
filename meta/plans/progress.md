@@ -145,3 +145,31 @@ Verified both were red against the pre-fix code, then implemented.
 Verification: `flutter analyze` clean (no new issues), `flutter test` 449/449 passing,
 and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
 passed end-to-end.
+
+## 2026-07-03 — fix-main-scaffold-tab-and-back-nav.md (issues #112, #115, #117)
+
+Completed on the 1st attempt.
+
+- `_tabNavigatorKeys` now derives its length from `_destinations.length` instead of
+  a hardcoded `5`, so the navigator-key list can't silently drift from the tab count.
+- Back-press handling in `MainScaffold`'s `PopScope`: when the active tab's nested
+  navigator has no history to pop, it now switches to the Home tab (`setState(() =>
+  _selectedIndex = 0)`) instead of exiting, unless already on Home, in which case it
+  still calls `SystemNavigator.pop()` as before.
+- Each tab's `_tabNavigator(...)` child is now wrapped in `ExcludeSemantics(excluding:
+  index != _selectedIndex, ...)` so inactive tabs' controls are excluded from the
+  semantics tree.
+- Added three tests (TDD): back-press on a non-Home tab root switches to Home
+  (confirmed red before the `setState` branch existed); back-press on the Home tab
+  root exits via `SystemNavigator.pop` (mocked `SystemChannels.platform`, confirmed
+  already green — regression coverage for existing behavior); a control in an
+  inactive tab is unreachable via `tester.getSemantics` and becomes reachable again
+  after switching to that tab (this one was already green pre-fix — Flutter's
+  `IndexedStack` already excludes non-selected children from
+  `visitChildrenForSemantics` — so `ExcludeSemantics` is redundant defense-in-depth
+  here rather than the actual fix; kept per the plan's explicit accessibility-review
+  guidance and left the test in place as regression coverage).
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 452/452 passing,
+and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
+passed end-to-end.
