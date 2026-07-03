@@ -80,3 +80,41 @@ instead of restarting).
 
 Verification: `flutter analyze` clean (no new issues), `flutter test` 444/444 passing,
 and `bash scripts/smoke_test.sh` passed end-to-end.
+
+## 2026-07-03 — fix-verse-list-scroll-position.md (issue #105)
+
+Completed on the 4th attempt. A prior interrupted session (3 attempts) had left the
+plan's core implementation done-but-unverified and uncommitted: `_AvailableTab`
+converted to a `StatefulWidget` with a `ScrollController`, stable `Key`s on list items
+(`ValueKey(verse.id)` / `ValueKey('header-$packId')`), and an in-flight guard on
+`_MemorizeButton` against double-tap races. Its widget tests (scroll offset preserved
+across a Memorize tap; button disables mid-flight) already passed. Verified the
+pre-existing work rather than redoing it.
+
+Manually reproducing the fix on the emulator (not just running the widget test)
+surfaced that the bug was **not actually fixed**: tapping Memorize on a
+mid-scroll-position item still snapped the list back to the top. Root cause: every
+mutation (`markMemorized`, `setVerseOfWeek`, etc.) ends with `VerseProvider.loadVerses()`,
+which sets `isLoading = true` and calls `notifyListeners()` *before* the DB refetch —
+and `VersesScreen`'s `Consumer` unconditionally rendered a full-screen
+`CircularProgressIndicator` whenever `isLoading` was true, tearing down the entire
+`TabBarView` (and `_AvailableTab`'s `ScrollController`/state) on every reload, not just
+the initial one. The widget test didn't catch this because in-memory sqlite queries
+resolve fast enough that the transient `isLoading=true` frame never actually gets
+rendered between `pump()` calls, so it's a false negative there — real on-device DB
+timing does render that frame.
+
+Fix: `VersesScreen`'s loading gate now only fires when there's no data yet
+(`provider.isLoading && memorized.isEmpty && available.isEmpty`), so a refresh of
+already-loaded data keeps the tabs mounted instead of blanking the screen. Added a
+`VerseProvider.debugSetLoading()` testing seam (mirrors the existing `debugSetVerses`)
+to deterministically test this without depending on DB-query timing, and a new widget
+test that sets `isLoading = true` after data is already loaded and asserts the list
+stays mounted (no spinner) — confirmed red against the pre-fix code, green after.
+
+Re-verified manually end-to-end on the emulator after the fix: scrolled the Available
+list, tapped Memorize on a mid-list verse, confirmed the list held its scroll position
+and the verse moved to the Memorized tab.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 447/447 passing,
+and `bash scripts/smoke_test.sh` passed end-to-end.
