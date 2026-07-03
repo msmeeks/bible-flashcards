@@ -173,3 +173,28 @@ Completed on the 1st attempt.
 Verification: `flutter analyze` clean (no new issues), `flutter test` 452/452 passing,
 and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
 passed end-to-end.
+
+## 2026-07-03 — test-dedupe-async-settle-helper.md (issue #116)
+
+Completed on the 1st attempt.
+
+- Added `test/helpers/async_settle.dart` with `pumpUntilAsyncSettled(tester, {finalPump})`,
+  extracting the shared "pump, pump 100ms, real-delay 200ms, pump" sequence used to drive
+  a pending sqflite round-trip to completion in widget tests. The trailing pump duration
+  differed across call sites (200ms vs 500ms), so it's an optional named parameter
+  defaulting to 200ms rather than a hardcoded value, to avoid a timing regression at the
+  500ms sites.
+- Replaced `_settleAsync` in `test/screens/main_scaffold_test.dart` and `_drainAsync` in
+  `test/screens/settings/book_variants_screen_test.dart` with the shared helper, and
+  replaced one inlined copy of the same sequence in
+  `test/screens/verses/verses_screen_test.dart`.
+- The plan's cited line numbers for the "two inline copies" in `verses_screen_test.dart`
+  (~1800-1806, 1896-1901) didn't correspond to the current 187-line file. Investigated
+  directly: only one inline block matches the shared pattern byte-for-byte (the
+  double-tap-race test); the other async block in that file (scroll-position test) is a
+  distinct sequence (taps mid-block, uses a 50ms delay, no 100ms pump step) and was left
+  as-is rather than forced into the shared helper's signature.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 452/452 passing,
+and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
+passed end-to-end.

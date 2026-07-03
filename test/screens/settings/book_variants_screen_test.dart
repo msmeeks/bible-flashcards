@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/screens/settings/book_variants_screen.dart';
 
+import '../../helpers/async_settle.dart';
 import '../../helpers/fake_database_helper.dart';
 
 /// Pumps [BookVariantsScreen] and lets the initial `getBookNameVariants`
@@ -41,18 +42,6 @@ Future<void> _openAddDialogWithInput(
   await tester.pump();
 }
 
-/// Drives the pending sqflite round-trip to completion (mirrors the
-/// `_tapAndSettle` pattern used in the Add Verse screen tests).
-Future<void> _drainAsync(WidgetTester tester) async {
-  await tester.runAsync(() async {
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    await tester.pump(const Duration(milliseconds: 500));
-  });
-  await tester.pump();
-}
-
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
@@ -81,8 +70,7 @@ void main() {
       await tester.pump();
 
       // While in flight the Add button is disabled and shows a spinner...
-      final filled =
-          tester.widget<FilledButton>(find.byType(FilledButton));
+      final filled = tester.widget<FilledButton>(find.byType(FilledButton));
       expect(filled.onPressed, isNull,
           reason: 'Add button must be disabled while submitting');
       expect(
@@ -101,7 +89,9 @@ void main() {
           reason: 'Cancel must be disabled while submitting');
 
       // Let the pending save finish so no async work leaks past the test.
-      await _drainAsync(tester);
+      await pumpUntilAsyncSettled(tester,
+          finalPump: const Duration(milliseconds: 500));
+      await tester.pump();
     },
   );
 
@@ -114,9 +104,9 @@ void main() {
       // Invoke the handler twice back-to-back within the same frame (before
       // any rebuild can disable the button), simulating a double-tap that
       // races ahead of the isSubmitting-driven `onPressed: null` state.
-      final onPressed =
-          tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Add'))
-              .onPressed!;
+      final onPressed = tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Add'))
+          .onPressed!;
       onPressed();
       onPressed();
       await tester.pump();
@@ -124,7 +114,9 @@ void main() {
       expect(tester.takeException(), isNull,
           reason: 'a rapid double-tap must not throw');
 
-      await _drainAsync(tester);
+      await pumpUntilAsyncSettled(tester,
+          finalPump: const Duration(milliseconds: 500));
+      await tester.pump();
       expect(tester.takeException(), isNull);
 
       final variants = await tester.runAsync(

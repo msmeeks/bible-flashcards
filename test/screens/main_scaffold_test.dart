@@ -15,6 +15,7 @@ import 'package:bible_flashcards/screens/main_scaffold.dart';
 import 'package:bible_flashcards/screens/verses/verses_screen.dart';
 import 'package:bible_flashcards/services/notification_service.dart';
 
+import '../helpers/async_settle.dart';
 import '../helpers/fake_database_helper.dart';
 
 Verse _memorizedVerse(String id) {
@@ -53,18 +54,6 @@ Widget _wrap({VerseProvider? verseProvider}) {
   );
 }
 
-/// The sqflite_common_ffi round-trip behind VerseProvider.loadVerses() is a
-/// real (non-fake-clock) async gap, so it needs [WidgetTester.runAsync] to
-/// resolve during a test — plain `pump`/`pumpAndSettle` never let it
-/// complete, leaving the loading spinner (and a pending Future that fires
-/// after teardown) behind.
-Future<void> _settleAsync(WidgetTester tester) => tester.runAsync(() async {
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      await tester.pump(const Duration(milliseconds: 200));
-    });
-
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
@@ -84,7 +73,7 @@ void main() {
 
   testWidgets('bottom nav has Review between Verses and Test', (tester) async {
     await tester.pumpWidget(_wrap());
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     final labels = tester
         .widgetList<NavigationDestination>(find.byType(NavigationDestination))
@@ -94,23 +83,25 @@ void main() {
     expect(labels, ['Home', 'Verses', 'Review', 'Test', 'Settings']);
   });
 
-  testWidgets('VersesScreen activationCount increments each time Verses tab is selected', (tester) async {
+  testWidgets(
+      'VersesScreen activationCount increments each time Verses tab is selected',
+      (tester) async {
     await tester.pumpWidget(_wrap());
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     // Tap Verses tab (first activation)
     await tester.tap(find.widgetWithText(NavigationDestination, 'Verses'));
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
     final countAfterFirst =
         tester.widget<VersesScreen>(find.byType(VersesScreen)).activationCount;
 
     // Navigate away
     await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     // Return to Verses (second activation)
     await tester.tap(find.widgetWithText(NavigationDestination, 'Verses'));
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
     final countAfterSecond =
         tester.widget<VersesScreen>(find.byType(VersesScreen)).activationCount;
 
@@ -119,15 +110,16 @@ void main() {
 
   testWidgets('bottom navbar stays visible after pushing into verse detail',
       (tester) async {
-    await tester.runAsync(() => DatabaseHelper().insertVerse(_memorizedVerse('v1')));
+    await tester
+        .runAsync(() => DatabaseHelper().insertVerse(_memorizedVerse('v1')));
     await tester.pumpWidget(_wrap());
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Verses'));
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     await tester.tap(find.text('Ref v1'));
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     // We're on the verse detail sub-screen now...
     expect(find.text('Ref v1'), findsWidgets);
@@ -138,15 +130,16 @@ void main() {
   testWidgets(
       'Android system back from verse detail returns to the Verses list, not app exit',
       (tester) async {
-    await tester.runAsync(() => DatabaseHelper().insertVerse(_memorizedVerse('v1')));
+    await tester
+        .runAsync(() => DatabaseHelper().insertVerse(_memorizedVerse('v1')));
     await tester.pumpWidget(_wrap());
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Verses'));
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     await tester.tap(find.text('Ref v1'));
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     // Confirm we actually navigated to the sub-screen before backing out of it
     // ('Play Audio' only appears on VerseDetailScreen, not the Verses list tile).
@@ -169,10 +162,10 @@ void main() {
       'system back on a non-Home tab root switches to Home instead of exiting',
       (tester) async {
     await tester.pumpWidget(_wrap());
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Settings'));
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     final handled = await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -197,7 +190,7 @@ void main() {
     });
 
     await tester.pumpWidget(_wrap());
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     final handled = await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -212,22 +205,24 @@ void main() {
     final handle = tester.ensureSemantics();
 
     await tester.pumpWidget(_wrap());
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     // Home tab is active, so "ESV.org" (a control inside the inactive
     // Settings tab, underneath the IndexedStack) must not be reachable via
     // the semantics tree at all.
     expect(
-      () => tester.getSemantics(find.text('Interrupt audio for verse reminders')),
+      () =>
+          tester.getSemantics(find.text('Interrupt audio for verse reminders')),
       throwsA(isA<StateError>()),
     );
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Settings'));
-    await _settleAsync(tester);
+    await pumpUntilAsyncSettled(tester);
 
     // Now that Settings is active, its control is reachable again.
     expect(
-      () => tester.getSemantics(find.text('Interrupt audio for verse reminders')),
+      () =>
+          tester.getSemantics(find.text('Interrupt audio for verse reminders')),
       returnsNormally,
     );
 

@@ -7,6 +7,7 @@ import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
 import 'package:bible_flashcards/screens/verses/verses_screen.dart';
 
+import '../../helpers/async_settle.dart';
 import '../../helpers/fake_database_helper.dart';
 import '../../helpers/verse_factory.dart';
 
@@ -71,10 +72,8 @@ void main() {
 
       // Record the reference text of the item currently rendered at the top
       // of the viewport, to confirm it's unaffected by the removal below it.
-      final topTileTextBefore = tester
-          .widgetList<Text>(find.textContaining('Ref verse-'))
-          .first
-          .data;
+      final topTileTextBefore =
+          tester.widgetList<Text>(find.textContaining('Ref verse-')).first.data;
 
       await tester.runAsync(() async {
         await tester.tap(tappedButtonFinder);
@@ -87,10 +86,8 @@ void main() {
       final scrollableStateAfter =
           tester.state<ScrollableState>(availableScrollableFinder);
       final offsetAfterTap = scrollableStateAfter.position.pixels;
-      final topTileTextAfter = tester
-          .widgetList<Text>(find.textContaining('Ref verse-'))
-          .first
-          .data;
+      final topTileTextAfter =
+          tester.widgetList<Text>(find.textContaining('Ref verse-')).first.data;
 
       expect(offsetAfterTap, closeTo(offsetBeforeTap, 5));
       expect(topTileTextAfter, topTileTextBefore);
@@ -172,12 +169,8 @@ void main() {
         reason: 'button must disable itself while memorizing is in flight',
       );
 
-      await tester.runAsync(() async {
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-        await tester.pump(const Duration(milliseconds: 500));
-      });
+      await pumpUntilAsyncSettled(tester,
+          finalPump: const Duration(milliseconds: 500));
       await tester.pump();
 
       final verses = await tester.runAsync(() => dbHelper.getVerses());
