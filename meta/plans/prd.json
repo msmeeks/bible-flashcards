@@ -2,23 +2,31 @@
   "plans": [
     {
       "file": "fix-persistent-app-shell.md",
-      "issues": [104, 106],
+      "issues": [
+        104,
+        106
+      ],
       "size": "M",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 7,
       "blocked_by": []
     },
     {
       "file": "fix-fill-blank-test-scoring-ux.md",
-      "issues": [107, 36],
+      "issues": [
+        107,
+        36
+      ],
       "size": "M",
       "status": "pending",
-      "attempts": 0,
+      "attempts": 4,
       "blocked_by": []
     },
     {
       "file": "fix-book-variants-crash.md",
-      "issues": [103],
+      "issues": [
+        103
+      ],
       "size": "S",
       "status": "pending",
       "attempts": 0,
@@ -26,7 +34,9 @@
     },
     {
       "file": "fix-verse-list-scroll-position.md",
-      "issues": [105],
+      "issues": [
+        105
+      ],
       "size": "S",
       "status": "pending",
       "attempts": 0,
@@ -34,7 +44,9 @@
     },
     {
       "file": "fix-web-lookup-book-variants.md",
-      "issues": [108],
+      "issues": [
+        108
+      ],
       "size": "S",
       "status": "pending",
       "attempts": 0,

@@ -6,6 +6,8 @@ import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../providers/verse_provider.dart';
 import '../../widgets/confidence_badge.dart';
+import 'add_verse_screen.dart';
+import 'verse_detail_screen.dart';
 
 class VersesScreen extends StatefulWidget {
   const VersesScreen({super.key, this.activationCount = 0});
@@ -40,7 +42,9 @@ class _VersesScreenState extends State<VersesScreen>
   }
 
   Future<void> _openAddVerse() async {
-    final result = await Navigator.of(context).pushNamed('/verse-add');
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const AddVerseScreen()),
+    );
     if (result == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Verse added')),
@@ -141,8 +145,11 @@ class _VerseSearchButton extends StatelessWidget {
                 title: Text(v.reference),
                 onTap: () {
                   controller.closeView(v.reference);
-                  Navigator.of(context)
-                      .pushNamed('/verse-detail', arguments: v.id);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => VerseDetailScreen(verseId: v.id),
+                    ),
+                  );
                 },
               ),
             )
@@ -211,10 +218,16 @@ class _MemorizedListTile extends StatelessWidget {
           verseRef: verse.reference,
         ),
       ),
-      onTap: () =>
-          Navigator.of(context).pushNamed('/verse-detail', arguments: verse.id),
-      onLongPress: () =>
-          Navigator.of(context).pushNamed('/verse-detail', arguments: verse.id),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VerseDetailScreen(verseId: verse.id),
+        ),
+      ),
+      onLongPress: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VerseDetailScreen(verseId: verse.id),
+        ),
+      ),
     );
   }
 }

@@ -14,7 +14,9 @@ import '../../widgets/verse_card.dart';
 import '../settings/settings_screen.dart';
 
 class VerseDetailScreen extends StatefulWidget {
-  const VerseDetailScreen({super.key});
+  const VerseDetailScreen({super.key, required this.verseId});
+
+  final String verseId;
 
   @override
   State<VerseDetailScreen> createState() => _VerseDetailScreenState();
@@ -32,7 +34,7 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final verseId = ModalRoute.of(context)!.settings.arguments as String;
+    final verseId = widget.verseId;
 
     return Consumer<VerseProvider>(
       builder: (context, provider, _) {
