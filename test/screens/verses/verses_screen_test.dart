@@ -97,6 +97,143 @@ void main() {
   );
 
   testWidgets(
+    'memorizing the last item while scrolled near max extent does not '
+    'throw and clamps the offset to the new (smaller) max extent',
+    (tester) async {
+      final dbHelper = DatabaseHelper();
+      final provider = VerseProvider(dbHelper);
+      await tester.runAsync(() async {
+        for (var i = 0; i < 30; i++) {
+          await dbHelper.insertVerse(
+            makeVerse(
+              'verse-$i',
+              isMemorized: false,
+              addedAt: DateTime(2024, 1, 1 + i),
+            ),
+          );
+        }
+        await provider.loadVerses();
+      });
+
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+      await tester.tap(find.text('Available'));
+      await tester.pumpAndSettle();
+
+      final availableScrollableFinder = find.descendant(
+        of: find.byKey(const Key('availableVerseList')),
+        matching: find.byType(Scrollable),
+      );
+      final scrollableState =
+          tester.state<ScrollableState>(availableScrollableFinder);
+
+      // Jump all the way to the bottom of the list.
+      scrollableState.position.jumpTo(
+        scrollableState.position.maxScrollExtent,
+      );
+      await tester.pumpAndSettle();
+
+      // Memorize the very last item — this is the item currently rendered
+      // at (or near) the bottom of the viewport, so removing it shrinks
+      // maxScrollExtent out from under the current offset.
+      final lastButtonFinder =
+          find.byKey(const Key('memorize-button-verse-29'));
+
+      await tester.runAsync(() async {
+        await tester.tap(lastButtonFinder);
+        await tester.pump();
+        await Future.delayed(const Duration(milliseconds: 50));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+      });
+
+      // No exception was thrown getting here (the test would already have
+      // failed via FlutterError otherwise). The framework must clamp the
+      // scroll offset within the new, smaller max extent.
+      final scrollableStateAfter =
+          tester.state<ScrollableState>(availableScrollableFinder);
+      expect(
+        scrollableStateAfter.position.pixels,
+        lessThanOrEqualTo(scrollableStateAfter.position.maxScrollExtent),
+      );
+      expect(lastButtonFinder, findsNothing);
+    },
+  );
+
+  testWidgets(
+    'memorizing an item that leaves the list shorter than the viewport '
+    'renders the remaining items without error',
+    (tester) async {
+      final dbHelper = DatabaseHelper();
+      final provider = VerseProvider(dbHelper);
+      await tester.runAsync(() async {
+        for (var i = 0; i < 3; i++) {
+          await dbHelper.insertVerse(
+            makeVerse(
+              'verse-$i',
+              isMemorized: false,
+              addedAt: DateTime(2024, 1, 1 + i),
+            ),
+          );
+        }
+        await provider.loadVerses();
+      });
+
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+      await tester.tap(find.text('Available'));
+      await tester.pumpAndSettle();
+
+      final buttonFinder = find.byKey(const Key('memorize-button-verse-0'));
+
+      await tester.runAsync(() async {
+        await tester.tap(buttonFinder);
+        await tester.pump();
+        await Future.delayed(const Duration(milliseconds: 50));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+      });
+
+      expect(buttonFinder, findsNothing);
+      expect(find.text('Ref verse-1'), findsOneWidget);
+      expect(find.text('Ref verse-2'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'memorizing the last remaining item reaches the empty-list state '
+    'with no crash and no stale scroll offset',
+    (tester) async {
+      final dbHelper = DatabaseHelper();
+      final provider = VerseProvider(dbHelper);
+      await tester.runAsync(() async {
+        await dbHelper.insertVerse(makeVerse('verse-0', isMemorized: false));
+        await provider.loadVerses();
+      });
+
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+      await tester.tap(find.text('Available'));
+      await tester.pumpAndSettle();
+
+      final buttonFinder = find.byKey(const Key('memorize-button-verse-0'));
+
+      await tester.runAsync(() async {
+        await tester.tap(buttonFinder);
+        await tester.pump();
+        await Future.delayed(const Duration(milliseconds: 50));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+      });
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('availableVerseList')), findsNothing);
+      expect(find.text('All verses memorized!'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'keeps showing the Available list instead of a full-screen spinner '
     'when the provider re-enters a loading state after data is already '
     'loaded (e.g. the reload triggered by markMemorized)',

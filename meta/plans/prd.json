@@ -140,8 +140,8 @@
         126
       ],
       "size": "S",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 1,
       "blocked_by": [
         "test-dedupe-async-settle-helper.md"
       ]

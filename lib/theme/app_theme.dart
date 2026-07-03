@@ -157,7 +157,7 @@ class AppTheme {
     // Lora is bundled locally (assets/fonts/) rather than fetched via
     // google_fonts — the app disables runtime font fetching (see main.dart)
     // so there's no network egress and no dependency on a device-side cache.
-    final loraBase = const TextTheme().apply(fontFamily: 'Lora');
+    final loraBase = Typography.englishLike2021.apply(fontFamily: 'Lora');
     final onSurface = scheme.onSurface;
     return TextTheme(
       // Scripture text — Lora serif

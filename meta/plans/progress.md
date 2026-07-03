@@ -365,3 +365,29 @@ bug fix.
 Verification: `flutter analyze` clean (no new issues), `flutter test` 479/479 passing,
 and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
 passed end-to-end.
+
+## 2026-07-03 — test-verses-boundary-and-theme-coverage.md (issues #124, #126)
+
+Added the three planned scroll-preservation boundary tests to
+`verses_screen_test.dart` (last item near max scroll extent, an item leaving
+the list shorter than the viewport, and the last remaining item reaching the
+empty-list state) plus a new `test/theme/font_family_test.dart` asserting
+`bodyLarge`/`headlineSmall` resolve to `fontFamily == 'Lora'` in both theme
+variants.
+
+The Lora assertion test failed against the real implementation and surfaced
+an actual production bug in `lib/theme/app_theme.dart`: `_buildTextTheme` built
+its `loraBase` from `const TextTheme().apply(fontFamily: 'Lora')`, but the
+default `TextTheme()` constructor leaves every style field `null`, so
+`.apply()` no-ops on all of them (`null?.copyWith(...)` stays `null`). Every
+Lora-branch style (`displayLarge`...`bodyMedium`) was therefore `null` in the
+built `TextTheme`, and `ThemeData`'s internal `defaultTextTheme.merge(...)`
+silently filled the gaps with the default Material/Roboto styles — meaning
+the "Lora for Scripture text" feature had never actually applied anywhere in
+the app. Fixed by basing `loraBase` on `Typography.englishLike2021` (a fully
+populated default `TextTheme`) before applying the `Lora` font family, so
+every field carries a real style for `.apply()`/`.copyWith()` to transform.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 484/484
+passing, and `bash scripts/smoke_test.sh` (full unit suite + real emulator
+integration test) passed end-to-end.
