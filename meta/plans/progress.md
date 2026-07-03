@@ -312,3 +312,22 @@ Completed on the 1st attempt.
 Verification: `flutter analyze` clean (no new issues), `flutter test` 471/471 passing,
 and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
 passed end-to-end.
+
+## 2026-07-03 — test-main-scaffold-coverage.md (issues #120, #121)
+
+Completed on the 2nd attempt (an interrupted prior attempt had already landed the
+root-level back-press branch tests, tracked by a stray `attempts: 1` bump with no
+matching code — reset here by moving that increment into this entry).
+
+- Verified `#121` (root-level back-press branch) was already covered by prior work:
+  `system back on a non-Home tab root switches to Home instead of exiting` and
+  `system back on the Home tab root exits the app`, both exercising the two outcomes
+  of the "no nested history" branch in `MainScaffold`'s `PopScope` handler.
+- Added the one missing case for `#120`: a test that pushes into `VerseDetailScreen`
+  from the Verses tab, switches to Home, switches back to Verses, and asserts the
+  detail screen (not the list) is still shown — confirming a tab's nested-navigator
+  state survives switching away and back.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 472/472 passing,
+and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
+passed end-to-end.

@@ -159,6 +159,34 @@ void main() {
   });
 
   testWidgets(
+      'pushed sub-screen on a tab survives switching to another tab and back',
+      (tester) async {
+    await tester
+        .runAsync(() => DatabaseHelper().insertVerse(_memorizedVerse('v1')));
+    await tester.pumpWidget(_wrap());
+    await pumpUntilAsyncSettled(tester);
+
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Verses'));
+    await pumpUntilAsyncSettled(tester);
+
+    await tester.tap(find.text('Ref v1'));
+    await pumpUntilAsyncSettled(tester);
+
+    // Confirm we're on the verse detail sub-screen before switching away.
+    expect(find.text('Play Audio'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Home'));
+    await pumpUntilAsyncSettled(tester);
+
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Verses'));
+    await pumpUntilAsyncSettled(tester);
+
+    // The Verses tab should still show the pushed detail screen, not have
+    // reset back to the list.
+    expect(find.text('Play Audio'), findsOneWidget);
+  });
+
+  testWidgets(
       'system back on a non-Home tab root switches to Home instead of exiting',
       (tester) async {
     await tester.pumpWidget(_wrap());
