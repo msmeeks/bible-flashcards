@@ -121,15 +121,21 @@ void main() {
   );
 
   testWidgets(
-    'fill-blank fields carry a numbered Blank N label for screen readers',
+    'fill-blank fields show no visible label and carry a numbered '
+    'accessible name for screen readers',
     (tester) async {
       await tester.pumpWidget(wrapFillBlank(_verse()));
       await tester.pump();
 
       final fields = tester.widgetList<TextField>(find.byType(TextField));
       expect(fields, isNotEmpty);
-      for (var i = 0; i < fields.length; i++) {
-        expect(fields.elementAt(i).decoration?.labelText, 'Blank ${i + 1}');
+      final total = fields.length;
+      for (var i = 0; i < total; i++) {
+        expect(fields.elementAt(i).decoration?.labelText, isNull);
+        expect(
+          find.bySemanticsLabel('Blank ${i + 1} of $total'),
+          findsOneWidget,
+        );
       }
     },
   );
@@ -147,6 +153,89 @@ void main() {
       expect(find.textContaining('Incorrect —'), findsNothing);
       expect(find.text('Continue'), findsOneWidget);
       expect(find.text('Try Again'), findsOneWidget);
+    },
+  );
+
+  Verse referenceVerse() => Verse(
+        id: '1thess_5_19',
+        reference: '1 Thessalonians 5:19',
+        text: 'Do not quench the Spirit',
+        translation: 'ESV',
+        packId: 'pack_1',
+        addedAt: DateTime(2024, 1, 1),
+      );
+
+  testWidgets(
+    'a blank landing inside the reference book-name span accepts a '
+    'recognized abbreviation',
+    (tester) async {
+      // Tokens of '1 Thessalonians 5:19' are ['1','Thessalonians','5',':','19'];
+      // index 1 is the book-name word.
+      await tester.pumpWidget(MaterialApp(
+        home: TestSessionScreen(
+          verses: [referenceVerse()],
+          testMode: TestMode.review,
+          selectedFormats: const {TestFormat.fillBlank},
+          selectedDirections: const {PromptDirection.textToRef},
+          debugBlankIndices: const [1],
+        ),
+      ));
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'Thess');
+      await tester.tap(find.text('Check Answer'));
+      await tester.pump();
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.decoration?.errorText, isNull);
+    },
+  );
+
+  testWidgets(
+    'typed text remains visible in a blank after checking, and clears on '
+    'retry',
+    (tester) async {
+      await tester.pumpWidget(wrapFillBlank(_verse()));
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField).first, 'wrong');
+      await tester.tap(find.text('Check Answer'));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'wrong',
+      );
+
+      await tester.tap(find.text('Try Again'));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        isEmpty,
+      );
+    },
+  );
+
+  testWidgets(
+    'a correctly-answered blank announces "Correct" for screen readers',
+    (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: TestSessionScreen(
+          verses: [_verse()],
+          testMode: TestMode.review,
+          selectedFormats: const {TestFormat.fillBlank},
+          selectedDirections: const {PromptDirection.textToRef},
+          debugBlankIndices: const [0],
+        ),
+      ));
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'John');
+      await tester.tap(find.text('Check Answer'));
+      await tester.pump();
+
+      expect(find.bySemanticsLabel('Correct'), findsOneWidget);
     },
   );
 

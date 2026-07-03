@@ -25,6 +25,7 @@ class TestSessionScreen extends StatefulWidget {
     required this.selectedDirections,
     this.blankDensity = BlankDensity.twenty,
     this.speechService,
+    this.debugBlankIndices,
   });
 
   final List<Verse> verses;
@@ -36,6 +37,10 @@ class TestSessionScreen extends StatefulWidget {
   // Lets tests inject a fake recognizer; production code omits this and
   // gets a real SpeechRecognitionService (see initState).
   final SpeechRecognitionService? speechService;
+
+  // Lets tests force which fill-blank word indices get blanked instead of
+  // the random selection; production code omits this (see _initBlankState).
+  final List<int>? debugBlankIndices;
 
   @override
   State<TestSessionScreen> createState() => _TestSessionScreenState();
@@ -143,7 +148,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     final candidateCount =
         _currentBlankWords.where((w) => w != ':').length;
     final blankCount = blankCountForPercentage(candidateCount, percentage);
-    _currentBlankIndices =
+    _currentBlankIndices = widget.debugBlankIndices ??
         blankIndices(_currentBlankWords, blankCount, random: _rng);
     _blankCorrectness = [];
     _blankControllers = List.generate(
@@ -399,21 +404,37 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   }
 
   void _onBlankCheck() {
+    final bookNameCorrectness = _promptIsReference
+        ? const <int, bool>{}
+        : scoreBlankedBookNameTokens(
+            _answerText,
+            _currentBlankWords,
+            {
+              for (var i = 0; i < _currentBlankIndices.length; i++)
+                _currentBlankIndices[i]: _blankControllers[i].text,
+            },
+            customVariants: _customVariantLookup,
+          );
+
     final correctness = <bool>[];
     var correctCount = 0;
     for (var i = 0; i < _currentBlankIndices.length; i++) {
       final wordIndex = _currentBlankIndices[i];
-      final correct = _currentBlankWords[wordIndex]
-          .toLowerCase()
-          .replaceAll(RegExp(r"[^\w\s']"), '');
-      final given = _blankControllers[i]
-          .text
-          .toLowerCase()
-          .replaceAll(RegExp(r"[^\w\s']"), '');
-      final isCorrect = given.trim() == correct.trim();
+      bool isCorrect;
+      if (bookNameCorrectness.containsKey(wordIndex)) {
+        isCorrect = bookNameCorrectness[wordIndex]!;
+      } else {
+        final correct = _currentBlankWords[wordIndex]
+            .toLowerCase()
+            .replaceAll(RegExp(r"[^\w\s']"), '');
+        final given = _blankControllers[i]
+            .text
+            .toLowerCase()
+            .replaceAll(RegExp(r"[^\w\s']"), '');
+        isCorrect = given.trim() == correct.trim();
+      }
       correctness.add(isCorrect);
       if (isCorrect) correctCount++;
-      _blankControllers[i].clear(); // discard typed input immediately
     }
 
     final total = _currentBlankIndices.length;
@@ -431,6 +452,9 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   }
 
   void _onBlankRetry() {
+    for (final controller in _blankControllers) {
+      controller.clear();
+    }
     setState(() {
       _blankCorrectness = [];
       _showingBlankResult = false;
@@ -681,31 +705,40 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                         : cs.errorContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: TextField(
-                controller: _blankControllers[blankIdx],
-                focusNode: _blankFocusNodes[blankIdx],
-                decoration: InputDecoration(
-                  labelText: 'Blank ${blankIdx + 1}',
-                  floatingLabelBehavior: FloatingLabelBehavior.never,
-                  isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  errorText: (isCorrect == false)
-                      ? _currentBlankWords[i]
-                      : null,
-                  errorStyle: TextStyle(color: cs.onErrorContainer),
-                  errorMaxLines: 2,
-                  helperStyle: TextStyle(color: cs.onSuccessContainer),
-                  suffixIcon: isCorrect == false
-                      ? Icon(Icons.close, color: cs.onErrorContainer, size: 16)
-                      : isCorrect == true
-                          ? Icon(Icons.check,
-                              color: cs.onSuccessContainer, size: 16)
-                          : null,
+              child: Semantics(
+                label:
+                    'Blank ${blankIdx + 1} of ${_currentBlankIndices.length}',
+                textField: true,
+                child: TextField(
+                  controller: _blankControllers[blankIdx],
+                  focusNode: _blankFocusNodes[blankIdx],
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 8),
+                    errorText: (isCorrect == false)
+                        ? _currentBlankWords[i]
+                        : null,
+                    errorStyle: TextStyle(color: cs.onErrorContainer),
+                    errorMaxLines: 2,
+                    suffixIcon: isCorrect == false
+                        ? Semantics(
+                            label: 'Incorrect',
+                            child: Icon(Symbols.cancel_rounded,
+                                color: cs.onErrorContainer, size: 16),
+                          )
+                        : isCorrect == true
+                            ? Semantics(
+                                label: 'Correct',
+                                child: Icon(Symbols.check_circle_rounded,
+                                    color: cs.onSuccessContainer, size: 16),
+                              )
+                            : null,
+                  ),
+                  style: tt.bodyLarge,
+                  enabled: !_showingBlankResult,
+                  textCapitalization: TextCapitalization.none,
                 ),
-                style: tt.bodyLarge,
-                enabled: !_showingBlankResult,
-                textCapitalization: TextCapitalization.none,
               ),
             ),
           ),
