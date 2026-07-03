@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
+import 'package:bible_flashcards/screens/verses/verse_detail_screen.dart';
 import 'package:bible_flashcards/screens/verses/verses_screen.dart';
 
 import '../../helpers/async_settle.dart';
@@ -239,4 +240,63 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'tapping a memorized verse tile opens its detail screen',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([makeVerse('verse-0', isMemorized: true)]);
+
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+
+      await tester.tap(find.text('Ref verse-0'));
+      await tester.pumpAndSettle();
+      expect(find.byType(VerseDetailScreen), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'long-pressing a memorized verse tile does not push more than one '
+    'detail screen (no separate onLongPress handler duplicating onTap)',
+    (tester) async {
+      final pushedRoutes = <Route<dynamic>>[];
+      final observer = _RecordingNavigatorObserver(pushedRoutes);
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([makeVerse('verse-0', isMemorized: true)]);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<VerseProvider>.value(
+          value: provider,
+          child: MaterialApp(
+            navigatorObservers: [observer],
+            home: const VersesScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.longPress(find.text('Ref verse-0'));
+      await tester.pumpAndSettle();
+
+      expect(
+        pushedRoutes.where((r) => r.settings.name == null).length,
+        1,
+        reason: 'a single long-press gesture must result in exactly one '
+            'navigation, not a duplicate push from a separate '
+            'onLongPress handler',
+      );
+    },
+  );
+}
+
+class _RecordingNavigatorObserver extends NavigatorObserver {
+  _RecordingNavigatorObserver(this.pushedRoutes);
+
+  final List<Route<dynamic>> pushedRoutes;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushedRoutes.add(route);
+  }
 }

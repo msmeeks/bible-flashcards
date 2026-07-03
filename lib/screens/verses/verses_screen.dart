@@ -9,6 +9,13 @@ import '../../widgets/confidence_badge.dart';
 import 'add_verse_screen.dart';
 import 'verse_detail_screen.dart';
 
+/// Pushes [VerseDetailScreen] for [verseId] onto the current navigator.
+void openVerseDetail(BuildContext context, String verseId) {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => VerseDetailScreen(verseId: verseId)),
+  );
+}
+
 class VersesScreen extends StatefulWidget {
   const VersesScreen({super.key, this.activationCount = 0});
 
@@ -149,11 +156,7 @@ class _VerseSearchButton extends StatelessWidget {
                 title: Text(v.reference),
                 onTap: () {
                   controller.closeView(v.reference);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => VerseDetailScreen(verseId: v.id),
-                    ),
-                  );
+                  openVerseDetail(context, v.id);
                 },
               ),
             )
@@ -222,16 +225,7 @@ class _MemorizedListTile extends StatelessWidget {
           verseRef: verse.reference,
         ),
       ),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => VerseDetailScreen(verseId: verse.id),
-        ),
-      ),
-      onLongPress: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => VerseDetailScreen(verseId: verse.id),
-        ),
-      ),
+      onTap: () => openVerseDetail(context, verse.id),
     );
   }
 }

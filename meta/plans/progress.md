@@ -288,3 +288,27 @@ redoing it.
 Verification: `flutter analyze` clean (no new issues), `flutter test` 469/469 passing,
 and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
 passed end-to-end.
+
+## 2026-07-03 — fix-verses-navigation-boilerplate.md (issues #113, #114)
+
+Completed on the 1st attempt.
+
+- Added a shared `openVerseDetail(BuildContext context, String verseId)` helper in
+  `verses_screen.dart` and pointed all four verse-detail navigation call sites at it:
+  the search-result tile and the memorized-list tile in `verses_screen.dart`, and the
+  recent-memorized chip in `home_screen.dart` (imported via `show openVerseDetail`).
+- Removed `_MemorizedListTile.onLongPress`, which pushed the identical route as
+  `onTap` — per the triage note on #114, dropped rather than replaced since there's no
+  existing long-press/context-menu convention elsewhere in the app.
+- Added two tests (TDD): tapping a memorized tile opens `VerseDetailScreen`, and
+  long-pressing one still results in exactly one navigator push (verified via a
+  `NavigatorObserver`), confirming the handler removal didn't leave long-press dead or
+  double-firing. Note: Flutter's gesture arena only ever lets one recognizer win a
+  given gesture, so a widget test can't reproduce the literal "duplicate push from one
+  gesture" scenario — the real defect was redundant source code doing the same thing
+  twice, not an observable double-navigation bug; the tests instead lock in that
+  behavior is unchanged/non-broken by the cleanup.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 471/471 passing,
+and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
+passed end-to-end.

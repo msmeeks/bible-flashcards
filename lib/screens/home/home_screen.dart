@@ -9,7 +9,7 @@ import '../../providers/verse_provider.dart';
 import '../../widgets/verse_card.dart';
 import '../test/test_screen.dart';
 import '../verses/add_verse_screen.dart';
-import '../verses/verse_detail_screen.dart';
+import '../verses/verses_screen.dart' show openVerseDetail;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -235,11 +235,7 @@ class _RecentMemorizedRow extends StatelessWidget {
           final verse = verses[index];
           return InputChip(
             label: Text(verse.reference),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => VerseDetailScreen(verseId: verse.id),
-              ),
-            ),
+            onPressed: () => openVerseDetail(context, verse.id),
           );
         },
       ),
