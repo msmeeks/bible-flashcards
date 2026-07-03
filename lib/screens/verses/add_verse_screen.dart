@@ -180,10 +180,36 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       _preview = null;
     });
 
+    var customVariants = const <String, String>{};
+    try {
+      customVariants = await DatabaseHelper().getCustomVariantLookup();
+    } catch (_) {
+      // Fall through with no custom variants; built-in resolution still applies.
+    }
+    if (!mounted) return;
+
+    final normalized = normalizeReferenceForSave(
+      reference,
+      customVariants: customVariants,
+    );
+    if (!normalized.isSuccess) {
+      final unresolved =
+          normalized.failure == ReferenceNormalizationFailure.unresolvedBook;
+      setState(() {
+        _isLookingUp = false;
+        _lookupError = unresolved
+            ? 'Unrecognized book name. Add a custom variant in Book Name '
+                'Variants settings, or fix the spelling.'
+            : 'Invalid reference format. Try e.g. "Romans 8:28".';
+      });
+      return;
+    }
+    final resolvedReference = normalized.reference!;
+
     try {
       final result = isEsv
-          ? await _esvLookupService.lookup(reference)
-          : await _lookupService.lookup(reference, _translation);
+          ? await _esvLookupService.lookup(resolvedReference)
+          : await _lookupService.lookup(resolvedReference, _translation);
       if (mounted) {
         setState(() {
           _preview = result;

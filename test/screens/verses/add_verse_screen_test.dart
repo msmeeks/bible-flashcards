@@ -12,6 +12,7 @@ import 'package:bible_flashcards/models/settings.dart';
 import 'package:bible_flashcards/providers/settings_provider.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
 import 'package:bible_flashcards/screens/verses/add_verse_screen.dart';
+import 'package:bible_flashcards/services/bible_lookup_service.dart';
 import 'package:bible_flashcards/services/esv_lookup_service.dart';
 
 import '../../helpers/fake_database_helper.dart';
@@ -20,6 +21,7 @@ import '../../helpers/verse_factory.dart';
 Widget _wrap(
   SettingsProvider settingsProvider, {
   EsvLookupService? esvLookupService,
+  BibleLookupService? lookupService,
   VerseProvider? verseProvider,
 }) {
   final dbHelper = DatabaseHelper();
@@ -32,7 +34,10 @@ Widget _wrap(
       ),
     ],
     child: MaterialApp(
-      home: AddVerseScreen(esvLookupService: esvLookupService),
+      home: AddVerseScreen(
+        esvLookupService: esvLookupService,
+        lookupService: lookupService,
+      ),
     ),
   );
 }
@@ -222,8 +227,7 @@ void main() {
         expect(find.byType(AlertDialog), findsOneWidget);
         expect(find.text('ESV Verse Lookup'), findsOneWidget);
 
-        await tester.tap(find.text('Continue'));
-        await tester.pumpAndSettle();
+        await _tapAndSettle(tester, find.text('Continue'));
 
         expect(find.byType(AlertDialog), findsNothing);
         expect(find.textContaining('For God so loved the world.'),
@@ -286,8 +290,7 @@ void main() {
         await tester.pump();
 
         await tester.enterText(find.byType(TextFormField).first, 'John 3:16');
-        await tester.tap(find.text('Search'));
-        await tester.pumpAndSettle();
+        await _tapAndSettle(tester, find.text('Search'));
 
         expect(find.byType(AlertDialog), findsNothing);
         expect(find.text('Accept'), findsOneWidget);
@@ -312,8 +315,7 @@ void main() {
         await tester.pump();
 
         await tester.enterText(find.byType(TextFormField).first, 'John 3:16');
-        await tester.tap(find.text('Search'));
-        await tester.pumpAndSettle();
+        await _tapAndSettle(tester, find.text('Search'));
 
         expect(find.text('Accept'), findsNothing);
         expect(
@@ -452,6 +454,76 @@ void main() {
         expect(await db.query('verses'), isEmpty);
       });
       expect(find.textContaining('Book Name Variants'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'web lookup resolves a custom book-name variant before calling the lookup service',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+      await tester.runAsync(
+        () => DatabaseHelper().addBookNameVariant('ROM', 'Rmz'),
+      );
+      final lookupService = BibleLookupService(
+        client: MockClient(
+          (_) async => http.Response(
+            '{"verses": [{"verse": 28, "text": "And we know."}]}',
+            200,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          settingsProvider,
+          verseProvider: verseProvider,
+          lookupService: lookupService,
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Rmz 8:28');
+      await _tapAndSettle(tester, find.text('Search'));
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await _tapAndSettle(tester, find.text('Continue'));
+
+      expect(find.textContaining('Unknown book name'), findsNothing);
+      expect(find.textContaining('And we know.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'web lookup surfaces a distinct "unrecognized book name" error, not the generic format error, '
+    'when the book name resolves to neither a built-in name nor a custom variant',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+      final lookupService = BibleLookupService(
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          settingsProvider,
+          verseProvider: verseProvider,
+          lookupService: lookupService,
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Xyzzy 1:1');
+      await _tapAndSettle(tester, find.text('Search'));
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await _tapAndSettle(tester, find.text('Continue'));
+
+      expect(
+        find.textContaining('Unrecognized book name'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Invalid reference format'), findsNothing);
     },
   );
 }

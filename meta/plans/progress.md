@@ -118,3 +118,30 @@ and the verse moved to the Memorized tab.
 
 Verification: `flutter analyze` clean (no new issues), `flutter test` 447/447 passing,
 and `bash scripts/smoke_test.sh` passed end-to-end.
+
+## 2026-07-03 — fix-web-lookup-book-variants.md (issue #108)
+
+Completed on the 2nd attempt. A prior interrupted session had already written the two
+failing widget tests (uncommitted) for this plan: one asserting a custom book-name
+variant resolves during web lookup, one asserting an unresolvable book name surfaces
+the distinct "Unrecognized book name" message rather than the generic format error.
+Verified both were red against the pre-fix code, then implemented.
+
+- `_lookupVerse` in `add_verse_screen.dart` now loads custom variants via
+  `DatabaseHelper().getCustomVariantLookup()` and resolves the typed reference through
+  the existing `normalizeReferenceForSave` helper (same one `_normalizeAndAwaitConfirmation`
+  already used at save-time) before calling either lookup service, so search and save
+  agree on book-name resolution. The DB read happens after the consent gate but while
+  `_isLookingUp` is already `true`, so Search stays disabled during it (no double-tap
+  race). An unresolved book name now surfaces via the existing `_lookupError`/
+  `InlineStatusBanner` path with the save-flow's "Unrecognized book name..." wording
+  instead of the generic "Invalid reference format" message.
+- Fixed 3 pre-existing tests in `add_verse_screen_test.dart` that broke once a real
+  (non-fake-clock) DB read entered the lookup path: they used bare `tester.tap` +
+  `pump()`/`pumpAndSettle()`, which can't resolve a genuine async gap the way the
+  file's own `_tapAndSettle` helper (already used elsewhere in this file, wrapping in
+  `tester.runAsync`) does. Switched them to `_tapAndSettle`.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 449/449 passing,
+and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
+passed end-to-end.
