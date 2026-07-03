@@ -448,22 +448,41 @@ class _MemorizeButton extends StatefulWidget {
 
 class _MemorizeButtonState extends State<_MemorizeButton> {
   bool _isMemorizing = false;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   Future<void> _onPressed() async {
     if (_isMemorizing) return;
+    final hadFocus = _focusNode.hasFocus;
     setState(() => _isMemorizing = true);
     try {
       final provider = context.read<VerseProvider>();
       await provider.setVerseOfWeek(widget.verse.id);
       await provider.markMemorized(widget.verse.id);
+    } catch (_) {
+      // No error surface exists for this button today; swallow so a
+      // transient failure doesn't crash the app, and fall through to the
+      // focus-restore logic below.
     } finally {
-      if (mounted) setState(() => _isMemorizing = false);
+      if (mounted) {
+        setState(() => _isMemorizing = false);
+        if (hadFocus) {
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _focusNode.requestFocus());
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return FilledButton.tonal(
+      focusNode: _focusNode,
       style: FilledButton.styleFrom(
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 12),

@@ -259,3 +259,32 @@ prior tries).
 Verification: `flutter analyze` clean (no new issues), `flutter test` 466/466 passing,
 and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
 passed end-to-end.
+
+## 2026-07-03 — fix-inflight-button-focus-and-announcements.md (issues #118, #119)
+
+Recovered on what `prd.json` would have logged as attempt 1, though the working tree
+at the start of this session already held a complete, uncommitted implementation from
+an interrupted prior session (misfiled: a stray `attempts: 2` bump had landed on the
+unrelated `fix-verses-navigation-boilerplate.md` entry instead, which was reset back to
+0 here). Verified the existing diff against the plan's acceptance criteria rather than
+redoing it.
+
+- `book_variants_screen.dart`: the Add-variant dialog's submit button now captures
+  whether it held focus before disabling itself for the async save, and re-requests
+  focus on completion (success or failure) via a new `submitFocusNode`. The dialog's
+  `PopScope` gained an `onPopInvokedWithResult` that fires a one-shot
+  `SemanticsService.announce("Please wait for the current action to finish.")` only
+  when a dismiss attempt is actually blocked (`!didPop && isSubmitting`) — a normal
+  dismiss (not submitting) doesn't announce, and a second blocked attempt during the
+  same in-flight window doesn't double-announce.
+- `verses_screen.dart`'s `_MemorizeButtonState` gained the same
+  capture-focus-before-disable / restore-on-completion pattern via a new `FocusNode`.
+- Tests (already present, verified red-then-green against `git stash`): a "normal
+  dismiss doesn't announce" case, a "blocked dismiss announces exactly once" case
+  (asserted via a mocked `SystemChannels.accessibility` handler), and a
+  "focus returns to the Memorize button after a failed action" case that drops the
+  `verses` table mid-flight to force a real failure path rather than mocking it.
+
+Verification: `flutter analyze` clean (no new issues), `flutter test` 469/469 passing,
+and `bash scripts/smoke_test.sh` (full unit suite + real emulator integration test)
+passed end-to-end.

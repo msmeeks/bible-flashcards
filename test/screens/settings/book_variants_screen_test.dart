@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -124,6 +125,86 @@ void main() {
       );
       expect(variants, hasLength(1),
           reason: 'only one variant should be added per double-tap');
+    },
+  );
+
+  testWidgets(
+    'a normal dismiss (Cancel, not submitting) does not announce',
+    (tester) async {
+      final accessibilityEvents = <Map<Object?, Object?>>[];
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(
+        SystemChannels.accessibility,
+        (message) async {
+          accessibilityEvents.add(message as Map<Object?, Object?>);
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger
+            .setMockDecodedMessageHandler(SystemChannels.accessibility, null);
+      });
+
+      await _pumpScreen(tester);
+      await _openAddDialogWithInput(tester, 'Gen');
+
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        accessibilityEvents.where((e) => e['type'] == 'announce'),
+        isEmpty,
+        reason: 'a normal dismiss must not trigger an announcement',
+      );
+    },
+  );
+
+  testWidgets(
+    'announces once when a dismiss attempt is blocked while submitting',
+    (tester) async {
+      final accessibilityEvents = <Map<Object?, Object?>>[];
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(
+        SystemChannels.accessibility,
+        (message) async {
+          accessibilityEvents.add(message as Map<Object?, Object?>);
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger
+            .setMockDecodedMessageHandler(SystemChannels.accessibility, null);
+      });
+
+      await _pumpScreen(tester);
+      await _openAddDialogWithInput(tester, 'Gen');
+
+      final addButton = find.widgetWithText(FilledButton, 'Add');
+      await tester.tap(addButton);
+      await tester.pump();
+
+      // Attempt to dismiss via system back while the save is in flight.
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(
+        accessibilityEvents.where((e) => e['type'] == 'announce'),
+        hasLength(1),
+        reason: 'a blocked dismiss attempt must announce exactly once',
+      );
+
+      // A second blocked attempt in the same in-flight window must not
+      // announce again mid-rebuild (only once per attempt).
+      await tester.pump();
+      expect(
+        accessibilityEvents.where((e) => e['type'] == 'announce'),
+        hasLength(1),
+      );
+
+      await pumpUntilAsyncSettled(tester,
+          finalPump: const Duration(milliseconds: 500));
+      await tester.pump();
     },
   );
 }

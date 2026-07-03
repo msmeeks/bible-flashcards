@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../../database/database_helper.dart';
 import '../../utils/book_name_variants.dart';
@@ -31,6 +32,7 @@ class _BookVariantsScreenState extends State<BookVariantsScreen> {
     final textController = TextEditingController();
     final bookFocusNode = FocusNode();
     final variantFocusNode = FocusNode();
+    final submitFocusNode = FocusNode();
     String? bookErrorText;
     String? variantErrorText;
     bool isSubmitting = false;
@@ -40,6 +42,15 @@ class _BookVariantsScreenState extends State<BookVariantsScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (ctx, setS) => PopScope(
           canPop: !isSubmitting,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop && isSubmitting) {
+              SemanticsService.sendAnnouncement(
+                View.of(ctx),
+                'Please wait for the current action to finish.',
+                TextDirection.ltr,
+              );
+            }
+          },
           child: AlertDialog(
             semanticLabel: 'Add custom variant',
             title: const Text('Add custom variant'),
@@ -89,6 +100,7 @@ class _BookVariantsScreenState extends State<BookVariantsScreen> {
                 child: const Text('Cancel'),
               ),
               FilledButton(
+                focusNode: submitFocusNode,
                 onPressed: isSubmitting
                     ? null
                     : () async {
@@ -108,7 +120,9 @@ class _BookVariantsScreenState extends State<BookVariantsScreen> {
                           variantFocusNode.requestFocus();
                           return;
                         }
+                        final hadFocus = submitFocusNode.hasFocus;
                         setS(() => isSubmitting = true);
+                        var focusRedirected = false;
                         try {
                           await _db.addBookNameVariant(book, text);
                           if (ctx.mounted) Navigator.of(ctx).pop();
@@ -119,9 +133,13 @@ class _BookVariantsScreenState extends State<BookVariantsScreen> {
                                   'Could not add variant.')
                               : 'Could not add variant.');
                           variantFocusNode.requestFocus();
+                          focusRedirected = true;
                         } finally {
                           if (ctx.mounted) {
                             setS(() => isSubmitting = false);
+                            if (hadFocus && !focusRedirected) {
+                              submitFocusNode.requestFocus();
+                            }
                           }
                         }
                       },
@@ -154,6 +172,7 @@ class _BookVariantsScreenState extends State<BookVariantsScreen> {
       textController.dispose();
       bookFocusNode.dispose();
       variantFocusNode.dispose();
+      submitFocusNode.dispose();
     });
     if (mounted) setState(_loadVariants);
   }

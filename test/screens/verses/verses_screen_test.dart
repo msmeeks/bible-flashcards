@@ -177,4 +177,66 @@ void main() {
       expect(verses!.single.isMemorized, isTrue);
     },
   );
+
+  testWidgets(
+    'restores keyboard focus to the Memorize button if the action fails, '
+    'leaving the button in place',
+    (tester) async {
+      final dbHelper = DatabaseHelper();
+      final provider = VerseProvider(dbHelper);
+      await tester.runAsync(() async {
+        await dbHelper.insertVerse(makeVerse('verse-0', isMemorized: false));
+        await provider.loadVerses();
+      });
+
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+      await tester.tap(find.text('Available'));
+      await tester.pumpAndSettle();
+
+      final buttonFinder = find.descendant(
+        of: find.byKey(const Key('memorize-button-verse-0')),
+        matching: find.byType(FilledButton),
+      );
+
+      // Give the button keyboard focus first, as a keyboard user would
+      // (Tab to it, then Enter/Space to activate).
+      final focusNode = tester.widget<FilledButton>(buttonFinder).focusNode!;
+      focusNode.requestFocus();
+      await tester.pump();
+      expect(focusNode.hasFocus, isTrue);
+
+      // Drop the `verses` table out from under the live connection so the
+      // update inside the memorize action throws, leaving the verse (and
+      // its button) in place.
+      await tester.runAsync(() async {
+        final db = await dbHelper.database;
+        await db.execute('DROP TABLE verses');
+      });
+
+      final onPressed = tester.widget<FilledButton>(buttonFinder).onPressed!;
+      onPressed();
+      await tester.pump();
+      expect(
+        focusNode.hasFocus,
+        isFalse,
+        reason: 'disabling the button during the async op clears its focus',
+      );
+
+      await pumpUntilAsyncSettled(tester,
+          finalPump: const Duration(milliseconds: 500));
+      await tester.pump();
+
+      expect(
+        buttonFinder,
+        findsOneWidget,
+        reason: 'the failed action must not remove the verse from the list',
+      );
+      expect(
+        focusNode.hasFocus,
+        isTrue,
+        reason: 'focus should return to the button after a failed action',
+      );
+    },
+  );
 }
