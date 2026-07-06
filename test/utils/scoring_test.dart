@@ -291,6 +291,11 @@ void main() {
       );
     });
 
+    test('en dash and em dash range separators on the correct side still resolve the book span', () {
+      expect(computeReferenceScore('1 cor 15:3-4', '1 Corinthians 15:3–4'), 1.0);
+      expect(computeReferenceScore('1 cor 15:3-4', '1 Corinthians 15:3—4'), 1.0);
+    });
+
     test('custom variant resolves to its mapped book', () {
       final score = computeReferenceScore(
         'JPet 3:16',
@@ -336,6 +341,119 @@ void main() {
 
     test('typed empty, correct non-empty → 0.0', () {
       expect(computeReferenceScore('', 'John 3:16'), 0.0);
+    });
+  });
+
+  group('scoreBlankedBookNameTokens', () {
+    test('single-token book name blanked with a recognized abbreviation',
+        () {
+      final tokens = splitAnswerTokens('Mark 4:9');
+      final result = scoreBlankedBookNameTokens(
+        'Mark 4:9',
+        tokens,
+        {0: 'Mrk'},
+      );
+      expect(result, {0: true});
+    });
+
+    test(
+        'multi-token book name, only the name word blanked with an '
+        'abbreviation, numeral supplied from the unblanked token', () {
+      final tokens = splitAnswerTokens('1 Thessalonians 5:19');
+      final result = scoreBlankedBookNameTokens(
+        '1 Thessalonians 5:19',
+        tokens,
+        {1: 'Thess'},
+      );
+      expect(result, {1: true});
+    });
+
+    test(
+        'multi-token book name, only the numeral blanked with the wrong '
+        'numeral scores incorrect', () {
+      final tokens = splitAnswerTokens('1 Thessalonians 5:19');
+      final result = scoreBlankedBookNameTokens(
+        '1 Thessalonians 5:19',
+        tokens,
+        {0: '2'},
+      );
+      expect(result, {0: false});
+    });
+
+    test('multi-token book name, both tokens blanked correctly', () {
+      final tokens = splitAnswerTokens('1 Thessalonians 5:19');
+      final result = scoreBlankedBookNameTokens(
+        '1 Thessalonians 5:19',
+        tokens,
+        {0: '1', 1: 'Th'},
+      );
+      expect(result, {0: true, 1: true});
+    });
+
+    test('multi-token book name, both tokens blanked incorrectly', () {
+      final tokens = splitAnswerTokens('1 Thessalonians 5:19');
+      final result = scoreBlankedBookNameTokens(
+        '1 Thessalonians 5:19',
+        tokens,
+        {0: '2', 1: 'Peter'},
+      );
+      expect(result, {0: false, 1: false});
+    });
+
+    test('typed value that does not resolve to any book stays incorrect',
+        () {
+      final tokens = splitAnswerTokens('Mark 4:9');
+      final result = scoreBlankedBookNameTokens(
+        'Mark 4:9',
+        tokens,
+        {0: 'Frodo'},
+      );
+      expect(result, {0: false});
+    });
+
+    test('custom variants are respected', () {
+      final tokens = splitAnswerTokens('1 Peter 3:16');
+      final result = scoreBlankedBookNameTokens(
+        '1 Peter 3:16',
+        tokens,
+        {0: 'J', 1: 'Pet'},
+        customVariants: {'jpet': '1PE'},
+      );
+      expect(result, {0: true, 1: true});
+    });
+
+    test('blanks outside the book-name span are not scored (chapter number)',
+        () {
+      final tokens = splitAnswerTokens('Mark 4:9');
+      final result = scoreBlankedBookNameTokens(
+        'Mark 4:9',
+        tokens,
+        {1: '4'},
+      );
+      expect(result, isEmpty);
+    });
+
+    test('non-reference correct answer returns no lenient scoring', () {
+      final tokens = splitAnswerTokens('for God so loved');
+      final result = scoreBlankedBookNameTokens(
+        'for God so loved',
+        tokens,
+        {0: 'for'},
+      );
+      expect(result, isEmpty);
+    });
+
+    test(
+        'en-dash verse range (as stored by some bundled packs) still resolves the book-name span',
+        () {
+      const ref = '1 Corinthians 15:3–4';
+      final tokens = splitAnswerTokens(ref);
+      final result = scoreBlankedBookNameTokens(
+        ref,
+        tokens,
+        {0: '1', 1: 'cor'},
+      );
+      expect(result, {0: true, 1: true});
     });
   });
 }

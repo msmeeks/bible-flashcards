@@ -33,12 +33,22 @@ const _bookNameVariantsSchema = '''
   )
 ''';
 
+const _engagementLogSchema = '''
+  CREATE TABLE engagement_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    date       TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    count      INTEGER NOT NULL DEFAULT 1,
+    UNIQUE(date, event_type)
+  )
+''';
+
 /// Opens an in-memory sqflite_common_ffi database with the minimal schema
-/// (packs/verses/book_name_variants) needed to exercise
+/// (packs/verses/book_name_variants/engagement_log) needed to exercise
 /// [DatabaseHelper.insertVerse]/`insertEsvVerse`/`getVerses`/`getPackNames`/
-/// `getCustomVariantLookup` without platform channels, then injects it via
-/// [DatabaseHelper.debugSetDatabase]. Call `sqfliteFfiInit()` once in
-/// `setUpAll` before using this.
+/// `getCustomVariantLookup`/`logEngagement` without platform channels, then
+/// injects it via [DatabaseHelper.debugSetDatabase]. Call `sqfliteFfiInit()`
+/// once in `setUpAll` before using this.
 Future<void> setUpFakeDatabase() async {
   final db = await databaseFactoryFfi.openDatabase(
     inMemoryDatabasePath,
@@ -48,6 +58,7 @@ Future<void> setUpFakeDatabase() async {
         await db.execute(_packsSchema);
         await db.execute(_versesSchema);
         await db.execute(_bookNameVariantsSchema);
+        await db.execute(_engagementLogSchema);
       },
     ),
   );

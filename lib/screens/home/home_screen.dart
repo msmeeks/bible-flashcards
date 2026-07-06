@@ -7,6 +7,9 @@ import '../../providers/audio_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../widgets/verse_card.dart';
+import '../test/test_screen.dart';
+import '../verses/add_verse_screen.dart';
+import '../verses/verses_screen.dart' show openVerseDetail;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,20 +46,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return Scaffold(
           appBar: AppBar(
             title: const Text('Bible Flashcards'),
-            actions: [
-              Tooltip(
-                message: 'Settings',
-                child: Semantics(
-                  label: 'Settings',
-                  button: true,
-                  child: IconButton(
-                    icon: const Icon(Symbols.settings_rounded),
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed('/settings'),
-                  ),
-                ),
-              ),
-            ],
           ),
           body: verseProvider.isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -126,8 +115,10 @@ class _VerseOfWeekSection extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () =>
-                    Navigator.of(context).pushNamed('/verse-add'),
+                key: const Key('home-choose-verse-button'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AddVerseScreen()),
+                ),
                 child: const Text('Choose Verse'),
               ),
             ],
@@ -147,7 +138,7 @@ class _VerseOfWeekSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        VerseCard(verse: verseOfWeek!),
+        VerseCard(key: const Key('verse-of-week-card'), verse: verseOfWeek!),
       ],
     );
   }
@@ -168,7 +159,10 @@ class _QuickActionsRow extends StatelessWidget {
       children: [
         Expanded(
           child: FilledButton.tonal(
-            onPressed: () => Navigator.of(context).pushNamed('/test'),
+            key: const Key('home-start-test-button'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TestScreen()),
+            ),
             child: const Text('Start Test'),
           ),
         ),
@@ -241,8 +235,7 @@ class _RecentMemorizedRow extends StatelessWidget {
           final verse = verses[index];
           return InputChip(
             label: Text(verse.reference),
-            onPressed: () => Navigator.of(context)
-                .pushNamed('/verse-detail', arguments: verse.id),
+            onPressed: () => openVerseDetail(context, verse.id),
           );
         },
       ),

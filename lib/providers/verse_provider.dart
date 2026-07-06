@@ -171,4 +171,13 @@ class VerseProvider extends ChangeNotifier {
       return true;
     }(), 'debugSetVerses is only available in debug/test builds');
   }
+
+  @visibleForTesting
+  void debugSetLoading(bool value) {
+    assert(() {
+      _isLoading = value;
+      return true;
+    }(), 'debugSetLoading is only available in debug/test builds');
+    notifyListeners();
+  }
 }

@@ -7,12 +7,7 @@ import 'providers/audio_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/tracking_provider.dart';
 import 'providers/verse_provider.dart';
-import 'screens/history/history_screen.dart';
 import 'screens/main_scaffold.dart';
-import 'screens/settings/settings_screen.dart';
-import 'screens/test/test_screen.dart';
-import 'screens/verses/add_verse_screen.dart';
-import 'screens/verses/verse_detail_screen.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
@@ -107,13 +102,9 @@ class _BibleFlashcardsAppState extends State<BibleFlashcardsApp> {
                       onAccept: _markNoticeAccepted,
                       onDecline: _markNoticeDeclined,
                     ),
-              '/verse-detail': (_) => const VerseDetailScreen(),
-              '/verse-add': (_) => const AddVerseScreen(),
-              '/test': (_) => const TestScreen(),
-              // TestResultScreen requires a sessionResult argument and is pushed
-              // imperatively from TestSessionScreen; no named route needed.
-              '/settings': (_) => const SettingsScreen(),
-              '/history': (_) => const HistoryScreen(),
+              // Every other screen is reached via an imperative push on the
+              // owning tab's nested Navigator (see MainScaffold) so the
+              // persistent shell stays visible; no other named routes here.
             },
           );
         },

@@ -133,6 +133,7 @@ class _TestScreenState extends State<TestScreen> {
                     spacing: 8,
                     children: [
                       _FormatChip(
+                        key: const Key('format-chip-recite'),
                         format: TestFormat.recite,
                         icon: Icons.record_voice_over_outlined,
                         selected: _selectedFormats.contains(TestFormat.recite),
@@ -144,6 +145,7 @@ class _TestScreenState extends State<TestScreen> {
                         }),
                       ),
                       _FormatChip(
+                        key: const Key('format-chip-type'),
                         format: TestFormat.type,
                         icon: Icons.keyboard_outlined,
                         selected: _selectedFormats.contains(TestFormat.type),
@@ -155,6 +157,7 @@ class _TestScreenState extends State<TestScreen> {
                         }),
                       ),
                       _FormatChip(
+                        key: const Key('format-chip-fillBlank'),
                         format: TestFormat.fillBlank,
                         icon: Icons.text_fields_outlined,
                         selected:
@@ -208,6 +211,7 @@ class _TestScreenState extends State<TestScreen> {
                     spacing: 8,
                     children: [
                       FilterChip(
+                        key: const Key('direction-chip-refToText'),
                         label: const Text('Reference → Text'),
                         selected: _selectedDirections
                             .contains(PromptDirection.refToText),
@@ -221,6 +225,7 @@ class _TestScreenState extends State<TestScreen> {
                         }),
                       ),
                       FilterChip(
+                        key: const Key('direction-chip-textToRef'),
                         label: const Text('Text → Reference'),
                         selected: _selectedDirections
                             .contains(PromptDirection.textToRef),
@@ -244,6 +249,7 @@ class _TestScreenState extends State<TestScreen> {
                 SizedBox(
                   height: 48,
                   child: FilledButton.icon(
+                    key: const Key('test-setup-start-button'),
                     onPressed: () => _startTest(provider),
                     icon: const Icon(Icons.play_arrow_rounded),
                     label: const Text('Start Test'),
@@ -260,6 +266,7 @@ class _TestScreenState extends State<TestScreen> {
 
 class _FormatChip extends StatelessWidget {
   const _FormatChip({
+    super.key,
     required this.format,
     required this.icon,
     required this.selected,

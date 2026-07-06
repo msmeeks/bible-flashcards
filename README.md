@@ -22,6 +22,7 @@ A personal Android app for memorizing and reviewing Bible verses. Built around t
 | [docs/features/audio.md](docs/features/audio.md) | TTS state machine, review loop, interruption service |
 | [DEVELOPER.md](DEVELOPER.md) | Setup, build, emulator, device testing, running tests |
 | [scripts/setup-mac.sh](scripts/setup-mac.sh) | One-command macOS setup script |
+| [scripts/smoke_test.sh](scripts/smoke_test.sh) | End-to-end smoke test: unit tests + emulator-driven add/memorize/test flow |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 
 ## Platform

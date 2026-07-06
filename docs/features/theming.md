@@ -25,6 +25,7 @@ N/A — pure client-side theming, no backend.
 | `meta/DESIGN_BRIEF.md` | color token table (light + dark hex), typography spec |
 | `test/theme/contrast_test.dart` | WCAG contrast-ratio assertion fer text roles + semantic token, both theme |
 | `test/helpers/contrast.dart` | luminance / contrast-ratio math helper used by contrast test |
+| `test/theme/font_family_test.dart` | assert `bodyLarge`/`headlineSmall` resolve `fontFamily == 'Lora'`, both theme |
 
 ## Technical Detail
 ### Text color bug (fixed 2026-06-30, issues #97/#101)
@@ -36,7 +37,11 @@ N/A — pure client-side theming, no backend.
 ### Contrast test coverage
 `test/theme/contrast_test.dart` assert ratio fer: each `TextTheme` role against `scheme.surface`, and each semantic container pair (success/warning/error), fer both `AppTheme.light()` and `AppTheme.dark()`. Any new text role or semantic token must add assertion here before shipping.
 
+### Lora base TextTheme bug (fixed 2026-07-03)
+`_buildTextTheme` built its Lora base from `const TextTheme().apply(fontFamily: 'Lora')` — every field on the default `TextTheme()` constructor is null, and `.apply()` is a `field?.copyWith(...)` no-op, so Lora was never actually attached to any role; ThemeData silently fell back to default Material/Roboto. Fix: `loraBase` now built from `Typography.englishLike2021.apply(fontFamily: 'Lora')`, a fully populated default theme, so the family and per-role overrides take effect. Covered by `test/theme/font_family_test.dart`.
+
 ## Change Log
 | Date | Change |
 |---|---|
+| 2026-07-03 | Fixed Lora base TextTheme no-op (`const TextTheme()` → `Typography.englishLike2021`); added `font_family_test.dart`. |
 | 2026-06-30 | Created doc. Fixed dark-theme text invisibility (#97/#101): `_buildTextTheme` now apply `scheme.onSurface` to all roles; `AppColors` success/warning tokens made brightness-aware; added contrast test suite; DESIGN_BRIEF color table updated with dark hex. |

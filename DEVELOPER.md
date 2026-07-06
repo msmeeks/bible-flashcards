@@ -60,15 +60,23 @@ No environment variables or secrets are needed. The database encryption key is g
 flutter test
 ```
 
-Tests live in `test/`. Current coverage:
+Unit and widget tests live in `test/`.
 
-| File | What it tests |
-|---|---|
-| `test/utils/scoring_test.dart` | `computeScore` (LCS) and `blankIndices` edge cases |
-| `test/models/verse_test.dart` | `Verse` model construction and field access |
-| `test/models/test_result_test.dart` | `VerseTestResult` and `TestSessionResult` serialisation |
+### Smoke test
 
-There are no integration tests or widget tests at present. The database layer (`DatabaseHelper`) requires a real device or emulator because `sqflite_sqlcipher` does not run on the host JVM.
+```sh
+bash scripts/smoke_test.sh
+```
+
+Runs `flutter test`, then wipes and boots the project emulator (via
+`scripts/emulator.sh`) and runs `integration_test/app_smoke_test.dart` on it —
+a real end-to-end pass through adding a verse, memorizing it, confirming Home
+shows it as the verse of the week, and completing a test session. This is the
+only way to exercise the database layer (`DatabaseHelper`), since
+`sqflite_sqlcipher` does not run on the host JVM and requires a real device or
+emulator. Run this before merging any change that touches the DB layer,
+theming/fonts, or the add-verse/memorize/test flows — it wipes the emulator's
+current data, so save any in-progress manual testing state first.
 
 ---
 

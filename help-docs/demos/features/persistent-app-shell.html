@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo: Persistent App Shell — Bible Flashcards</title>
+<style>
+  :root {
+    --primary: #1B5E6B; --primary-container: #C8E9EE; --on-primary-container: #001F24;
+    --secondary: #7D5A3C; --tertiary-container: #FDEFC3; --surface: #F8F5F0;
+    --surface-variant: #EDE7DE; --on-surface: #1C1917; --on-surface-variant: #4D453E;
+    --warning-container: #FFDEA3;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Google Sans", Roboto, system-ui, sans-serif; background: var(--surface); color: var(--on-surface); }
+  a:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
+  header.hero { background: linear-gradient(135deg, var(--primary) 0%, #4FBDCF 100%); color: #fff; padding: 48px 24px; text-align: center; }
+  header.hero h1 { font-family: Georgia, 'Lora', serif; font-size: 1.9rem; margin: 0 0 8px; font-weight: 400; }
+  header.hero p { max-width: 600px; margin: 0 auto; opacity: 0.95; }
+  main { max-width: 760px; margin: -20px auto 64px; padding: 0 24px; }
+  .back { display: inline-block; margin: 16px 0; color: var(--on-surface-variant); font-size: 0.9rem; }
+  .pending { background: #fff; border: 1px dashed #8A7E72; border-radius: 8px; padding: 14px 18px; font-size: 0.85rem; color: var(--on-surface-variant); margin: 20px 0 32px; }
+  .scene { background: #fff; border-radius: 12px; border: 1px solid var(--surface-variant); padding: 20px 24px; margin-bottom: 20px; display: flex; gap: 20px; align-items: flex-start; }
+  .scene .frame-num { flex: 0 0 36px; height: 36px; border-radius: 50%; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .scene .body h3 { margin: 0 0 6px; font-size: 1.0rem; color: var(--primary); }
+  .scene .body p { margin: 0; font-size: 0.92rem; color: var(--on-surface-variant); line-height: 1.5; }
+  .mini-mock { margin-top: 10px; border: 1px solid #8A7E72; border-radius: 8px; background: var(--surface-variant); padding: 10px 12px; font-size: 0.78rem; color: var(--on-surface-variant); }
+  .takeaways { background: var(--tertiary-container); border-radius: 12px; padding: 20px 24px; margin-top: 28px; }
+  .takeaways h3 { margin: 0 0 10px; color: #5c4a0d; font-size: 1rem; }
+  .takeaways ul { margin: 0; padding-left: 20px; color: #5c4a0d; font-size: 0.9rem; line-height: 1.6; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>Persistent App Shell</h1>
+  <p>The tab bar and audio bar now stay on screen no matter how deep you navigate, so you never lose your place or your playing audio.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; Back to Demo Gallery</a>
+  <div class="pending">
+    <strong>Video capture pending.</strong> Storyboard below describes the flow until a real recording is captured.
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">1</div>
+    <div class="body">
+      <h3>Open a verse from the Available list</h3>
+      <p>From the Verses tab, tapping a verse opens its detail view. Before this change, this replaced the whole screen — the tab bar disappeared until you backed all the way out.</p>
+      <div class="mini-mock">Verses &rarr; tap "Romans 8:28" &rarr; Verse Detail (tab bar still visible at bottom)</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">2</div>
+    <div class="body">
+      <h3>Audio keeps playing while you browse</h3>
+      <p>Starting audio review on one verse and then switching to Settings no longer stops playback or hides the controls — the audio bar rides above the tab bar on every tab.</p>
+      <div class="mini-mock">[Audio bar: Romans 8:28 &#9654;&#9646;&#9646;] &mdash; visible on Home, Verses, Review, Test, and Settings alike</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">3</div>
+    <div class="body">
+      <h3>Back button steps within a tab, not across tabs</h3>
+      <p>Each tab (Home, Verses, Review, Test, Settings) keeps its own navigation history. Pressing back from Verse Detail returns to the Verses list — it never jumps to a different tab or exits the app early.</p>
+      <div class="mini-mock">Verses &rarr; Verse Detail &rarr; [Back] &rarr; Verses (still on the Verses tab)</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">4</div>
+    <div class="body">
+      <h3>Switching tabs remembers where you were</h3>
+      <p>Leaving Verse Detail to check Settings and then tapping back to Verses returns you to Verse Detail, not the top of the list — each tab preserves its own place.</p>
+      <div class="mini-mock">Verses (Verse Detail open) &rarr; Settings &rarr; Verses &rarr; back at Verse Detail</div>
+    </div>
+  </div>
+
+  <div class="takeaways">
+    <h3>What you just saw</h3>
+    <ul>
+      <li>Tab bar and audio bar are always reachable, at any navigation depth.</li>
+      <li>Each tab keeps its own back-navigation history, independent of the others.</li>
+      <li>Switching tabs and returning restores exactly where you left off.</li>
+      <li>Audio review is never interrupted by browsing other tabs.</li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>

@@ -4,8 +4,10 @@ import 'book_name_variants.dart' show bookNameToUsfm;
 
 /// Matches "Book Chapter:Verse" or "Book Chapter:Verse-Verse" strings,
 /// capturing the book-name span separately from the chapter:verse span.
+/// The range separator accepts a hyphen, en dash, or em dash — some bundled
+/// verse packs store ranges with a Unicode dash instead of an ASCII hyphen.
 final RegExp referenceSplitPattern =
-    RegExp(r'^(.+?)\s+(\d+:\d+(?:-\d+)?)\s*$');
+    RegExp(r'^(.+?)\s+(\d+:\d+(?:[-–—]\d+)?)\s*$');
 
 /// Normalizes natural separator/range variants in a typed reference so they
 /// match the canonical "Book Chapter:Verse" form before [referenceSplitPattern]
@@ -136,6 +138,51 @@ List<int> blankIndices(List<String> words, int count, {Random? random}) {
   }
   selected.sort();
   return selected;
+}
+
+/// Scores fill-blank tokens that fall within a reference answer's book-name
+/// span leniently, the same way [computeReferenceScore] scores Type mode.
+///
+/// [correctAnswer] is the full "Book Chapter:Verse" reference; [answerTokens]
+/// is its [splitAnswerTokens] output; [blankedTokenValues] maps the index of
+/// each blanked token (in [answerTokens]) to what the user typed there. For
+/// every blanked index that falls inside the book-name span, the span is
+/// reconstructed (typed value at blanked positions, actual token elsewhere)
+/// and resolved via [bookNameToUsfm]; if it matches the correct book, every
+/// blanked index in the span is scored correct, otherwise incorrect. Returns
+/// only entries for blanked indices inside the book-name span — callers
+/// should fall back to exact-match scoring for every other blanked index.
+/// If [correctAnswer] isn't reference-shaped, or its book name doesn't
+/// resolve, returns an empty map (no lenient scoring applies).
+Map<int, bool> scoreBlankedBookNameTokens(
+  String correctAnswer,
+  List<String> answerTokens,
+  Map<int, String> blankedTokenValues, {
+  Map<String, String> customVariants = const {},
+}) {
+  final match = referenceSplitPattern.firstMatch(correctAnswer.trim());
+  if (match == null) return {};
+
+  final correctBook = match.group(1)!;
+  final correctUsfm =
+      bookNameToUsfm(correctBook, customVariants: customVariants);
+  if (correctUsfm == null) return {};
+
+  final bookTokenCount = splitAnswerTokens(correctBook).length;
+  final blankedInSpan = [
+    for (final index in blankedTokenValues.keys)
+      if (index < bookTokenCount) index,
+  ];
+  if (blankedInSpan.isEmpty) return {};
+
+  final typedSpan = [
+    for (var i = 0; i < bookTokenCount; i++)
+      blankedTokenValues[i] ?? answerTokens[i],
+  ].join(' ');
+  final typedUsfm = bookNameToUsfm(typedSpan, customVariants: customVariants);
+  final isCorrect = typedUsfm != null && typedUsfm == correctUsfm;
+
+  return {for (final index in blankedInSpan) index: isCorrect};
 }
 
 /// Splits answer text into fill-blank tokens, treating ':' as its own

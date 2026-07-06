@@ -6,6 +6,15 @@ import '../../database/database_helper.dart';
 import '../../models/verse.dart';
 import '../../providers/verse_provider.dart';
 import '../../widgets/confidence_badge.dart';
+import 'add_verse_screen.dart';
+import 'verse_detail_screen.dart';
+
+/// Pushes [VerseDetailScreen] for [verseId] onto the current navigator.
+void openVerseDetail(BuildContext context, String verseId) {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => VerseDetailScreen(verseId: verseId)),
+  );
+}
 
 class VersesScreen extends StatefulWidget {
   const VersesScreen({super.key, this.activationCount = 0});
@@ -40,7 +49,9 @@ class _VersesScreenState extends State<VersesScreen>
   }
 
   Future<void> _openAddVerse() async {
-    final result = await Navigator.of(context).pushNamed('/verse-add');
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const AddVerseScreen()),
+    );
     if (result == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Verse added')),
@@ -68,10 +79,6 @@ class _VersesScreenState extends State<VersesScreen>
       ),
       body: Consumer<VerseProvider>(
         builder: (context, provider, _) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
           // Copy lists before sorting to avoid mutating provider state.
           final memorized = [...provider.memorizedVerses]
             ..sort((a, b) {
@@ -81,6 +88,14 @@ class _VersesScreenState extends State<VersesScreen>
             });
 
           final available = [...provider.availableVerses];
+
+          // Only block on the spinner for the very first load. A reload
+          // triggered by a mutation (e.g. markMemorized) already has data
+          // to show, so keep the tabs (and their scroll state) mounted
+          // instead of tearing them down behind a full-screen spinner.
+          if (provider.isLoading && memorized.isEmpty && available.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
           return TabBarView(
             controller: _tabController,
@@ -141,8 +156,7 @@ class _VerseSearchButton extends StatelessWidget {
                 title: Text(v.reference),
                 onTap: () {
                   controller.closeView(v.reference);
-                  Navigator.of(context)
-                      .pushNamed('/verse-detail', arguments: v.id);
+                  openVerseDetail(context, v.id);
                 },
               ),
             )
@@ -211,10 +225,7 @@ class _MemorizedListTile extends StatelessWidget {
           verseRef: verse.reference,
         ),
       ),
-      onTap: () =>
-          Navigator.of(context).pushNamed('/verse-detail', arguments: verse.id),
-      onLongPress: () =>
-          Navigator.of(context).pushNamed('/verse-detail', arguments: verse.id),
+      onTap: () => openVerseDetail(context, verse.id),
     );
   }
 }
@@ -269,14 +280,27 @@ class _EmptyMemorizedState extends StatelessWidget {
 // Available tab
 // ---------------------------------------------------------------------------
 
-class _AvailableTab extends StatelessWidget {
+class _AvailableTab extends StatefulWidget {
   final List<Verse> verses;
 
   const _AvailableTab({required this.verses});
 
   @override
+  State<_AvailableTab> createState() => _AvailableTabState();
+}
+
+class _AvailableTabState extends State<_AvailableTab> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (verses.isEmpty) {
+    if (widget.verses.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -305,7 +329,7 @@ class _AvailableTab extends StatelessWidget {
 
     // Group verses by packId and build a flat list with headers.
     final groupedPacks = <String, List<Verse>>{};
-    for (final verse in verses) {
+    for (final verse in widget.verses) {
       groupedPacks.putIfAbsent(verse.packId, () => []).add(verse);
     }
 
@@ -318,6 +342,8 @@ class _AvailableTab extends StatelessWidget {
     }
 
     return ListView.separated(
+      key: const Key('availableVerseList'),
+      controller: _scrollController,
       padding: const EdgeInsets.only(bottom: 88), // FAB clearance
       itemCount: items.length,
       separatorBuilder: (_, index) {
@@ -327,9 +353,16 @@ class _AvailableTab extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
         if (item is _PackHeader) {
-          return _PackHeaderTile(packId: item.packId);
+          return _PackHeaderTile(
+            key: ValueKey('header-${item.packId}'),
+            packId: item.packId,
+          );
         }
-        return _AvailableListTile(verse: (item as _VerseItem).verse);
+        final verse = (item as _VerseItem).verse;
+        return _AvailableListTile(
+          key: ValueKey(verse.id),
+          verse: verse,
+        );
       },
     );
   }
@@ -358,7 +391,7 @@ final class _VerseItem extends _ListItem {
 class _PackHeaderTile extends StatelessWidget {
   final String packId;
 
-  const _PackHeaderTile({required this.packId});
+  const _PackHeaderTile({super.key, required this.packId});
 
   @override
   Widget build(BuildContext context) {
@@ -383,36 +416,83 @@ class _PackHeaderTile extends StatelessWidget {
 class _AvailableListTile extends StatelessWidget {
   final Verse verse;
 
-  const _AvailableListTile({required this.verse});
+  const _AvailableListTile({super.key, required this.verse});
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       title: Text(verse.reference),
       subtitle: Text(verse.translation),
-      trailing: _MemorizeButton(verse: verse),
+      trailing: _MemorizeButton(
+        key: Key('memorize-button-${verse.id}'),
+        verse: verse,
+      ),
     );
   }
 }
 
-class _MemorizeButton extends StatelessWidget {
+class _MemorizeButton extends StatefulWidget {
   final Verse verse;
 
-  const _MemorizeButton({required this.verse});
+  const _MemorizeButton({super.key, required this.verse});
+
+  @override
+  State<_MemorizeButton> createState() => _MemorizeButtonState();
+}
+
+class _MemorizeButtonState extends State<_MemorizeButton> {
+  bool _isMemorizing = false;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onPressed() async {
+    if (_isMemorizing) return;
+    final hadFocus = _focusNode.hasFocus;
+    setState(() => _isMemorizing = true);
+    try {
+      final provider = context.read<VerseProvider>();
+      await provider.setVerseOfWeek(widget.verse.id);
+      await provider.markMemorized(widget.verse.id);
+    } catch (_) {
+      // No error surface exists for this button today; swallow so a
+      // transient failure doesn't crash the app, and fall through to the
+      // focus-restore logic below.
+    } finally {
+      if (mounted) {
+        setState(() => _isMemorizing = false);
+        if (hadFocus) {
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _focusNode.requestFocus());
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return FilledButton.tonal(
+      focusNode: _focusNode,
       style: FilledButton.styleFrom(
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 12),
       ),
-      onPressed: () async {
-        final provider = context.read<VerseProvider>();
-        await provider.setVerseOfWeek(verse.id);
-        await provider.markMemorized(verse.id);
-      },
-      child: const Text('Memorize'),
+      onPressed: _isMemorizing ? null : _onPressed,
+      child: _isMemorizing
+          ? Semantics(
+              liveRegion: true,
+              label: 'Memorizing, please wait',
+              child: const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : const Text('Memorize'),
     );
   }
 }
