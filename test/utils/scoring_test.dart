@@ -291,6 +291,11 @@ void main() {
       );
     });
 
+    test('en dash and em dash range separators on the correct side still resolve the book span', () {
+      expect(computeReferenceScore('1 cor 15:3-4', '1 Corinthians 15:3–4'), 1.0);
+      expect(computeReferenceScore('1 cor 15:3-4', '1 Corinthians 15:3—4'), 1.0);
+    });
+
     test('custom variant resolves to its mapped book', () {
       final score = computeReferenceScore(
         'JPet 3:16',
@@ -436,6 +441,19 @@ void main() {
         {0: 'for'},
       );
       expect(result, isEmpty);
+    });
+
+    test(
+        'en-dash verse range (as stored by some bundled packs) still resolves the book-name span',
+        () {
+      const ref = '1 Corinthians 15:3–4';
+      final tokens = splitAnswerTokens(ref);
+      final result = scoreBlankedBookNameTokens(
+        ref,
+        tokens,
+        {0: '1', 1: 'cor'},
+      );
+      expect(result, {0: true, 1: true});
     });
   });
 }

@@ -4,8 +4,10 @@ import 'book_name_variants.dart' show bookNameToUsfm;
 
 /// Matches "Book Chapter:Verse" or "Book Chapter:Verse-Verse" strings,
 /// capturing the book-name span separately from the chapter:verse span.
+/// The range separator accepts a hyphen, en dash, or em dash — some bundled
+/// verse packs store ranges with a Unicode dash instead of an ASCII hyphen.
 final RegExp referenceSplitPattern =
-    RegExp(r'^(.+?)\s+(\d+:\d+(?:-\d+)?)\s*$');
+    RegExp(r'^(.+?)\s+(\d+:\d+(?:[-–—]\d+)?)\s*$');
 
 /// Normalizes natural separator/range variants in a typed reference so they
 /// match the canonical "Book Chapter:Verse" form before [referenceSplitPattern]
