@@ -24,6 +24,18 @@ const _versesSchema = '''
   )
 ''';
 
+const _testResultsSchema = '''
+  CREATE TABLE test_results (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    verse_id    TEXT NOT NULL,
+    accuracy    REAL NOT NULL,
+    test_mode   TEXT NOT NULL,
+    test_format TEXT NOT NULL,
+    tested_at   TEXT NOT NULL,
+    FOREIGN KEY (verse_id) REFERENCES verses (id)
+  )
+''';
+
 const _bookNameVariantsSchema = '''
   CREATE TABLE book_name_variants (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,9 +56,10 @@ const _engagementLogSchema = '''
 ''';
 
 /// Opens an in-memory sqflite_common_ffi database with the minimal schema
-/// (packs/verses/book_name_variants/engagement_log) needed to exercise
-/// [DatabaseHelper.insertVerse]/`insertEsvVerse`/`getVerses`/`getPackNames`/
-/// `getCustomVariantLookup`/`logEngagement` without platform channels, then
+/// (packs/verses/test_results/book_name_variants/engagement_log) needed to
+/// exercise [DatabaseHelper.insertVerse]/`insertEsvVerse`/`getVerses`/
+/// `getPackNames`/`getCustomVariantLookup`/`logEngagement`/
+/// `insertTestResult`/`getTestResults` without platform channels, then
 /// injects it via [DatabaseHelper.debugSetDatabase]. Call `sqfliteFfiInit()`
 /// once in `setUpAll` before using this.
 Future<void> setUpFakeDatabase() async {
@@ -57,6 +70,7 @@ Future<void> setUpFakeDatabase() async {
       onCreate: (db, version) async {
         await db.execute(_packsSchema);
         await db.execute(_versesSchema);
+        await db.execute(_testResultsSchema);
         await db.execute(_bookNameVariantsSchema);
         await db.execute(_engagementLogSchema);
       },
