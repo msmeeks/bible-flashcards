@@ -95,6 +95,15 @@ Fixed two bugs in `lib/screens/verses/add_verse_screen.dart`'s save-confirmation
 
 TDD'd both fixes: added a widget test asserting the Save button's `FocusNode` (not Search's) has focus after canceling the save-confirmation dialog (confirmed RED — `focusNode` was null since Save had none — then GREEN), plus a regression assertion added to the existing ESV-consent-cancel test confirming Search still gets focus there (unaffected). For the dedup fix, added an injectable `customVariantLookup` constructor override (mirroring the existing `lookupService`/`esvLookupService` testing seams) and a test with a counting fake asserting exactly one DB call when Save is tapped right after editing the reference (confirmed RED at 2 calls, then GREEN at 1). Full suite (517 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain). Updated `docs/features/verse-management.md` via the doc-writer agent.
 
+## 2026-07-07 — fix-design-brief-consistency.md (#155, #156)
+
+Fixed two small design-consistency gaps:
+
+- **#155**: Changed the recite-aloud "Heard: ..." transcript caption's text style from `textTheme.bodyMedium` to `textTheme.bodySmall` in `test_session_screen.dart`, correcting its typography role from the serif verse-preview style to the sans caption style.
+- **#156**: Documented the destructive-primary-action convention (already in consistent use across three confirmation dialogs) in `meta/DESIGN_BRIEF.md`'s Action Pairs section: "Destructive primary action: `FilledButton` styled with `cs.error`/`cs.onError`."
+
+TDD'd #155: added a widget test asserting the transcript caption's rendered `fontSize` matches `textTheme.bodySmall` rather than `bodyMedium` (confirmed RED at the old 14sp `bodyMedium` value, then GREEN at 12sp after the style change). #156 is a docs-only addition, no test needed. Full suite (521 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain).
+
 ## 2026-07-07 — fix-recite-aloud-speech-hardening.md (#143, #144, #152, #154, #157)
 
 Closed the remaining hardening/coverage gaps from the #134-136 recite-aloud speech fix:

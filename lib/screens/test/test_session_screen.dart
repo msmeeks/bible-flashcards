@@ -601,7 +601,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
               'Heard: "$_lastReciteTranscript"',
               style: Theme.of(context)
                   .textTheme
-                  .bodyMedium
+                  .bodySmall
                   ?.copyWith(color: cs.onSurfaceVariant),
             ),
           ],

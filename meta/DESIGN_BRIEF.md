@@ -140,6 +140,7 @@ Any UI presenting exactly one forward-moving action and one backward/cancelling 
 - **Vertical layout**: primary on **top**, secondary **below**.
 - Prefer a real `AlertDialog`/`showDialog` for confirm-before-proceeding interactions over ad hoc inline `Card` + `Row` widgets — it gets the modal barrier, focus trap, and consistent action-button styling for free.
 - Exception: equal-weight either/or choices (e.g. Recite mode's "I know it" / "Show me") are not action pairs — both sides are `FilledButton` since neither is a cancel/negative action.
+- **Destructive primary action**: `FilledButton` styled with `cs.error`/`cs.onError` (e.g. "Remove", "Delete") instead of the default primary color, so an irreversible affirmative action is visually distinct from a routine one.
 
 ### Chips
 - `ChoiceChip` — mutually-exclusive single-select (e.g. Show/Play format picker)

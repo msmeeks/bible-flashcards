@@ -362,6 +362,34 @@ void main() {
     },
   );
 
+  testWidgets(
+    'the recognized transcript caption uses the bodySmall typography role',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService(
+        finalTranscript: 'for god so loved the world',
+      );
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final textWidget = tester.widget<Text>(
+        find.textContaining('for god so loved the world'),
+      );
+      final context = tester.element(
+        find.textContaining('for god so loved the world'),
+      );
+      expect(
+        textWidget.style?.fontSize,
+        Theme.of(context).textTheme.bodySmall?.fontSize,
+      );
+    },
+  );
+
   Widget wrapFillBlank(Verse verse) => MaterialApp(
         home: TestSessionScreen(
           verses: [verse],
