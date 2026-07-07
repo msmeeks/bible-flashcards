@@ -9,6 +9,7 @@ import 'package:bible_flashcards/services/speech_recognition_service.dart';
 
 class _FakeSpeechService implements SpeechRecognitionService {
   int listenCalls = 0;
+  bool listenReturnsFalse = false;
 
   @override
   bool get isListening => false;
@@ -23,6 +24,7 @@ class _FakeSpeechService implements SpeechRecognitionService {
     required void Function() onStopped,
   }) async {
     listenCalls++;
+    if (listenReturnsFalse) return false;
     // Simulates the wedged plugin: "started" succeeds but neither
     // onTranscript nor onStopped is ever called.
     return true;
@@ -70,6 +72,31 @@ class _ControllableFakeSpeechService implements SpeechRecognitionService {
       () => _onTranscript?.call(finalTranscript, true),
     );
   }
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  void dispose() {}
+}
+
+class _TransientlyDeniedSpeechService implements SpeechRecognitionService {
+  @override
+  bool get isListening => false;
+
+  @override
+  Future<MicPermissionResult> requestPermission() async =>
+      MicPermissionResult.denied;
+
+  @override
+  Future<bool> listen({
+    required void Function(String transcript, bool isFinal) onTranscript,
+    required void Function() onStopped,
+  }) async =>
+      false;
+
+  @override
+  Future<void> stopListening() async {}
 
   @override
   Future<void> cancel() async {}
@@ -188,6 +215,44 @@ void main() {
   );
 
   testWidgets(
+    'a transient permission denial shows the announcement without opening '
+    'the settings dialog',
+    (tester) async {
+      await tester.pumpWidget(_wrap(_TransientlyDeniedSpeechService()));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+            'Microphone permission denied. You can still self-rate below.'),
+        findsOneWidget,
+      );
+      expect(find.text('Microphone access needed'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'listen() returning false shows the unavailable announcement and '
+    'resets the listening state',
+    (tester) async {
+      await tester.pumpWidget(_wrap(_FakeSpeechService()..listenReturnsFalse = true));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+
+      expect(find.text('Recite aloud'), findsOneWidget);
+      expect(find.text('Listening…'), findsNothing);
+      expect(
+        find.text('On-device speech recognition is unavailable'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'manually stopping listening still scores the recognized transcript',
     (tester) async {
       final fake = _ControllableFakeSpeechService();
@@ -202,6 +267,30 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
 
       expect(find.textContaining('%'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping stop while the plugin is unresponsive resolves the listening '
+    'state within the shorter post-stop timeout, not the 15s start timeout',
+    (tester) async {
+      final fake = _FakeSpeechService();
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      expect(find.text('Listening…'), findsOneWidget);
+
+      // Explicit stop; the fake's stopListening() never calls onStopped,
+      // simulating an unresponsive plugin.
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      expect(find.text('Listening…'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(find.text('Listening…'), findsNothing);
     },
   );
 

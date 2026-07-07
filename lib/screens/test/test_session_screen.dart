@@ -87,6 +87,12 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   // clear and the mic button would stay stuck on "Listening" forever.
   static const _micTimeoutDuration = Duration(seconds: 15);
 
+  // Shorter safety net specifically for an explicit stop: the user has
+  // already signaled they're done, so an unresponsive plugin shouldn't
+  // leave the UI reading "Listening…" for as long as the start-side wedge
+  // timeout above allows.
+  static const _postStopTimeoutDuration = Duration(seconds: 4);
+
   // Custom book-name variants for lenient reference-answer scoring (#30).
   Map<String, String> _customVariantLookup = const {};
 
@@ -189,9 +195,9 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     _micTimeoutTimer = null;
   }
 
-  void _startMicTimeout(int verseIndex) {
+  void _startMicTimeout(int verseIndex, {Duration? duration}) {
     _cancelMicTimeout();
-    _micTimeoutTimer = Timer(_micTimeoutDuration, () {
+    _micTimeoutTimer = Timer(duration ?? _micTimeoutDuration, () {
       _micTimeoutTimer = null;
       if (!mounted || _listeningVerseIndex != verseIndex) return;
       setState(() {
@@ -279,7 +285,9 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       // onStopped, if no speech was recognized) reset listening state.
       final verseIndex = _listeningVerseIndex;
       await _speechService.stopListening();
-      if (verseIndex != null) _startMicTimeout(verseIndex);
+      if (verseIndex != null) {
+        _startMicTimeout(verseIndex, duration: _postStopTimeoutDuration);
+      }
       return;
     }
 
@@ -530,7 +538,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                       label: 'End test',
                       button: true,
                       child: IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(Symbols.close_rounded),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ),
@@ -674,7 +682,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                       backgroundColor: cs.success,
                       foregroundColor: cs.onPrimary,
                     ),
-                    icon: const Icon(Icons.check_rounded),
+                    icon: const Icon(Symbols.check_rounded),
                     label: const Text('I knew it'),
                     onPressed: _onReciteKnew,
                   ),
@@ -689,7 +697,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                       backgroundColor: cs.error,
                       foregroundColor: cs.onError,
                     ),
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(Symbols.close_rounded),
                     label: const Text("Didn't know"),
                     onPressed: _onReciteDidntKnow,
                   ),
@@ -915,15 +923,15 @@ class _ScoreReveal extends StatelessWidget {
     if (score >= 0.9) {
       bg = cs.successContainer;
       fg = cs.onSuccessContainer;
-      icon = Icons.check_circle_rounded;
+      icon = Symbols.check_circle_rounded;
     } else if (score >= 0.7) {
       bg = cs.warningContainer;
       fg = cs.onWarningContainer;
-      icon = Icons.warning_amber_rounded;
+      icon = Symbols.warning_amber_rounded;
     } else {
       bg = cs.errorContainer;
       fg = cs.onErrorContainer;
-      icon = Icons.cancel_rounded;
+      icon = Symbols.cancel_rounded;
     }
 
     return Semantics(
