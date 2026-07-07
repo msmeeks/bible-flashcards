@@ -8,6 +8,11 @@ Widget _wrap(Widget child) => MaterialApp(
       home: Scaffold(body: child),
     );
 
+Widget _wrapDark(Widget child) => MaterialApp(
+      theme: AppTheme.dark(),
+      home: Scaffold(body: child),
+    );
+
 void main() {
   group('ConfidenceBadge', () {
     testWidgets('null accuracy shows Pending', (tester) async {
@@ -32,6 +37,27 @@ void main() {
       await tester.pumpWidget(
           _wrap(const ConfidenceBadge(accuracy: 0.95, verseRef: 'John 3:16')));
       expect(find.text('Strong'), findsOneWidget);
+    });
+  });
+
+  group('ConfidenceBadge dark theme', () {
+    testWidgets('renders with no fill and a colored outline', (tester) async {
+      await tester.pumpWidget(
+          _wrapDark(const ConfidenceBadge(accuracy: 0.5, verseRef: 'John 3:16')));
+
+      final chip = tester.widget<Chip>(find.byType(Chip));
+      expect(chip.backgroundColor, Colors.transparent);
+
+      final shape = chip.shape as RoundedRectangleBorder;
+      expect(shape.side.color, const Color(0xFFDF6961));
+    });
+
+    testWidgets('Weak tier text and icon use the outline color', (tester) async {
+      await tester.pumpWidget(
+          _wrapDark(const ConfidenceBadge(accuracy: 0.5, verseRef: 'John 3:16')));
+
+      final label = tester.widget<Text>(find.text('Weak'));
+      expect(label.style?.color, const Color(0xFFDF6961));
     });
   });
 }
