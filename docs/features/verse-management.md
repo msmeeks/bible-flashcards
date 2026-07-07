@@ -39,7 +39,7 @@ On first launch, the app seeds the SQLite database from bundled JSON pack assets
 | `/` | `HomeScreen` | Verse-of-week card, quick actions, recent memorized chips |
 | `/verses` | `VersesScreen` | TabBar: Memorized \| Available, search field |
 | `/verses/add` | `AddVerseScreen` | Form to add a custom verse |
-| `/verses/detail` | `VerseDetailScreen` | VerseCard (expanded) + translation picker + metadata + actions |
+| `/verses/detail` | `VerseDetailScreen` | VerseCard (expanded) + metadata + actions |
 
 ### VerseCard and FlashcardState
 `VerseCard` (`lib/widgets/verse_card.dart`) is a `StatefulWidget`. It holds a `FlashcardState` and cycles through three states on each tap:
@@ -60,6 +60,8 @@ Accessibility: the card carries `Semantics(button: true)` with a human-readable 
 The `packs` table (added in DB version 2) stores `id`, `name`, `description`, and `verse_ids` (JSON-encoded array). `DatabaseHelper.getPackNames()` returns `Map<String, String>` (id → name). `VerseProvider.loadVerses()` populates `packNames` from this call. `VerseDetailScreen._MetadataCard` reads `provider.packNames[verse.packId]` to display a human-readable pack name.
 
 `_onUpgrade` (old < 2): creates the `packs` table inside a transaction, then seeds it from `assets/packs/navigators_pack.json` using `ConflictAlgorithm.ignore`.
+
+The verse's translation is shown read-only via a "Translation: <verse.translation>" label/value row in `_MetadataCard`. There is no translation picker/selector on this screen — a decorative ESV/CSB/NLT `SegmentedButton` was removed (#138) since it wasn't wired to any state, persistence, or the verse's actual translation.
 
 ### VersePack.toMap / fromMap
 `verse_ids` column is stored as a JSON array string (`jsonEncode`/`jsonDecode`). Prior to DB version 2 this was CSV — any migration path must account for the format change.
@@ -162,3 +164,4 @@ That alone wasn't sufficient: every mutation (`markMemorized`, `setVerseOfWeek`,
 | 2026-07-03 | Preserved Available-tab scroll position across Memorize taps (#105): stable `Key`s + owned `ScrollController` on `_AvailableTab`; `VersesScreen` spinner now only shows when there's no data yet, not on every reload; `_MemorizeButton` double-tap guard |
 | 2026-07-03 | Web lookup now resolves custom book-name variants before searching (#108), reusing `normalizeReferenceForSave` at lookup time as well as save time |
 | 2026-07-06 | Add Verse confirmation redesign (#128, #129): removed the Accept/Dismiss preview card (successful lookup now auto-fills reference/text fields directly); added focus-loss reference normalization on the reference field; replaced the inline Confirm & Save/Edit card with a real `AlertDialog` ("Save this verse?", Cancel/Save); added "Add directly to Memorized" `CheckboxListTile` so a saved verse can be created already marked memorized |
+| 2026-07-07 | Removed non-functional Verse Detail translation selector (#138): deleted the decorative ESV/CSB/NLT `SegmentedButton` and its dead `_selectedTranslation` state from `VerseDetailScreen`; translation continues to display read-only via the `_MetadataCard` "Translation: <verse.translation>" row |

@@ -24,6 +24,12 @@ Removed the Google Drive cloud-backup feature entirely and fixed the Android app
 
 Updated `meta/PRIVACY.md` to remove the Cloud Backup section and all Google Drive references (data table, special-category-data note, permissions table, third-party SDK list). Updated `docs/features/data-management.md` and `docs/llms.md` via the doc-writer agent. Full suite (492 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain).
 
+## 2026-07-07 — fix-flashcard-translation-readonly.md (#131)
+
+Removed the non-functional Translation selector from `lib/screens/verses/verse_detail_screen.dart`: deleted the `_TranslationSelector` `SegmentedButton` widget, its call site, and the dead `_selectedTranslation` state field that backed it (never persisted, never read anywhere). The verse's real translation was already displayed correctly, read-only, via the existing `_MetadataCard` row on the same screen — unchanged.
+
+TDD'd with a new `test/screens/verses/verse_detail_screen_test.dart` asserting no `SegmentedButton` is present on the screen and the verse's actual translation renders as text; confirmed RED (selector still present) before deleting the widget, then GREEN. Full suite (493 tests) + `flutter analyze` pass — only pre-existing, unrelated deprecation infos remain. Updated `docs/features/verse-management.md` via the doc-writer agent.
+
 ## 2026-07-06 — feat-add-verse-confirmation-redesign.md (#128, #129)
 
 Redesigned the Add Verse confirmation flow in `lib/screens/verses/add_verse_screen.dart`, built incrementally via TDD (one vertical slice per behavior):
