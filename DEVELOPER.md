@@ -130,12 +130,16 @@ The first build compiles native Gradle dependencies and takes several minutes. S
 flutter run
 ```
 
-To build and install a release APK without staying attached to the terminal:
+To build and install a release APK without staying attached to the terminal (needed to pick up the ESV key):
 
 ```sh
-flutter build apk --release
-adb install build/app/outputs/flutter-apk/app-release.apk
+flutter build apk --release --dart-define-from-file=secrets.local
+adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
+
+This is the way to push updates permanently to a physical device — the app keeps working after unplugging, closing the terminal, or ending the dev session; only live hot-reload needs an active `flutter run` connection.
+
+> **Signing:** release builds currently sign with the Flutter debug key (`android/app/build.gradle` has `signingConfig = signingConfigs.getByName("debug")`, marked `// TODO: Add your own signing config`). Fine for personal sideloading. If this app is ever published to the Play Store or shared with others, a proper release keystore must be generated and configured first — see [Play Store distribution](https://docs.flutter.dev/deployment/android#signing-the-app). (Also see the ESV API non-commercial license restriction below/in project memory before any public distribution.)
 
 ### Wireless debugging (Android 11+)
 
