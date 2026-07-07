@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 - Added `scripts/setup-mac.sh`: one-command macOS bootstrap for Flutter/Android toolchain (Homebrew, Java 17, cmdline-tools, Pixel 9 Pro AVD); idempotent, embeds troubleshooting guide, supports `--skip-emulator` and `--verify-only` flags
+- Removed Google Drive backup entirely (see #130). Users who had previously connected Drive retain a `drive.appdata` OAuth grant the app can no longer see or revoke — visit https://myaccount.google.com/permissions to remove Bible Flashcards' access manually. Startup migration cleanup (removing the stale sign-in flag and orphaned local settings) is now crash-safe.
 
 ## [2026-05-27] — Full App Implementation
 - Home screen: verse-of-week card, quick-action buttons, recent memorized verse chips

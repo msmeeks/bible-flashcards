@@ -9,8 +9,10 @@ import 'services/notification_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // One-time cleanup of state left behind by removed features.
-  await LegacySettingsMigration.clearStaleDriveSignInFlag();
+  // One-time cleanup of state left behind by removed features. Failures are
+  // swallowed internally so a corrupted platform channel never blocks
+  // startup.
+  await LegacySettingsMigration.run();
 
   // Initialise encrypted database before any provider reads from it.
   final dbHelper = DatabaseHelper();

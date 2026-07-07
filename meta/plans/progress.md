@@ -69,3 +69,19 @@ Deduplicated the verse-lookup-by-id logic shared by `test_result_screen.dart` an
 - Extracted `VerseReferenceLabel` (`lib/widgets/verse_reference_label.dart`) — renders a result's verse reference or the italic "$id (verse deleted)" fallback identically on both screens.
 
 TDD'd bottom-up: `getVersesByIds` (2 new tests in `test/database/database_helper_test.dart`), `resolveVersesForResults` (1 new test in `test/services/verse_result_lookup_test.dart`), `VerseReferenceLabel` (2 new tests in `test/widgets/verse_reference_label_test.dart`), then refactored both screens to use them — their existing behavior-level widget tests passed unmodified, confirming no user-visible change. Full suite (512 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain).
+
+## 2026-07-07 — fix-import-service-test-coverage.md (#142)
+
+Found this plan already satisfied in the working tree: `test/services/import_service_test.dart` (127 lines, 11 tests) already recreates every validation-failure-mode test the plan called for — oversized payload, invalid JSON, non-object root, wrong `source_app`, `schema_version` too high/missing/wrong-type, oversized `verses`/`test_results` arrays, `verses` not a list, and the `ImportException` message contract — against the current `ImportService`, with no Drive-specific cases reintroduced. Ran the file directly (`flutter test test/services/import_service_test.dart`): all 11 pass. No code changes needed; marked the plan `done` in `prd.json` since the acceptance criteria were already met (evidently from a prior session's uncommitted-then-committed work that wasn't reflected in plan status).
+
+## 2026-07-07 — chore-drive-removal-cleanup.md (#145, #148, #149, #150, #151)
+
+Closed the remaining loose ends from the Google Drive backup removal:
+
+- **#145**: Added `LegacySettingsMigration.run()`, a single entry point wrapping all legacy-cleanup steps in try/catch (log via `debugPrint`, never rethrow). `main.dart` now calls `run()` instead of `clearStaleDriveSignInFlag()` directly, so a thrown `PlatformException` from a corrupted/unavailable secure-storage or prefs platform channel can no longer block app startup.
+- **#149**: Added `LegacySettingsMigration.clearOrphanedDrivePrefsKeys()`, called from `run()`, which best-effort removes the five orphaned plaintext `SharedPreferences` keys left over from the removed Drive settings (`drive_backup_enabled`, `backup_cadence`, `last_backup_at`, `drive_consent_at`, `drive_consent_version`).
+- **#148**: Disclosed the residual `drive.appdata` OAuth grant (which the app can no longer see or revoke now that `google_sign_in`/`googleapis` are gone) in `CHANGELOG.md` and a new paragraph in `help-docs/ui/index.html`'s Backup & Restore section, pointing affected users to https://myaccount.google.com/permissions. Did not reintroduce the sign-in dependency.
+- **#150**: Changed the Settings screen's Data & Backup subtitle from "Export, import, and Google Drive backup" to "Export and import your data".
+- **#151**: Removed the stale "and therefore ... Drive backup" clause (and an orphaned `lastBackupAt` cross-reference) from `docs/features/verse-management.md`.
+
+TDD'd `run()` bottom-up in `test/services/legacy_settings_migration_test.dart`: first a test asserting `run()` completes without throwing when the secure-storage channel throws `PlatformException` (RED against the not-yet-existing `run()`, then GREEN once added with try/catch), then a test asserting all five orphaned prefs keys are removed via `SharedPreferences.setMockInitialValues` (RED, then GREEN), then a no-op case for installs that never had them. Full suite (515 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain), plus the full `scripts/smoke_test.sh` (unit suite + on-device integration test) passed end-to-end.

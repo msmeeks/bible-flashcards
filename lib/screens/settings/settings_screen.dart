@@ -296,7 +296,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.backup_rounded),
             title: const Text('Data & Backup'),
-            subtitle: const Text('Export, import, and Google Drive backup'),
+            subtitle: const Text('Export and import your data'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
