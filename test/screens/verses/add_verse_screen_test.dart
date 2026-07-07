@@ -590,6 +590,165 @@ void main() {
   );
 
   testWidgets(
+    'the Save confirmation dialog shows Available as the destination list '
+    'when "Add directly to Memorized" is unchecked',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await _tapAndSettle(tester, find.text('Save Verse'));
+
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.textContaining('Available'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'the Save confirmation dialog shows Memorized as the destination list '
+    'when "Add directly to Memorized" is checked',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await tester.tap(find.text('Add directly to Memorized'));
+      await tester.pump();
+      await _tapAndSettle(tester, find.text('Save Verse'));
+
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.textContaining('Memorized'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'checking "Save and add more" changes the Save dialog\'s confirm button '
+    'to say "Save and add more"',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await tester.tap(find.text('Save and add more'));
+      await tester.pump();
+      await _tapAndSettle(tester, find.text('Save Verse'));
+
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Save and add more'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Save'),
+        ),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'confirming "Save and add more" saves the verse, stays on the screen, '
+    'and clears the form back to a blank state',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await tester.tap(find.text('Save and add more'));
+      await tester.pump();
+      await tester.tap(find.text('Add directly to Memorized'));
+      await tester.pump();
+      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapAndSettle(
+        tester,
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Save and add more'),
+        ),
+      );
+
+      // Still on the Add Verse screen, not popped.
+      expect(find.byType(AddVerseScreen), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+
+      final referenceField =
+          tester.widget<TextFormField>(find.byType(TextFormField).first);
+      final textField =
+          tester.widget<TextFormField>(find.byType(TextFormField).last);
+      expect(referenceField.controller!.text, isEmpty);
+      expect(textField.controller!.text, isEmpty);
+
+      final memorizedCheckbox = tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Add directly to Memorized'),
+      );
+      expect(memorizedCheckbox.value, isFalse);
+
+      // "Save and add more" stays checked so repeated entry keeps working.
+      final addMoreCheckbox = tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Save and add more'),
+      );
+      expect(addMoreCheckbox.value, isTrue);
+
+      await tester.runAsync(() async {
+        final db = await DatabaseHelper().database;
+        final rows = await db.query('verses');
+        expect(rows, hasLength(1));
+        expect(rows.single['reference'], 'Philippians 4:13');
+      });
+    },
+  );
+
+  testWidgets(
     'checking "Add directly to Memorized" saves the verse as memorized',
     (tester) async {
       final settingsProvider = SettingsProvider();
@@ -817,6 +976,11 @@ void main() {
       expect(find.byType(AlertDialog), findsOneWidget);
       await _tapAndSettle(tester, find.text('Continue'));
 
+      await tester.scrollUntilVisible(
+        find.text('Open Book Name Variants settings'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Open Book Name Variants settings'), findsOneWidget);
     },
   );

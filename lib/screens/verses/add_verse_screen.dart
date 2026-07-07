@@ -49,6 +49,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   String? _referenceFieldError;
   bool _referenceUnresolved = false;
   bool _saveAsMemorized = false;
+  bool _saveAndAddMore = false;
   Future<({String? reference, bool unresolved})>? _pendingResolutionFuture;
   String? _pendingResolutionInput;
 
@@ -388,6 +389,11 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               Text(reference, style: tt.titleMedium),
               const SizedBox(height: 8),
               Text(_textController.text.trim()),
+              const SizedBox(height: 8),
+              Text(
+                'Will be saved to: ${_saveAsMemorized ? 'Memorized' : 'Available'}',
+                style: tt.bodySmall,
+              ),
             ],
           ),
         ),
@@ -399,7 +405,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
           FilledButton(
             key: const Key('add-verse-confirm-save-button'),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Save'),
+            child: Text(_saveAndAddMore ? 'Save and add more' : 'Save'),
           ),
         ],
       ),
@@ -427,7 +433,10 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
 
     try {
       await context.read<VerseProvider>().addCustomVerse(verse);
-      if (mounted) {
+      if (!mounted) return;
+      if (_saveAndAddMore) {
+        _resetFormForAnotherVerse();
+      } else {
         Navigator.of(context).pop(true);
       }
     } catch (_) {
@@ -438,6 +447,28 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
         });
       }
     }
+  }
+
+  /// Clears the form back to a blank state after a "Save and add more" save,
+  /// keeping the "Save and add more" checkbox checked for repeated entry.
+  void _resetFormForAnotherVerse() {
+    final defaultTranslation =
+        context.read<SettingsProvider>().settings.defaultTranslation;
+    _referenceController.clear();
+    _textController.clear();
+    setState(() {
+      _isSaving = false;
+      _translation = (defaultTranslation == 'ESV' && !_esvLookupService.isAvailable)
+          ? 'BSB'
+          : defaultTranslation;
+      _saveAsMemorized = false;
+      _saveError = null;
+      _lookupError = null;
+      _capWarning = null;
+      _referenceFieldError = null;
+      _referenceUnresolved = false;
+    });
+    _referenceFocusNode.requestFocus();
   }
 
   @override
@@ -566,6 +597,14 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               title: const Text('Add directly to Memorized'),
               onChanged: (value) =>
                   setState(() => _saveAsMemorized = value ?? false),
+            ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _saveAndAddMore,
+              title: const Text('Save and add more'),
+              onChanged: (value) =>
+                  setState(() => _saveAndAddMore = value ?? false),
             ),
             const SizedBox(height: 24),
             InlineStatusBanner(
