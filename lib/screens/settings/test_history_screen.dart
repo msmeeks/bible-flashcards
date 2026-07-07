@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
 import '../../models/test_result.dart';
 import '../../models/verse.dart';
+import '../../services/verse_result_lookup.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/verse_reference_label.dart';
 import '../test/test_enums.dart';
 
 /// Formats a [DateTime] as "Mon, Jan 6, 2025" using only stdlib.
@@ -60,14 +62,8 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
 
   Future<_HistoryData> _loadHistoryData() async {
     final results = await _db.getTestResults();
-    final ids = results.map((r) => r.verseId).toSet();
-    final entries = await Future.wait(
-      ids.map((id) async => MapEntry(id, await _db.getVerseById(id))),
-    );
-    return _HistoryData(
-      results: results,
-      versesById: Map.fromEntries(entries),
-    );
+    final versesById = await resolveVersesForResults(results, _db);
+    return _HistoryData(results: results, versesById: versesById);
   }
 
   Future<void> _confirmClearHistory() async {
@@ -203,7 +199,7 @@ class _HistoryData {
   const _HistoryData({required this.results, required this.versesById});
 
   final List<VerseTestResult> results;
-  final Map<String, Verse?> versesById;
+  final Map<String, Verse> versesById;
 }
 
 /// Internal helper to represent either a date-header or a result row.
@@ -284,12 +280,7 @@ class _HistoryResultCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    verse?.reference ?? '${result.verseId} (verse deleted)',
-                    style: verse == null
-                        ? tt.titleSmall?.copyWith(fontStyle: FontStyle.italic)
-                        : tt.titleSmall,
-                  ),
+                  VerseReferenceLabel(verse: verse, verseId: result.verseId),
                   const SizedBox(height: 2),
                   Text(
                     '$formatLabel · ${_formatTime(result.testedAt)}',

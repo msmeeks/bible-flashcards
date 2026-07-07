@@ -60,4 +60,12 @@ Lightened `ConfidenceBadge`'s dark-theme Strong/Learning/Weak colors, which prev
 
 Followed the plan's pre-implementation review: added a new `contrast_test.dart` group asserting all three dark containers meet 3:1 against `surface` (the WCAG 1.4.11 non-text/UI-boundary check the existing suite didn't cover — it only asserted on-color vs. container). TDD'd these three assertions first (confirmed RED against the old hex values), then iterated hex values (picked via a hue/saturation-preserving lightness search satisfying both the new 3:1-vs-surface and existing 4.5:1-vs-on-color constraints) until GREEN. Added one-line cross-reference comments between `app_colors.dart` and `app_theme.dart` noting the split location for future tier additions. Light theme and the Pending badge's `surfaceContainerHighest`/`onSurfaceVariant` untouched. Full suite (507 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain).
 
-All plans in `meta/plans/prd.json` are now complete.
+## 2026-07-07 — fix-verse-lookup-dedup.md (#140, #141)
+
+Deduplicated the verse-lookup-by-id logic shared by `test_result_screen.dart` and `test_history_screen.dart`:
+
+- Added `DatabaseHelper.getVersesByIds(Set<String>)` — a single batched `WHERE id IN (...)` query, replacing the two screens' independent N+1 `Future.wait` loops over `getVerseById`. Removed `getVerseById` entirely once it had no remaining callers.
+- Extracted `resolveVersesForResults(results, db)` in `lib/services/verse_result_lookup.dart` — collects unique verse ids from a result list and resolves them via the batch method; both screens now call this instead of duplicating the collection/lookup logic.
+- Extracted `VerseReferenceLabel` (`lib/widgets/verse_reference_label.dart`) — renders a result's verse reference or the italic "$id (verse deleted)" fallback identically on both screens.
+
+TDD'd bottom-up: `getVersesByIds` (2 new tests in `test/database/database_helper_test.dart`), `resolveVersesForResults` (1 new test in `test/services/verse_result_lookup_test.dart`), `VerseReferenceLabel` (2 new tests in `test/widgets/verse_reference_label_test.dart`), then refactored both screens to use them — their existing behavior-level widget tests passed unmodified, confirming no user-visible change. Full suite (512 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain).

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
 import '../../models/test_result.dart';
 import '../../models/verse.dart';
+import '../../services/verse_result_lookup.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/verse_reference_label.dart';
 import 'test_enums.dart';
 
 class TestResultScreen extends StatefulWidget {
@@ -16,7 +18,7 @@ class TestResultScreen extends StatefulWidget {
 }
 
 class _TestResultScreenState extends State<TestResultScreen> {
-  Map<String, Verse?> _versesById = {};
+  Map<String, Verse> _versesById = {};
 
   @override
   void initState() {
@@ -34,16 +36,13 @@ class _TestResultScreenState extends State<TestResultScreen> {
   }
 
   Future<void> _loadVerses() async {
-    final db = DatabaseHelper();
-    final ids = widget.sessionResult.verseResults
-        .map((r) => r.verseId)
-        .toSet();
-    final entries = await Future.wait(
-      ids.map((id) async => MapEntry(id, await db.getVerseById(id))),
+    final versesById = await resolveVersesForResults(
+      widget.sessionResult.verseResults,
+      DatabaseHelper(),
     );
     if (!mounted) return;
     setState(() {
-      _versesById = Map.fromEntries(entries);
+      _versesById = versesById;
     });
   }
 
@@ -185,12 +184,7 @@ class _VerseResultCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    verse?.reference ?? '${result.verseId} (verse deleted)',
-                    style: verse == null
-                        ? tt.titleSmall?.copyWith(fontStyle: FontStyle.italic)
-                        : tt.titleSmall,
-                  ),
+                  VerseReferenceLabel(verse: verse, verseId: result.verseId),
                   const SizedBox(height: 2),
                   Text(
                     formatLabel,

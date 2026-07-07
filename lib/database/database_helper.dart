@@ -277,16 +277,16 @@ class DatabaseHelper {
     return rows.map(Verse.fromMap).toList();
   }
 
-  Future<Verse?> getVerseById(String id) async {
+  Future<Map<String, Verse>> getVersesByIds(Set<String> ids) async {
+    if (ids.isEmpty) return {};
     final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(', ');
     final rows = await db.query(
       'verses',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
+      where: 'id IN ($placeholders)',
+      whereArgs: ids.toList(),
     );
-    if (rows.isEmpty) return null;
-    return Verse.fromMap(rows.first);
+    return {for (final row in rows.map(Verse.fromMap)) row.id: row};
   }
 
   Future<void> insertVerse(Verse verse) async {

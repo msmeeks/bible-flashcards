@@ -118,4 +118,25 @@ void main() {
       expect(rows.first['text'], 'Text a');
     });
   });
+
+  group('DatabaseHelper.getVersesByIds', () {
+    test('returns a map keyed by id for matching verses, omitting missing ids',
+        () async {
+      await DatabaseHelper().insertVerse(makeVerse('a', reference: 'A 1:1'));
+      await DatabaseHelper().insertVerse(makeVerse('b', reference: 'B 1:1'));
+
+      final result =
+          await DatabaseHelper().getVersesByIds({'a', 'b', 'missing'});
+
+      expect(result.keys, unorderedEquals({'a', 'b'}));
+      expect(result['a']?.reference, 'A 1:1');
+      expect(result['b']?.reference, 'B 1:1');
+    });
+
+    test('returns an empty map for an empty id set', () async {
+      final result = await DatabaseHelper().getVersesByIds(<String>{});
+
+      expect(result, isEmpty);
+    });
+  });
 }
