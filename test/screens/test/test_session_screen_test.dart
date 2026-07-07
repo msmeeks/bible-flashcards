@@ -38,6 +38,46 @@ class _FakeSpeechService implements SpeechRecognitionService {
   void dispose() {}
 }
 
+class _ControllableFakeSpeechService implements SpeechRecognitionService {
+  _ControllableFakeSpeechService({this.finalTranscript = 'for god so loved'});
+
+  final String finalTranscript;
+  void Function(String transcript, bool isFinal)? _onTranscript;
+
+  @override
+  bool get isListening => false;
+
+  @override
+  Future<MicPermissionResult> requestPermission() async =>
+      MicPermissionResult.granted;
+
+  @override
+  Future<bool> listen({
+    required void Function(String transcript, bool isFinal) onTranscript,
+    required void Function() onStopped,
+  }) async {
+    _onTranscript = onTranscript;
+    return true;
+  }
+
+  // Mirrors the real plugin: stop() resolves immediately, but the final
+  // recognition result arrives asynchronously afterward (a later event-loop
+  // turn, not a microtask queued during this call).
+  @override
+  Future<void> stopListening() async {
+    Future.delayed(
+      Duration.zero,
+      () => _onTranscript?.call(finalTranscript, true),
+    );
+  }
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  void dispose() {}
+}
+
 Verse _verse() => Verse(
       id: 'john_3_16',
       reference: 'John 3:16',
@@ -98,6 +138,92 @@ void main() {
       // The first timer must not fire again and clobber this new session.
       await tester.pump(const Duration(seconds: 16));
       expect(find.text('Listening…'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'manually stopping listening still scores the recognized transcript',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService();
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.textContaining('%'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'after a recite score is shown, Try Again and Continue are both '
+    'visible and the self-rate buttons are hidden',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService();
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('Try Again'), findsOneWidget);
+      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('I knew it'), findsNothing);
+      expect(find.text("Didn't know"), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'tapping Try Again after a recite score resets state without '
+    'recording an attempt',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService();
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      await tester.tap(find.text('Try Again'));
+      await tester.pump();
+
+      expect(find.text('Recite aloud'), findsOneWidget);
+      expect(find.text('Verse 1 of 1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the recognized transcript is shown alongside the score, and clears '
+    'on retry',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService(
+        finalTranscript: 'for god so loved the world',
+      );
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.textContaining('for god so loved the world'), findsOneWidget);
+
+      await tester.tap(find.text('Try Again'));
+      await tester.pump();
+
+      expect(find.textContaining('for god so loved the world'), findsNothing);
     },
   );
 

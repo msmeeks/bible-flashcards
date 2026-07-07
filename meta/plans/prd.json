@@ -2,15 +2,21 @@
   "plans": [
     {
       "file": "fix-recite-aloud-speech.md",
-      "issues": [134, 135, 136],
+      "issues": [
+        134,
+        135,
+        136
+      ],
       "size": "S",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 2,
       "blocked_by": []
     },
     {
       "file": "fix-test-result-reference-formatting.md",
-      "issues": [137],
+      "issues": [
+        137
+      ],
       "size": "S",
       "status": "pending",
       "attempts": 0,
@@ -18,7 +24,10 @@
     },
     {
       "file": "feat-add-verse-confirmation-redesign.md",
-      "issues": [128, 129],
+      "issues": [
+        128,
+        129
+      ],
       "size": "S",
       "status": "pending",
       "attempts": 0,
@@ -26,7 +35,9 @@
     },
     {
       "file": "fix-design-brief-button-audit.md",
-      "issues": [133],
+      "issues": [
+        133
+      ],
       "size": "M",
       "status": "pending",
       "attempts": 0,
@@ -38,7 +49,9 @@
     },
     {
       "file": "fix-dark-theme-badge-contrast.md",
-      "issues": [138],
+      "issues": [
+        138
+      ],
       "size": "S",
       "status": "pending",
       "attempts": 0,
@@ -46,7 +59,9 @@
     },
     {
       "file": "fix-flashcard-translation-readonly.md",
-      "issues": [131],
+      "issues": [
+        131
+      ],
       "size": "S",
       "status": "pending",
       "attempts": 0,
@@ -54,7 +69,10 @@
     },
     {
       "file": "chore-settings-cleanup.md",
-      "issues": [130, 132],
+      "issues": [
+        130,
+        132
+      ],
       "size": "M",
       "status": "pending",
       "attempts": 0,

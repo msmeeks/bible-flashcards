@@ -65,6 +65,7 @@ class SpeechRecognitionService {
         onDevice: true,
         partialResults: true,
         listenMode: ListenMode.dictation,
+        pauseFor: const Duration(seconds: 15),
       ),
     );
     return true;

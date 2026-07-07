@@ -76,8 +76,10 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   int? _listeningVerseIndex;
   bool _showingReciteScore = false;
   double? _lastReciteScore;
+  String? _lastReciteTranscript;
   String _micAnnouncement = '';
   Timer? _micTimeoutTimer;
+  final FocusNode _reciteRetryFocusNode = FocusNode();
 
   // Safety net for a wedged speech_to_text plugin: on-device recognition
   // can report "started" and then never call onResult/onStatus/onError
@@ -175,6 +177,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     _typeController.dispose();
     _checkFocusNode.dispose();
     _retryFocusNode.dispose();
+    _reciteRetryFocusNode.dispose();
     _disposeBlankControllers();
     _cancelMicTimeout();
     _speechService.dispose();
@@ -240,6 +243,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
         _listeningVerseIndex = null;
         _showingReciteScore = false;
         _lastReciteScore = null;
+        _lastReciteTranscript = null;
         _micAnnouncement = '';
       });
     }
@@ -267,15 +271,15 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
   Future<void> _onMicPressed() async {
     if (_isListening) {
-      _cancelMicTimeout();
+      // Don't clear _listeningVerseIndex here: the plugin's final
+      // transcript for this stop arrives asynchronously via onTranscript
+      // after stopListening() resolves, and onTranscript's own guard
+      // (`_listeningVerseIndex != verseIndex`) would silently discard it
+      // if we'd already nulled the index. Let _onReciteTranscriptFinal (or
+      // onStopped, if no speech was recognized) reset listening state.
+      final verseIndex = _listeningVerseIndex;
       await _speechService.stopListening();
-      if (mounted) {
-        setState(() {
-          _isListening = false;
-          _listeningVerseIndex = null;
-          _micAnnouncement = '';
-        });
-      }
+      if (verseIndex != null) _startMicTimeout(verseIndex);
       return;
     }
 
@@ -381,9 +385,22 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       _listeningVerseIndex = null;
       _showingReciteScore = true;
       _lastReciteScore = score;
+      _lastReciteTranscript = transcript;
       // No separate "Done listening" announcement here — _ScoreReveal's own
       // liveRegion announces the result, avoiding a double SR announcement.
       _micAnnouncement = '';
+    });
+  }
+
+  void _onReciteRetry() {
+    setState(() {
+      _showingReciteScore = false;
+      _lastReciteScore = null;
+      _lastReciteTranscript = null;
+      _micAnnouncement = '';
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reciteRetryFocusNode.requestFocus();
     });
   }
 
@@ -570,30 +587,64 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       children: [
         if (_showingReciteScore && _lastReciteScore != null) ...[
           _ScoreReveal(score: _lastReciteScore!, cs: cs),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 48,
-            child: FilledButton(
-              onPressed: () => _recordAndAdvance(_lastReciteScore!),
-              child: const Text('Continue'),
+          if (_lastReciteTranscript != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Heard: "$_lastReciteTranscript"',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: cs.onSurfaceVariant),
             ),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    focusNode: _reciteRetryFocusNode,
+                    onPressed: _onReciteRetry,
+                    child: const Text('Try Again'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: () => _recordAndAdvance(_lastReciteScore!),
+                    child: const Text('Continue'),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
         ] else ...[
           SizedBox(
             height: 48,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor:
-                    _isListening ? cs.primary : cs.primaryContainer,
-                foregroundColor:
-                    _isListening ? cs.onPrimary : cs.onPrimaryContainer,
+            child: Tooltip(
+              message: _isListening
+                  ? 'Tap to stop listening'
+                  : 'Tap to recite aloud',
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor:
+                      _isListening ? cs.primary : cs.primaryContainer,
+                  foregroundColor:
+                      _isListening ? cs.onPrimary : cs.onPrimaryContainer,
+                ),
+                icon: Icon(
+                  _isListening
+                      ? Symbols.mic_rounded
+                      : Symbols.mic_none_rounded,
+                ),
+                label: Text(_isListening ? 'Listening…' : 'Recite aloud'),
+                onPressed: _onMicPressed,
               ),
-              icon: Icon(
-                _isListening ? Symbols.mic_rounded : Symbols.mic_none_rounded,
-              ),
-              label: Text(_isListening ? 'Listening…' : 'Recite aloud'),
-              onPressed: _onMicPressed,
             ),
           ),
           if (_micAnnouncement.isNotEmpty)
@@ -612,39 +663,40 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
             ),
           const SizedBox(height: 16),
         ],
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 48,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: cs.success,
-                    foregroundColor: cs.onPrimary,
+        if (!_showingReciteScore)
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: cs.success,
+                      foregroundColor: cs.onPrimary,
+                    ),
+                    icon: const Icon(Icons.check_rounded),
+                    label: const Text('I knew it'),
+                    onPressed: _onReciteKnew,
                   ),
-                  icon: const Icon(Icons.check_rounded),
-                  label: const Text('I knew it'),
-                  onPressed: _onReciteKnew,
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: SizedBox(
-                height: 48,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: cs.error,
-                    foregroundColor: cs.onError,
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: cs.error,
+                      foregroundColor: cs.onError,
+                    ),
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text("Didn't know"),
+                    onPressed: _onReciteDidntKnow,
                   ),
-                  icon: const Icon(Icons.close_rounded),
-                  label: const Text("Didn't know"),
-                  onPressed: _onReciteDidntKnow,
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
       ],
     );
   }
