@@ -15,6 +15,15 @@ Test Summary (`test_result_screen.dart`) and Test History (`test_history_screen.
 
 Added `test_results` table to the shared `test/helpers/fake_database_helper.dart` fake-DB schema (previously missing) so both new widget-test files could exercise `insertTestResult`/`getTestResults` against a real in-memory sqflite DB. New tests: `test/screens/test/test_result_screen_test.dart` (2 tests: custom-verse reference resolution, deleted-verse fallback) and `test/screens/settings/test_history_screen_test.dart` (2 tests: custom-verse reference resolution, fill-blank label fix). Full suite (495 tests) + `flutter analyze` pass — analyze findings are pre-existing, unrelated to this change. Updated `docs/features/test-modes.md`.
 
+## 2026-07-07 — chore-settings-cleanup.md (#130, #132)
+
+Removed the Google Drive cloud-backup feature entirely and fixed the Android app display label:
+
+- **#130**: Deleted `lib/services/google_drive_service.dart` and the "Cloud Backup" section (Connect/Back Up Now/Backup Frequency/Restore from Drive/Delete Drive Backup/Disconnect) from `data_management_screen.dart` — only Export Data/Save Locally/Import Data remain. Removed the five Drive-only `AppSettings` fields (`driveBackupEnabled`, `backupCadence`, `lastBackupAt`, `driveConsentAt`, `driveConsentVersion`) from the model, provider persistence, and their tests (`settings_test.dart`, `import_service_test.dart`). Removed the now-unused `google_sign_in`/`googleapis` pubspec dependencies. Added `LegacySettingsMigration.clearStaleDriveSignInFlag()` (TDD'd against a mocked `flutter_secure_storage` method channel), called once from `main.dart` at startup, to delete the orphaned `drive_signed_in` intent-flag key left in Keystore-backed secure storage for any user who had previously connected Drive — it never stored OAuth tokens, just the flag.
+- **#132**: Changed `android:label` in `AndroidManifest.xml` from `"bible_flashcards"` to `"Bible Flashcards"` (on-device display name only; `pubspec.yaml`'s package name untouched).
+
+Updated `meta/PRIVACY.md` to remove the Cloud Backup section and all Google Drive references (data table, special-category-data note, permissions table, third-party SDK list). Updated `docs/features/data-management.md` and `docs/llms.md` via the doc-writer agent. Full suite (492 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain).
+
 ## 2026-07-06 — feat-add-verse-confirmation-redesign.md (#128, #129)
 
 Redesigned the Add Verse confirmation flow in `lib/screens/verses/add_verse_screen.dart`, built incrementally via TDD (one vertical slice per behavior):

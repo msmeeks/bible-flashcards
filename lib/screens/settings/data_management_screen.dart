@@ -8,12 +8,8 @@ import 'package:provider/provider.dart';
 import '../../database/database_helper.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/export_service.dart';
-import '../../services/google_drive_service.dart';
 import '../../services/import_service.dart';
 import '../../theme/app_colors.dart';
-
-// Increment when the Drive consent disclosure text materially changes.
-const _driveConsentVersion = 1;
 
 class DataManagementScreen extends StatefulWidget {
   const DataManagementScreen({super.key});
@@ -23,28 +19,16 @@ class DataManagementScreen extends StatefulWidget {
 }
 
 class _DataManagementScreenState extends State<DataManagementScreen> {
-  final _driveService = GoogleDriveService();
-
   bool _exportLoading = false;
   bool _importLoading = false;
   bool _saveLocallyLoading = false;
-  bool _driveLoading = false;
   String _exportStatus = '';
   String _importStatus = '';
   String _saveLocallyStatus = '';
-  String _driveStatus = '';
-
-  bool _driveSignedIn = false;
 
   final _exportTileFocusNode = FocusNode();
   final _saveLocallyTileFocusNode = FocusNode();
   final _importTileFocusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSignInState();
-  }
 
   @override
   void dispose() {
@@ -54,15 +38,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     super.dispose();
   }
 
-  Future<void> _loadSignInState() async {
-    final signedIn = await _driveService.isSignedIn;
-    if (mounted) setState(() => _driveSignedIn = signedIn);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final settingsProvider = context.watch<SettingsProvider>();
-    final settings = settingsProvider.settings;
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -154,107 +131,10 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                   )
                 : const SizedBox.shrink(),
           ),
-          // ----------------------------------------------------------------
-          // Google Drive
-          // ----------------------------------------------------------------
-          Semantics(
-            header: true,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-              child: Text(
-                'Cloud Backup',
-                style: tt.labelLarge?.copyWith(color: cs.primary),
-              ),
-            ),
-          ),
-          if (!_driveSignedIn) ...[
-            ListTile(
-              leading: const Icon(Symbols.backup_rounded),
-              title: const Text('Connect Google Drive'),
-              subtitle: const Text(
-                'Backs up verse data and test history to your Google Drive. '
-                'Data leaves this device.',
-              ),
-              onTap: _driveLoading ? null : _showDriveConsentDialog,
-            ),
-          ] else ...[
-            ListTile(
-              leading: const Icon(Symbols.backup_rounded),
-              title: const Text('Back Up Now'),
-              subtitle: _buildLastBackupSubtitle(settings.lastBackupAt, tt),
-              onTap: _driveLoading ? null : _doBackup,
-            ),
-            // onTap: null — SegmentedButton is the sole interaction target
-            ListTile(
-              title: const Text('Backup Frequency'),
-              onTap: null,
-              trailing: SegmentedButton<String>(
-                showSelectedIcon: false,
-                style: SegmentedButton.styleFrom(
-                  minimumSize: const Size(0, 48),
-                ),
-                segments: const [
-                  ButtonSegment(value: 'daily', label: Text('Daily')),
-                  ButtonSegment(value: 'weekly', label: Text('Weekly')),
-                  ButtonSegment(value: 'monthly', label: Text('Monthly')),
-                ],
-                selected: {settings.backupCadence},
-                onSelectionChanged: (selected) {
-                  settingsProvider.update(
-                    settings.copyWith(backupCadence: selected.first),
-                  );
-                },
-              ),
-            ),
-            ListTile(
-              leading: Icon(Symbols.restore_rounded, color: cs.primary),
-              title: const Text('Restore from Drive'),
-              subtitle: const Text('Replace local data with latest backup'),
-              onTap: _driveLoading ? null : _showRestoreDialog,
-            ),
-            ListTile(
-              leading: ExcludeSemantics(
-                child: Icon(Icons.delete_outline_rounded, color: cs.error),
-              ),
-              title: const Text('Delete Drive Backup'),
-              subtitle: const Text('Remove all backup files from Google Drive'),
-              onTap: _showDeleteDriveBackupDialog,
-            ),
-            ListTile(
-              leading: const ExcludeSemantics(
-                child: Icon(Icons.logout_rounded),
-              ),
-              title: const Text('Disconnect Google Drive'),
-              onTap: _disconnectDrive,
-            ),
-          ],
-          if (_driveLoading)
-            const LinearProgressIndicator(minHeight: 6),
-          Semantics(
-            liveRegion: true,
-            child: _driveStatus.isNotEmpty
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(72, 0, 16, 8),
-                    child: Text(_driveStatus,
-                        style: tt.bodySmall?.copyWith(color: cs.primary)),
-                  )
-                : const SizedBox.shrink(),
-          ),
           const SizedBox(height: 24),
         ],
       ),
     );
-  }
-
-  Widget? _buildLastBackupSubtitle(DateTime? lastBackupAt, TextTheme tt) {
-    if (lastBackupAt == null) return const Text('Never backed up');
-    final diff = DateTime.now().difference(lastBackupAt);
-    final label = diff.inDays > 0
-        ? '${diff.inDays}d ago'
-        : diff.inHours > 0
-            ? '${diff.inHours}h ago'
-            : 'Just now';
-    return Text('Last backup: $label');
   }
 
   // ---------------------------------------------------------------------------
@@ -612,226 +492,6 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     final bytes = result?.files.firstOrNull?.bytes;
     if (bytes == null) return null;
     return utf8.decode(bytes);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Google Drive consent dialog
-  // ---------------------------------------------------------------------------
-
-  Future<void> _showDriveConsentDialog() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        semanticLabel: 'Google Drive backup consent',
-        title: const Text('Connect Google Drive?'),
-        content: const SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Bible Flashcards will back up your verse data and test '
-                'history to your personal Google Drive (appdata folder).',
-              ),
-              SizedBox(height: 12),
-              Text('What this means:'),
-              SizedBox(height: 4),
-              Text('• Your data will be sent to Google\'s servers'),
-              Text(
-                  '• Google is the data processor — subject to their Terms of Service'),
-              Text(
-                '• This backup is not end-to-end encrypted. '
-                'Google can access it under their terms.',
-              ),
-              Text('• You can delete the backup at any time from this screen'),
-              SizedBox(height: 12),
-              Text(
-                'Only the drive.appdata scope is requested — backup files '
-                'are not visible in your regular Drive.',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('No Thanks'),
-          ),
-          Semantics(
-            label: 'Connect Google Drive account',
-            child: FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Connect'),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() {
-      _driveLoading = true;
-      _driveStatus = 'Signing in to Google…';
-    });
-
-    try {
-      await _driveService.signIn();
-      if (!mounted) return;
-      final now = DateTime.now().toUtc().toIso8601String();
-      final settingsProvider = context.read<SettingsProvider>();
-      await settingsProvider.update(settingsProvider.settings.copyWith(
-        driveBackupEnabled: true,
-        driveConsentAt: now,
-        driveConsentVersion: _driveConsentVersion,
-      ));
-      if (mounted) {
-        setState(() {
-          _driveSignedIn = true;
-          _driveStatus = 'Connected to Google Drive';
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _driveStatus = 'Sign-in failed. Please try again.');
-      }
-    } finally {
-      if (mounted) setState(() => _driveLoading = false);
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Drive operations
-  // ---------------------------------------------------------------------------
-
-  Future<void> _doBackup() async {
-    setState(() {
-      _driveLoading = true;
-      _driveStatus = 'Backing up…';
-    });
-
-    try {
-      final settingsProvider = context.read<SettingsProvider>();
-      final exportService = ExportService(
-        db: DatabaseHelper(),
-        settingsProvider: settingsProvider,
-      );
-      final json = await exportService.buildExportJson();
-      await _driveService.backup(json);
-      if (!mounted) return;
-      final now = DateTime.now();
-      await context
-          .read<SettingsProvider>()
-          .update(context.read<SettingsProvider>().settings.copyWith(lastBackupAt: now));
-      if (mounted) setState(() => _driveStatus = 'Backup complete');
-    } catch (_) {
-      if (mounted) {
-        setState(
-            () => _driveStatus = 'Backup failed. Check your connection.');
-      }
-    } finally {
-      if (mounted) setState(() => _driveLoading = false);
-    }
-  }
-
-  Future<void> _showRestoreDialog() async {
-    final confirmed = await _confirmReplaceAll();
-    if (!confirmed || !mounted) return;
-
-    setState(() {
-      _driveLoading = true;
-      _driveStatus = 'Downloading backup…';
-    });
-
-    try {
-      final jsonString = await _driveService.restore();
-      if (jsonString == null) {
-        if (mounted) setState(() => _driveStatus = 'No backup found on Drive');
-        return;
-      }
-      if (!mounted) return;
-      setState(() => _driveStatus = 'Restoring…');
-      final importService = ImportService(db: DatabaseHelper());
-      final summary = await importService.import(jsonString, replace: true);
-      if (mounted) {
-        setState(() => _driveStatus = 'Restored ${summary.versesImported} verses');
-      }
-    } on ImportException catch (e) {
-      if (mounted) {
-        setState(() => _driveStatus = 'Restore failed: ${e.message}');
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _driveStatus = 'Restore failed. Please try again.');
-      }
-    } finally {
-      if (mounted) setState(() => _driveLoading = false);
-    }
-  }
-
-  Future<void> _showDeleteDriveBackupDialog() async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        semanticLabel: 'Delete Drive backup confirmation',
-        title: const Text('Delete Drive Backup?'),
-        content: const Text(
-          'All backup files will be permanently deleted from Google Drive. '
-          'Your local data will not be affected.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: cs.error,
-              foregroundColor: cs.onError,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete Backup'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() {
-      _driveLoading = true;
-      _driveStatus = 'Deleting backup…';
-    });
-
-    try {
-      await _driveService.deleteBackup();
-      if (mounted) setState(() => _driveStatus = 'Backup deleted from Drive');
-    } catch (_) {
-      if (mounted) {
-        setState(() => _driveStatus = 'Delete failed. Please try again.');
-      }
-    } finally {
-      if (mounted) setState(() => _driveLoading = false);
-    }
-  }
-
-  Future<void> _disconnectDrive() async {
-    await _driveService.signOut();
-    if (!mounted) return;
-    final settingsProvider = context.read<SettingsProvider>();
-    await settingsProvider.update(
-      settingsProvider.settings.copyWith(
-        driveBackupEnabled: false,
-        clearLastBackupAt: true,
-      ),
-    );
-    if (mounted) {
-      setState(() {
-        _driveSignedIn = false;
-        _driveStatus = 'Disconnected from Google Drive';
-      });
-    }
   }
 }
 

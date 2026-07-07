@@ -1,11 +1,11 @@
-# Data Management (Export, Import, Google Drive Backup)
+# Data Management (Export, Import)
 
 ## Summary
-Lets users back up and restore their verse library, test history, and app settings as a JSON file, either via the Android share sheet, a direct on-device save, or Google Drive. Exists so users do not lose progress on reinstall/device change and can move data between devices.
+Lets users back up and restore their verse library, test history, and app settings as a JSON file, either via the Android share sheet or a direct on-device save, and restore that file via import. Exists so users do not lose progress on reinstall/device change and can move data between devices.
 
 ## Users / Use Cases
 - **Admin**: N/A (single-user app, no roles)
-- **Worker**: User exports data to share or save a backup file, imports a backup file (merge or replace existing data), connects Google Drive for automatic/manual cloud backup, restores from or deletes a Drive backup.
+- **Worker**: User exports data to share or save a backup file, imports a backup file (merge or replace existing data).
 
 ## Technologies
 - `file_picker` — native Android file picker; used both to open files for import and to write export bytes via SAF `content://` URIs (no `dart:io` `File` calls on raw paths, no temp files for "Save Locally")
@@ -14,15 +14,17 @@ Lets users back up and restore their verse library, test history, and app settin
 - `sqflite_sqlcipher` — transactional insert of imported rows into encrypted SQLite
 
 ## Technical Overview
-`ExportService` builds a single JSON payload (`schema_version`, `source_app`, verses, optional test results, optional settings) shared by all three export paths: share sheet (`shareExport`), local save (`saveExportToFile`), and Drive backup (`buildExportJson`, consumed by `GoogleDriveService`). `ImportService.import()` validates schema/size/array-length, coerces each row, and writes everything inside one `db.transaction`, using `ConflictAlgorithm.ignore` so merge mode never throws on duplicate primary keys. Replace mode deletes `test_results` and `verses` before inserting. The `includeHistory`/`includeSettings` toggles are independent — `includeSettings` controls whether app preferences are bundled, separate from test-history inclusion.
+`ExportService` builds a single JSON payload (`schema_version`, `source_app`, verses, optional test results, optional settings) shared by both export paths: share sheet (`shareExport`) and local save (`saveExportToFile`). `ImportService.import()` validates schema/size/array-length, coerces each row, and writes everything inside one `db.transaction`, using `ConflictAlgorithm.ignore` so merge mode never throws on duplicate primary keys. Replace mode deletes `test_results` and `verses` before inserting. The `includeHistory`/`includeSettings` toggles are independent — `includeSettings` controls whether app preferences are bundled, separate from test-history inclusion.
+
+Google Drive cloud backup (`GoogleDriveService`, `driveBackupEnabled`/`backupCadence`/`lastBackupAt`/`driveConsentAt`/`driveConsentVersion` settings fields) was removed entirely in #130. The screen title remains "Data & Backup" but now only contains Export Data / Save Locally / Import Data.
 
 ## Key Files
 | File | Purpose |
 |---|---|
-| `lib/screens/settings/data_management_screen.dart` | Settings UI: Export/Save Locally/Import dialogs, Google Drive section, file picker invocation |
+| `lib/screens/settings/data_management_screen.dart` | Settings UI: Export/Save Locally/Import dialogs, file picker invocation |
 | `lib/services/export_service.dart` | Builds export JSON payload; `shareExport`, `saveExportToFile`, `buildExportJson` |
 | `lib/services/import_service.dart` | Validates and imports backup JSON; size/array caps, row-level validation, transactional write |
-| `lib/services/google_drive_service.dart` | Drive sign-in, `backup`/`restore`/`deleteBackup` against `drive.appdata` scope |
+| `lib/services/legacy_settings_migration.dart` | One-time startup cleanup unrelated to the current export/import flow — see Technical Detail below |
 
 ## Technical Detail
 
@@ -45,5 +47,5 @@ Per-row validation rejects (skips, does not abort) rows with missing/wrong-typed
 ### includeSettings naming
 The export/save dialogs and `ExportService` use `includeSettings` (not `includeScores`) for the checkbox controlling whether app preferences (audio, notification, theme) are bundled into the payload — distinct from `includeHistory`, which controls test-result inclusion.
 
-### Google Drive integration
-Drive backup/restore reuse `ExportService.buildExportJson()` and `ImportService.import(..., replace: true)` — no separate serialization path. Drive scope is `drive.appdata` only (not visible in the user's regular Drive). See `GoogleDriveService` for sign-in/backup/restore/delete implementation.
+### Legacy Drive sign-in flag cleanup (#130)
+`google_sign_in`/`googleapis` and `GoogleDriveService` were removed along with the Cloud Backup UI and its five `AppSettings` fields. `GoogleDriveService` previously stored a `drive_signed_in` intent flag (never an OAuth token) in `flutter_secure_storage` for any user who had connected Drive. `LegacySettingsMigration.clearStaleDriveSignInFlag()` runs once at app startup (called from `main.dart`) and deletes that orphaned key so no stale state persists in Keystore-backed storage after the feature's removal. Any backup files a user previously uploaded to their own Google Drive `appDataFolder` are unaffected — the app has no remaining code path to reach or delete them.

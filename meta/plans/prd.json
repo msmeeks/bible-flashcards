@@ -40,7 +40,7 @@
       ],
       "size": "M",
       "status": "pending",
-      "attempts": 0,
+      "attempts": 1,
       "blocked_by": [
         "chore-settings-cleanup.md",
         "fix-recite-aloud-speech.md",
@@ -74,8 +74,8 @@
         132
       ],
       "size": "M",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 1,
       "blocked_by": []
     }
   ],

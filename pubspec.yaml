@@ -55,9 +55,7 @@ dependencies:
   # Date formatting for engagement log
   intl: ^0.19.0
 
-  # Export / Import / Google Drive backup
-  google_sign_in: ^7.0.0
-  googleapis: ^13.1.0
+  # Export / Import
   share_plus: ^10.0.0
 
   # Native file picker (SAF-scoped on Android) for import/export

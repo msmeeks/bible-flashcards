@@ -24,11 +24,6 @@ class SettingsProvider extends ChangeNotifier {
       'daily_notification_minute': prefs.getInt('daily_notification_minute'),
       'notification_type': prefs.getString('notification_type'),
       'show_on_lock_screen': prefs.getBool('show_on_lock_screen'),
-      'drive_backup_enabled': prefs.getBool('drive_backup_enabled'),
-      'backup_cadence': prefs.getString('backup_cadence'),
-      'last_backup_at': prefs.getString('last_backup_at'),
-      'drive_consent_at': prefs.getString('drive_consent_at'),
-      'drive_consent_version': prefs.getInt('drive_consent_version'),
       'auto_advance_verse_of_week': prefs.getBool('auto_advance_verse_of_week'),
       'last_verse_advance_date': prefs.getString('last_verse_advance_date'),
     });
@@ -69,20 +64,6 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.remove('daily_notification_hour');
       await prefs.remove('daily_notification_minute');
     }
-
-    await prefs.setBool('drive_backup_enabled', appSettings.driveBackupEnabled);
-    await prefs.setString('backup_cadence', appSettings.backupCadence);
-    if (appSettings.lastBackupAt != null) {
-      await prefs.setString(
-          'last_backup_at', appSettings.lastBackupAt!.toIso8601String());
-    } else {
-      await prefs.remove('last_backup_at');
-    }
-    if (appSettings.driveConsentAt != null) {
-      await prefs.setString('drive_consent_at', appSettings.driveConsentAt!);
-    }
-    await prefs.setInt(
-        'drive_consent_version', appSettings.driveConsentVersion);
 
     await prefs.setBool('auto_advance_verse_of_week',
         appSettings.autoAdvanceVerseOfWeek);

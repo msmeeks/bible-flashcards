@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'database/database_helper.dart';
 import 'providers/settings_provider.dart';
+import 'services/legacy_settings_migration.dart';
 import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // One-time cleanup of state left behind by removed features.
+  await LegacySettingsMigration.clearStaleDriveSignInFlag();
 
   // Initialise encrypted database before any provider reads from it.
   final dbHelper = DatabaseHelper();

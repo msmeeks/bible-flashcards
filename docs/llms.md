@@ -13,7 +13,7 @@ Load this file first. Then load only the specific doc files relevant to your tas
 - [features/notifications.md](features/notifications.md) — daily reminder scheduling, timezone init, lock-screen toggle, notification channels, SCHEDULE_EXACT_ALARM
 - [features/web-lookup.md](features/web-lookup.md) — BibleLookupService HTTP fetch, reference parsing, consent dialog, preview card, importPackFromJson batch import
 - [features/tracking.md](features/tracking.md) — engagement_log schema, TrackingProvider streak/chart computations, HistoryScreen charts + table toggle, first-launch consent, Settings clear
-- [features/data-management.md](features/data-management.md) — export/import JSON backup (share sheet, Save Locally via SAF file_picker, Google Drive), ImportService validation caps, DataManagementScreen dialogs
+- [features/data-management.md](features/data-management.md) — export/import JSON backup (share sheet, Save Locally via SAF file_picker), ImportService validation caps, DataManagementScreen dialogs; no cloud backup (Google Drive support removed, #130)
 - [features/theming.md](features/theming.md) — light/dark Material 3 ThemeData (app_theme.dart), brightness-aware AppColors semantic tokens (success/warning), WCAG contrast test suite
 
 ## Setup & tooling
