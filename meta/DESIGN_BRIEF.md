@@ -124,11 +124,22 @@ Screen edge insets: 16dp left/right. No arbitrary pixel values.
 
 ### Buttons
 - `FilledButton` — primary action (one per screen max)
-- `FilledButton.tonal` — secondary actions
-- `OutlinedButton` — tertiary/cancel
+- `OutlinedButton` — secondary action
 - `TextButton` — inline links, Skip/Later
 - `FloatingActionButton` — one per screen max (Add Verse)
 - **Never use `ElevatedButton`**
+- **Avoid `FilledButton.tonal`/`OutlinedButton` pairs styled to look equally weighted** — a two-action choice must always read as one primary + one secondary (see Action Pairs below), not two buttons of similar visual weight.
+
+### Action Pairs (confirm/cancel, accept/dismiss, save/edit, etc.)
+
+Any UI presenting exactly one forward-moving action and one backward/cancelling action — dialogs, inline confirmation cards, or plain button rows — follows the same convention:
+
+- **Primary = the positive action that moves the process forward** (Save, Accept, Confirm, Continue). Style: `FilledButton`.
+- **Secondary = the negative action that halts or reverts the process** (Cancel, Dismiss, Edit, Back). Style: `OutlinedButton` (bordered, not filled) — this supersedes the plain `TextButton` historically used for "Cancel" in `AlertDialog.actions`; a secondary action must always show a visible border, never bare text.
+- **Horizontal layout**: primary on the **right**, secondary on the **left**.
+- **Vertical layout**: primary on **top**, secondary **below**.
+- Prefer a real `AlertDialog`/`showDialog` for confirm-before-proceeding interactions over ad hoc inline `Card` + `Row` widgets — it gets the modal barrier, focus trap, and consistent action-button styling for free.
+- Exception: equal-weight either/or choices (e.g. Recite mode's "I know it" / "Show me") are not action pairs — both sides are `FilledButton` since neither is a cancel/negative action.
 
 ### Chips
 - `ChoiceChip` — mutually-exclusive single-select (e.g. Show/Play format picker)
