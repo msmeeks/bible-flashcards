@@ -270,7 +270,8 @@ void main() {
     );
 
     testWidgets(
-      'renders the ESV verse preview on lookup success (consent already granted)',
+      'fills the verse text field directly on lookup success (consent already granted), '
+      'with no intermediate Accept/Dismiss card',
       (tester) async {
         SharedPreferences.setMockInitialValues({'esv_lookup_consent_v1': true});
         final settingsProvider = await _esvDefaultSettings();
@@ -293,9 +294,14 @@ void main() {
         await _tapAndSettle(tester, find.text('Search'));
 
         expect(find.byType(AlertDialog), findsNothing);
-        expect(find.text('Accept'), findsOneWidget);
-        expect(find.textContaining('For God so loved the world.'),
-            findsOneWidget);
+        expect(find.text('Accept'), findsNothing);
+        expect(find.text('Dismiss'), findsNothing);
+        final textField =
+            tester.widget<TextFormField>(find.byType(TextFormField).last);
+        expect(
+          textField.controller!.text,
+          contains('For God so loved the world.'),
+        );
       },
     );
 
@@ -375,7 +381,58 @@ void main() {
   });
 
   testWidgets(
-    'save-time reference normalization: first Save tap shows the normalized reference for confirmation without saving',
+    'losing focus on the reference field normalizes it to the resolved full book name',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.runAsync(() async {
+        // Move focus to the verse text field, blurring the reference field.
+        await tester.tap(find.byType(TextFormField).last);
+        await tester.pump();
+        await Future.delayed(const Duration(milliseconds: 100));
+        await tester.pump();
+      });
+
+      final referenceField =
+          tester.widget<TextFormField>(find.byType(TextFormField).first);
+      expect(referenceField.controller!.text, 'Philippians 4:13');
+    },
+  );
+
+  testWidgets(
+    'losing focus on the reference field with an unresolved book name shows an inline error '
+    'without stealing focus back',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Xyzzy 1:1');
+      await tester.runAsync(() async {
+        await tester.tap(find.byType(TextFormField).last);
+        await tester.pump();
+        await Future.delayed(const Duration(milliseconds: 100));
+        await tester.pump();
+      });
+
+      expect(find.text('Unrecognized book name'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Save Verse opens a confirmation AlertDialog showing the normalized reference and verse text, '
+    'without saving yet',
     (tester) async {
       final settingsProvider = SettingsProvider();
       final verseProvider = VerseProvider(DatabaseHelper());
@@ -392,8 +449,21 @@ void main() {
       );
       await _tapAndSettle(tester, find.text('Save Verse'));
 
-      expect(find.textContaining('Philippians 4:13'), findsOneWidget);
-      expect(find.text('Confirm & Save'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.textContaining('Philippians 4:13'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.textContaining('I can do all things through him.'),
+        ),
+        findsOneWidget,
+      );
 
       await tester.runAsync(() async {
         final db = await DatabaseHelper().database;
@@ -403,7 +473,7 @@ void main() {
   );
 
   testWidgets(
-    'save-time reference normalization: confirming the normalized reference saves the verse with the full book name',
+    'confirming the Save dialog saves the verse with the normalized full book name',
     (tester) async {
       final settingsProvider = SettingsProvider();
       final verseProvider = VerseProvider(DatabaseHelper());
@@ -419,13 +489,123 @@ void main() {
         'I can do all things through him.',
       );
       await _tapAndSettle(tester, find.text('Save Verse'));
-      await _tapAndSettle(tester, find.text('Confirm & Save'));
+      await _tapAndSettle(
+        tester,
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Save'),
+        ),
+      );
 
       await tester.runAsync(() async {
         final db = await DatabaseHelper().database;
         final rows = await db.query('verses');
         expect(rows, hasLength(1));
         expect(rows.single['reference'], 'Philippians 4:13');
+      });
+    },
+  );
+
+  testWidgets(
+    'canceling the Save dialog leaves the form unchanged and saves nothing',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapAndSettle(
+        tester,
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Cancel'),
+        ),
+      );
+
+      expect(find.byType(AlertDialog), findsNothing);
+      await tester.runAsync(() async {
+        final db = await DatabaseHelper().database;
+        expect(await db.query('verses'), isEmpty);
+      });
+    },
+  );
+
+  testWidgets(
+    'checking "Add directly to Memorized" saves the verse as memorized',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await tester.tap(find.text('Add directly to Memorized'));
+      await tester.pump();
+
+      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapAndSettle(
+        tester,
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Save'),
+        ),
+      );
+
+      await tester.runAsync(() async {
+        final db = await DatabaseHelper().database;
+        final rows = await db.query('verses');
+        expect(rows, hasLength(1));
+        expect(rows.single['is_memorized'], 1);
+        expect(rows.single['memorized_at'], isNotNull);
+      });
+    },
+  );
+
+  testWidgets(
+    'defaults to not saving as Memorized when the checkbox is left unchecked',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapAndSettle(
+        tester,
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Save'),
+        ),
+      );
+
+      await tester.runAsync(() async {
+        final db = await DatabaseHelper().database;
+        final rows = await db.query('verses');
+        expect(rows.single['is_memorized'], 0);
       });
     },
   );
@@ -448,7 +628,7 @@ void main() {
       );
       await _tapAndSettle(tester, find.text('Save Verse'));
 
-      expect(find.text('Confirm & Save'), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
       await tester.runAsync(() async {
         final db = await DatabaseHelper().database;
         expect(await db.query('verses'), isEmpty);
@@ -521,7 +701,7 @@ void main() {
 
       expect(
         find.textContaining('Unrecognized book name'),
-        findsOneWidget,
+        findsWidgets,
       );
       expect(find.textContaining('Invalid reference format'), findsNothing);
     },

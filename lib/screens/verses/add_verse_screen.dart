@@ -33,19 +33,17 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _formKey = GlobalKey<FormState>();
   final _referenceController = TextEditingController();
   final _textController = TextEditingController();
+  final _referenceFocusNode = FocusNode();
   final _searchFocusNode = FocusNode();
-  final _previewFocusNode = FocusNode();
-  final _confirmFocusNode = FocusNode();
   late String _translation;
   bool _isSaving = false;
   bool _isLookingUp = false;
   String? _saveError;
   String? _lookupError;
   String? _capWarning;
-  VerseLookupResult? _preview;
-  String? _pendingNormalizedReference;
   String? _referenceFieldError;
   bool _referenceUnresolved = false;
+  bool _saveAsMemorized = false;
 
   late final _lookupService =
       widget._lookupServiceOverride ?? BibleLookupService();
@@ -72,17 +70,48 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
         ? 'BSB'
         : defaultTranslation;
     _referenceController.addListener(_onReferenceEdited);
+    _referenceFocusNode.addListener(_onReferenceFocusChange);
   }
 
-  /// A pending save-confirmation is only valid for the reference text it was
-  /// computed from — clear it if the user edits the field afterward, so a
-  /// stale normalized reference can never be silently committed.
-  void _onReferenceEdited() {
-    if (_pendingNormalizedReference != null ||
-        _referenceFieldError != null ||
-        _referenceUnresolved) {
+  void _onReferenceFocusChange() {
+    if (_referenceFocusNode.hasFocus) return;
+    _normalizeReferenceOnBlur();
+  }
+
+  /// Normalizes the reference field as soon as the user tabs/taps away from
+  /// it, so the resolved form (or an unrecognized-book error) is visible
+  /// immediately rather than only surfacing at save time. Does not reclaim
+  /// focus on failure — the user is deliberately moving on to another field.
+  Future<void> _normalizeReferenceOnBlur() async {
+    final raw = _referenceController.text.trim();
+    if (raw.isEmpty) return;
+
+    final resolution = await _resolveReference(raw);
+    if (!mounted) return;
+
+    if (resolution.reference == null) {
       setState(() {
-        _pendingNormalizedReference = null;
+        _referenceUnresolved = resolution.unresolved;
+        _referenceFieldError = resolution.unresolved
+            ? _unresolvedBookFieldError
+            : _invalidFormatMessage;
+      });
+      _formKey.currentState?.validate();
+      return;
+    }
+
+    if (resolution.reference != raw) {
+      _referenceController.text = resolution.reference!;
+    }
+    setState(() {
+      _referenceFieldError = null;
+      _referenceUnresolved = false;
+    });
+  }
+
+  void _onReferenceEdited() {
+    if (_referenceFieldError != null || _referenceUnresolved) {
+      setState(() {
         _referenceFieldError = null;
         _referenceUnresolved = false;
       });
@@ -94,9 +123,8 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     _referenceController.removeListener(_onReferenceEdited);
     _referenceController.dispose();
     _textController.dispose();
+    _referenceFocusNode.dispose();
     _searchFocusNode.dispose();
-    _previewFocusNode.dispose();
-    _confirmFocusNode.dispose();
     _lookupService.dispose();
     _esvLookupService.dispose();
     super.dispose();
@@ -214,7 +242,6 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       _isLookingUp = true;
       _lookupError = null;
       _capWarning = null;
-      _preview = null;
     });
 
     final resolution = await _resolveReference(reference);
@@ -236,11 +263,13 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
           ? await _esvLookupService.lookup(resolvedReference)
           : await _lookupService.lookup(resolvedReference, _translation);
       if (mounted) {
+        _referenceController.text = result.reference;
+        _textController.text = result.text;
         setState(() {
-          _preview = result;
+          _translation = result.translation;
           _isLookingUp = false;
         });
-        _previewFocusNode.requestFocus();
+        _searchFocusNode.requestFocus();
       }
     } on ArgumentError {
       if (mounted) {
@@ -259,26 +288,6 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     }
   }
 
-  void _acceptPreview() {
-    if (_preview == null) return;
-    _referenceController.text = _preview!.reference;
-    _textController.text = _preview!.text;
-    setState(() {
-      _translation = _preview!.translation;
-      _preview = null;
-      _lookupError = null;
-    });
-    _searchFocusNode.requestFocus();
-  }
-
-  void _dismissPreview() {
-    setState(() {
-      _preview = null;
-      _lookupError = null;
-    });
-    _searchFocusNode.requestFocus();
-  }
-
   Future<void> _saveVerse() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -291,15 +300,6 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       }
     }
 
-    if (_pendingNormalizedReference == null) {
-      await _normalizeAndAwaitConfirmation();
-      return;
-    }
-
-    await _commitSave(_pendingNormalizedReference!);
-  }
-
-  Future<void> _normalizeAndAwaitConfirmation() async {
     setState(() => _isSaving = true);
 
     final resolution =
@@ -326,9 +326,49 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       _referenceFieldError = null;
       _referenceUnresolved = false;
       _saveError = null;
-      _pendingNormalizedReference = resolution.reference;
     });
-    _confirmFocusNode.requestFocus();
+
+    final reference = resolution.reference!;
+    final confirmed = await _showSaveConfirmationDialog(reference);
+    if (!mounted) return;
+    // Restore focus to Save after the dialog closes, same as the ESV consent
+    // dialog does after its own showDialog call.
+    _searchFocusNode.requestFocus();
+    if (confirmed != true) return;
+
+    await _commitSave(reference);
+  }
+
+  Future<bool?> _showSaveConfirmationDialog(String reference) {
+    final tt = Theme.of(context).textTheme;
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Save this verse?'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(reference, style: tt.titleMedium),
+              const SizedBox(height: 8),
+              Text(_textController.text.trim()),
+            ],
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('add-verse-confirm-save-button'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _commitSave(String reference) async {
@@ -346,6 +386,8 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       translation: _translation,
       packId: 'custom',
       addedAt: DateTime.now(),
+      isMemorized: _saveAsMemorized,
+      memorizedAt: _saveAsMemorized ? DateTime.now() : null,
     );
 
     try {
@@ -383,6 +425,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                   child: TextFormField(
                     key: const Key('add-verse-reference-field'),
                     controller: _referenceController,
+                    focusNode: _referenceFocusNode,
                     decoration: const InputDecoration(
                       labelText: 'Reference e.g. Romans 8:28',
                     ),
@@ -426,54 +469,6 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               severity: BannerSeverity.warning,
               message: _capWarning,
             ),
-            if (_preview != null) ...[
-              const SizedBox(height: 12),
-              Semantics(
-                label: 'Verse preview: ${_preview!.reference} ${_preview!.translation}. '
-                    '${_preview!.text}. Use Accept or Dismiss buttons below.',
-                focusable: true,
-                child: Focus(
-                  focusNode: _previewFocusNode,
-                  child: Card(
-                    color: cs.secondaryContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${_preview!.reference} (${_preview!.translation})',
-                            style: tt.labelLarge
-                                ?.copyWith(color: cs.onSecondaryContainer),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _preview!.text,
-                            style: tt.bodyLarge
-                                ?.copyWith(color: cs.onSecondaryContainer),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              FilledButton.tonal(
-                                onPressed: _acceptPreview,
-                                child: const Text('Accept'),
-                              ),
-                              const SizedBox(width: 8),
-                              OutlinedButton(
-                                onPressed: _dismissPreview,
-                                child: const Text('Dismiss'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
             const SizedBox(height: 4),
             TextFormField(
               key: const Key('add-verse-text-field'),
@@ -528,7 +523,16 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                 style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
             ],
-            const SizedBox(height: 32),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _saveAsMemorized,
+              title: const Text('Add directly to Memorized'),
+              onChanged: (value) =>
+                  setState(() => _saveAsMemorized = value ?? false),
+            ),
+            const SizedBox(height: 24),
             InlineStatusBanner(
               severity: BannerSeverity.error,
               message: _saveError,
@@ -545,72 +549,24 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                   child: const Text('Open Book Name Variants settings'),
                 ),
               ),
-            if (_pendingNormalizedReference != null) ...[
-              Semantics(
-                label: 'Will save as $_pendingNormalizedReference. '
-                    'Use Confirm & Save or Edit buttons below.',
-                focusable: true,
-                child: Focus(
-                  focusNode: _confirmFocusNode,
-                  child: Card(
-                    color: cs.secondaryContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Will save as: $_pendingNormalizedReference',
-                            style: tt.bodyLarge
-                                ?.copyWith(color: cs.onSecondaryContainer),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              FilledButton.tonal(
-                                key: const Key('add-verse-confirm-save-button'),
-                                onPressed: _isSaving
-                                    ? null
-                                    : () => _commitSave(
-                                        _pendingNormalizedReference!),
-                                child: const Text('Confirm & Save'),
-                              ),
-                              const SizedBox(width: 8),
-                              OutlinedButton(
-                                onPressed: _isSaving
-                                    ? null
-                                    : () => setState(() =>
-                                        _pendingNormalizedReference = null),
-                                child: const Text('Edit'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ] else
-              FilledButton(
-                key: const Key('add-verse-save-button'),
-                onPressed: _isSaving ? null : _saveVerse,
-                child: _isSaving
-                    ? Semantics(
-                        liveRegion: true,
-                        label: 'Saving, please wait',
-                        child: SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: cs.onPrimary,
-                          ),
+            FilledButton(
+              key: const Key('add-verse-save-button'),
+              onPressed: _isSaving ? null : _saveVerse,
+              child: _isSaving
+                  ? Semantics(
+                      liveRegion: true,
+                      label: 'Saving, please wait',
+                      child: SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: cs.onPrimary,
                         ),
-                      )
-                    : const Text('Save Verse'),
-              ),
+                      ),
+                    )
+                  : const Text('Save Verse'),
+            ),
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: _isSaving
@@ -619,7 +575,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               child: const Text('Cancel'),
             ),
             EsvCopyrightFooter(
-              hasEsvContent: _translation == 'ESV' && _preview != null,
+              hasEsvContent: _translation == 'ESV',
               onViewFullTerms: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               ),
