@@ -60,5 +60,8 @@
       "attempts": 0,
       "blocked_by": []
     }
-  ]
+  ],
+  "integration_branch": "integration/2026-07-06-recite-aloud-speech",
+  "smoke_test": "bash scripts/smoke_test.sh",
+  "feature_branches": []
 }
