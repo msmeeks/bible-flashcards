@@ -47,5 +47,8 @@ Per-row validation rejects (skips, does not abort) rows with missing/wrong-typed
 ### includeSettings naming
 The export/save dialogs and `ExportService` use `includeSettings` (not `includeScores`) for the checkbox controlling whether app preferences (audio, notification, theme) are bundled into the payload — distinct from `includeHistory`, which controls test-result inclusion.
 
+### Known discrepancy: stale "Data & Backup" subtitle
+`settings_screen.dart`'s "Data & Backup" `ListTile` subtitle still reads "Export, import, and Google Drive backup" — a leftover string from before #130 removed Drive support. No functional impact (the row still opens `DataManagementScreen`, which has no Drive UI), but the copy is inaccurate and should be updated to drop the Drive mention.
+
 ### Legacy Drive sign-in flag cleanup (#130)
 `google_sign_in`/`googleapis` and `GoogleDriveService` were removed along with the Cloud Backup UI and its five `AppSettings` fields. `GoogleDriveService` previously stored a `drive_signed_in` intent flag (never an OAuth token) in `flutter_secure_storage` for any user who had connected Drive. `LegacySettingsMigration.clearStaleDriveSignInFlag()` runs once at app startup (called from `main.dart`) and deletes that orphaned key so no stale state persists in Keystore-backed storage after the feature's removal. Any backup files a user previously uploaded to their own Google Drive `appDataFolder` are unaffected — the app has no remaining code path to reach or delete them.

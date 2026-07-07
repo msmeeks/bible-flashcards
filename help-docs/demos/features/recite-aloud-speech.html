@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo: Recite Aloud (Speech-to-Text) — Bible Flashcards</title>
+<style>
+  :root {
+    --primary: #1B5E6B; --primary-container: #C8E9EE; --on-primary-container: #001F24;
+    --secondary: #7D5A3C; --tertiary-container: #FDEFC3; --surface: #F8F5F0;
+    --surface-variant: #EDE7DE; --on-surface: #1C1917; --on-surface-variant: #4D453E;
+    --inverse-surface: #312E2B; --on-inverse-surface: #F5EFE9;
+    --success: #276234; --success-container: #C8F0D0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Google Sans", Roboto, system-ui, sans-serif; background: var(--surface); color: var(--on-surface); }
+  a:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
+  header.hero { background: linear-gradient(135deg, var(--primary) 0%, #4FBDCF 100%); color: #fff; padding: 48px 24px; text-align: center; }
+  header.hero h1 { font-family: Georgia, 'Lora', serif; font-size: 1.9rem; margin: 0 0 8px; font-weight: 400; }
+  header.hero p { max-width: 600px; margin: 0 auto; opacity: 0.95; }
+  main { max-width: 760px; margin: -20px auto 64px; padding: 0 24px; }
+  .back { display: inline-block; margin: 16px 0; color: var(--on-surface-variant); font-size: 0.9rem; }
+  .pending { background: #fff; border: 1px dashed #8A7E72; border-radius: 8px; padding: 14px 18px; font-size: 0.85rem; color: var(--on-surface-variant); margin: 20px 0 32px; }
+  .scene { background: #fff; border-radius: 12px; border: 1px solid var(--surface-variant); padding: 20px 24px; margin-bottom: 20px; display: flex; gap: 20px; align-items: flex-start; }
+  .scene .frame-num { flex: 0 0 36px; height: 36px; border-radius: 50%; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .scene .body h3 { margin: 0 0 6px; font-size: 1.0rem; color: var(--primary); }
+  .scene .body p { margin: 0; font-size: 0.92rem; color: var(--on-surface-variant); line-height: 1.5; }
+  .mini-mock { margin-top: 10px; background: var(--surface-variant); border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; color: var(--on-surface-variant); }
+  .mic-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; background: var(--inverse-surface); color: var(--on-inverse-surface); border-radius: 50px; padding: 8px 16px; font-size: 0.85rem; }
+  .mic-btn.listening { background: #7A2020; }
+  .heard-chip { margin-top: 10px; background: var(--tertiary-container); border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; color: #5c4a0d; font-style: italic; }
+  .score-row { margin-top: 10px; display: flex; gap: 10px; }
+  .score-row .btn { padding: 8px 16px; border-radius: 50px; font-size: 0.82rem; font-weight: 500; }
+  .score-row .btn.outline { border: 1px solid var(--primary); color: var(--primary); }
+  .score-row .btn.filled { background: var(--primary); color: #fff; }
+  .callout { border-left: 4px solid var(--secondary); background: var(--tertiary-container); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 0.85rem; margin-top: 12px; }
+  .takeaways { background: #fff; border-radius: 12px; border: 1px solid var(--surface-variant); padding: 20px 24px; margin-top: 8px; }
+  .takeaways h3 { margin: 0 0 10px; color: var(--primary); font-size: 1.0rem; }
+  .takeaways ul { margin: 0; padding-left: 20px; font-size: 0.9rem; color: var(--on-surface-variant); line-height: 1.6; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>Recite Aloud (Speech-to-Text)</h1>
+  <p>Speaking a memorized verse instead of typing it or self-rating — scored on-device, with the spoken words never saved anywhere.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; Back to Demo Gallery</a>
+  <div class="pending">
+    <strong>Video capture pending.</strong> Storyboard below describes the flow until a real screen recording is captured from the emulator.
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">1</div>
+    <div class="body">
+      <h3>Start a Recite test</h3>
+      <p>From the Test tab, choose Recite format. By default you'll see the verse reference and rate yourself "I knew it" / "Didn't know" — the mic is entirely optional.</p>
+      <div class="mini-mock">Test &rarr; Recite &rarr; Start test</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">2</div>
+    <div class="body">
+      <h3>Tap the mic to recite aloud instead</h3>
+      <p>Tapping the microphone button requests the RECORD_AUDIO permission right then — not at app launch — so nothing is requested until you actually choose to speak an answer.</p>
+      <div class="mic-btn listening">&#127908; Listening&hellip; (tap to stop)</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">3</div>
+    <div class="body">
+      <h3>Speak the verse, pause as needed</h3>
+      <p>Recognition runs entirely on-device and tolerates up to 15 seconds of silence, so pausing mid-verse to recall the next line no longer cuts you off early.</p>
+      <div class="mini-mock">"For I know the plans I have for you&hellip; (pause) &hellip;declares the Lord."</div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">4</div>
+    <div class="body">
+      <h3>See what was heard and your score</h3>
+      <p>The transcript is shown once, scored the same way a typed answer would be, and never written to your test history or any log.</p>
+      <div class="heard-chip">Heard: "For I know the plans I have for you&hellip; declares the Lord."</div>
+      <div class="score-row">
+        <span class="btn outline">Try Again</span>
+        <span class="btn filled">Continue</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene">
+    <div class="frame-num">5</div>
+    <div class="body">
+      <h3>Try Again if it mis-heard you</h3>
+      <p>Try Again clears the transcript and score without recording an attempt, so a recognition mistake doesn't count against you — just recite again.</p>
+      <div class="callout">
+        <strong>Privacy note</strong>
+        Speech recognition never leaves your device and has no cloud fallback. If on-device recognition isn't available on your phone, the mic button simply won't work — typing or self-rating are always there as the default path.
+      </div>
+    </div>
+  </div>
+
+  <div class="takeaways">
+    <h3>What you just saw</h3>
+    <ul>
+      <li>Recite mode's default is still typing or self-rating — the mic is opt-in, never required.</li>
+      <li>RECORD_AUDIO is requested only at the moment you tap the mic, not pre-granted at launch.</li>
+      <li>Recognition happens on-device, with no cloud service involved at any point.</li>
+      <li>A 15-second pause tolerance means a mid-verse memory gap won't end your attempt early.</li>
+      <li>The spoken transcript is shown once for confirmation and then discarded — never saved to history or logs.</li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>
