@@ -358,11 +358,11 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
           'You can still self-rate with "I knew it" / "Didn\'t know" instead.',
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () {
               Navigator.of(context).pop();
               openAppSettings();

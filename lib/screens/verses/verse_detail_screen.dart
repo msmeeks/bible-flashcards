@@ -140,13 +140,16 @@ class _RemoveMemorizedButton extends StatelessWidget {
               content: const Text(
                   'This verse will move back to the Available list and all test history for it will be permanently deleted.'),
               actions: [
-                TextButton(
+                OutlinedButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
                   child: const Text('Cancel'),
                 ),
-                TextButton(
+                FilledButton(
                   onPressed: () => Navigator.of(ctx).pop(true),
-                  style: TextButton.styleFrom(foregroundColor: cs.error),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.error,
+                    foregroundColor: cs.onError,
+                  ),
                   child: const Text('Remove'),
                 ),
               ],

@@ -79,4 +79,36 @@ void main() {
       expect(find.textContaining('Fill Blanks'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'Clear Test History confirmation uses OutlinedButton for Cancel, '
+    'keeping the error-colored FilledButton for the destructive action',
+    (tester) async {
+      final dbHelper = DatabaseHelper();
+      await tester.runAsync(() async {
+        await dbHelper.insertVerse(
+          makeVerse('esv_romans_2_2', reference: 'Romans 2:2'),
+        );
+        await dbHelper.insertTestResult(
+          VerseTestResult(
+            verseId: 'esv_romans_2_2',
+            accuracy: 1.0,
+            testMode: 'review',
+            testFormat: 'type',
+            testedAt: DateTime(2024, 1, 1, 9),
+          ),
+        );
+      });
+
+      await tester.pumpWidget(_wrap());
+      await pumpUntilAsyncSettled(tester);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Clear History'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(OutlinedButton, 'Cancel'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Clear'), findsOneWidget);
+    },
+  );
 }

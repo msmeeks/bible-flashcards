@@ -82,7 +82,7 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
             'This cannot be undone.',
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),

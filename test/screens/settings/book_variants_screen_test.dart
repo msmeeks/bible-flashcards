@@ -84,8 +84,8 @@ void main() {
       );
 
       // ...and Cancel is disabled too, so it cannot race the in-flight pop.
-      final cancel =
-          tester.widget<TextButton>(find.widgetWithText(TextButton, 'Cancel'));
+      final cancel = tester
+          .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Cancel'));
       expect(cancel.onPressed, isNull,
           reason: 'Cancel must be disabled while submitting');
 
@@ -222,7 +222,7 @@ void main() {
       await _pumpScreen(tester);
       await _openAddDialogWithInput(tester, 'Gen');
 
-      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Cancel'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       await tester.runAsync(() async {
@@ -315,7 +315,7 @@ void main() {
       await _pumpScreen(tester);
       await _openAddDialogWithInput(tester, 'Gen');
 
-      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Cancel'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 

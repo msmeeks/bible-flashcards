@@ -38,3 +38,14 @@ Redesigned the Add Verse confirmation flow in `lib/screens/verses/add_verse_scre
 - **#129**: Added a `CheckboxListTile` "Add directly to Memorized" near the translation selector; when checked, `_commitSave` constructs the `Verse` with `isMemorized: true`/`memorizedAt: DateTime.now()` instead of the default unmemorized state.
 
 Rewrote `test/screens/verses/add_verse_screen_test.dart`'s preview/confirm-card tests for the new dialog-based flow and added 5 new tests (blur normalization success/failure, dialog confirm/cancel, memorized checkbox). Full suite (500 tests) + `flutter analyze` pass, plus the full `scripts/smoke_test.sh` (unit suite + on-device integration test: add a verse, memorize it, confirm Home reflects it, complete a test session) passed end-to-end. Updated `docs/features/verse-management.md`, `docs/features/esv-attribution.md` (stale preview-dialog wording for the ESV footer), and `docs/llms.md`.
+
+## 2026-07-07 — fix-design-brief-button-audit.md (#133)
+
+Continued a prior in-progress attempt (found 10 of 12 dialogs already swapped and uncommitted in the working tree) and finished the remaining two "full-redesign" dialogs, per the plan's table:
+
+- **`test_session_screen.dart:350`** (Microphone access needed): `Cancel` → `OutlinedButton`, `Open Settings` → `FilledButton` (behavior/`onPressed` unchanged).
+- **`verse_detail_screen.dart:148`** (Remove from memorized?): `Cancel` → `OutlinedButton`, `Remove` → error-colored `FilledButton` (`backgroundColor: cs.error`, `foregroundColor: cs.onError`), matching the destructive-button pattern already used in `data_management_screen.dart`.
+
+All 12 dialogs from the plan's table now use `OutlinedButton`/`FilledButton` action pairs; verified no other `AlertDialog` action pairs remain on bare `TextButton` (the handful of remaining `TextButton`s app-wide are inline links/toggles/single-button dismissals, correctly out of scope per the plan).
+
+TDD'd the two remaining dialogs: added a `_PermanentlyDeniedSpeechService` test double (already scaffolded from the prior attempt) and a new widget test in `test/screens/test/test_session_screen_test.dart` asserting the mic-permission dialog's button types; added a new widget test in `test/screens/verses/verse_detail_screen_test.dart` asserting the remove-confirmation dialog's button types and error coloring. Confirmed both RED before implementing, then GREEN. Full suite (504 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain), plus the full `scripts/smoke_test.sh` (unit suite + on-device integration test) passed end-to-end.

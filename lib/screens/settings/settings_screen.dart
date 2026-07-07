@@ -444,7 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
               actions: [
-                TextButton(
+                OutlinedButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
                   child: const Text('Cancel'),
                 ),
@@ -561,7 +561,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'This will permanently delete all test results. This cannot be undone.',
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
@@ -591,7 +591,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'This will permanently delete all streak and activity data. This cannot be undone.',
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),

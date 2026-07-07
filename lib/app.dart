@@ -151,7 +151,7 @@ class _EngagementNoticeWrapperState extends State<_EngagementNoticeWrapper> {
           'You can clear it anytime in Settings → Activity History.',
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
               widget.onDecline();

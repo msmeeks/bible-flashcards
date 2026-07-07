@@ -176,7 +176,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             ],
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.of(ctx).pop(false),
               child: const Text('Cancel'),
             ),
@@ -256,7 +256,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             ],
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.of(ctx).pop(false),
               child: const Text('Cancel'),
             ),
@@ -370,7 +370,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             ],
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.of(ctx).pop(false),
               child: const Text('Cancel'),
             ),
@@ -462,7 +462,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
           'This cannot be undone.',
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),

@@ -78,6 +78,31 @@ class _ControllableFakeSpeechService implements SpeechRecognitionService {
   void dispose() {}
 }
 
+class _PermanentlyDeniedSpeechService implements SpeechRecognitionService {
+  @override
+  bool get isListening => false;
+
+  @override
+  Future<MicPermissionResult> requestPermission() async =>
+      MicPermissionResult.permanentlyDenied;
+
+  @override
+  Future<bool> listen({
+    required void Function(String transcript, bool isFinal) onTranscript,
+    required void Function() onStopped,
+  }) async =>
+      false;
+
+  @override
+  Future<void> stopListening() async {}
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  void dispose() {}
+}
+
 Verse _verse() => Verse(
       id: 'john_3_16',
       reference: 'John 3:16',
@@ -138,6 +163,27 @@ void main() {
       // The first timer must not fire again and clobber this new session.
       await tester.pump(const Duration(seconds: 16));
       expect(find.text('Listening…'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the microphone permission dialog uses FilledButton for Open Settings '
+    'and OutlinedButton for Cancel',
+    (tester) async {
+      await tester.pumpWidget(_wrap(_PermanentlyDeniedSpeechService()));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Microphone access needed'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Cancel'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
+      expect(
+        find.widgetWithText(FilledButton, 'Open Settings'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(TextButton, 'Open Settings'), findsNothing);
     },
   );
 

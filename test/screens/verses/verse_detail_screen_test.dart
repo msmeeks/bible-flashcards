@@ -49,4 +49,36 @@ void main() {
       expect(find.text('CSB'), findsWidgets);
     },
   );
+
+  testWidgets(
+    'Remove from memorized confirmation uses OutlinedButton for Cancel and '
+    'an error-colored FilledButton for the destructive action',
+    (tester) async {
+      final dbHelper = DatabaseHelper();
+      final provider = VerseProvider(dbHelper);
+      await tester.runAsync(() async {
+        await dbHelper.insertVerse(makeVerse('verse-1'));
+        await provider.loadVerses();
+      });
+
+      await tester.pumpWidget(_wrap(provider, 'verse-1'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Remove from Memorized'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Remove from memorized?'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Cancel'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
+      expect(find.widgetWithText(TextButton, 'Remove'), findsNothing);
+
+      final removeButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Remove'),
+      );
+      final cs =
+          Theme.of(tester.element(find.byType(VerseDetailScreen))).colorScheme;
+      expect(removeButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+          cs.error);
+    },
+  );
 }
