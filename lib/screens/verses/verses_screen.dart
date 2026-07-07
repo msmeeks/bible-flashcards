@@ -199,33 +199,23 @@ class _MemorizedListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final firstLetter =
-        verse.reference.isNotEmpty ? verse.reference[0].toUpperCase() : '?';
     final preview =
         verse.text.length > 60 ? '${verse.text.substring(0, 60)}…' : verse.text;
 
-    return ListTile(
-      leading: Semantics(
-        label: '${verse.reference} verse',
-        child: CircleAvatar(
-          backgroundColor: cs.primaryContainer,
-          child: Text(
-            firstLetter,
-            style: TextStyle(color: cs.onPrimaryContainer),
+    return Semantics(
+      label: '${verse.reference} verse',
+      child: ListTile(
+        title: Text(verse.reference),
+        subtitle: Text(preview),
+        trailing: FutureBuilder<double?>(
+          future: DatabaseHelper().getLatestVerseAccuracy(verse.id),
+          builder: (context, snapshot) => ConfidenceBadge(
+            accuracy: snapshot.data,
+            verseRef: verse.reference,
           ),
         ),
+        onTap: () => openVerseDetail(context, verse.id),
       ),
-      title: Text(verse.reference),
-      subtitle: Text(preview),
-      trailing: FutureBuilder<double?>(
-        future: DatabaseHelper().getLatestVerseAccuracy(verse.id),
-        builder: (context, snapshot) => ConfidenceBadge(
-          accuracy: snapshot.data,
-          verseRef: verse.reference,
-        ),
-      ),
-      onTap: () => openVerseDetail(context, verse.id),
     );
   }
 }

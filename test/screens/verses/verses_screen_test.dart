@@ -394,6 +394,26 @@ void main() {
   );
 
   testWidgets(
+    'memorized verse tile has no leading icon but keeps its semantics label',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([makeVerse('verse-0', isMemorized: true)]);
+
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+
+      final tileFinder = find.widgetWithText(ListTile, 'Ref verse-0');
+      expect(tileFinder, findsOneWidget);
+      final tile = tester.widget<ListTile>(tileFinder);
+      expect(tile.leading, isNull);
+
+      expect(find.byType(CircleAvatar), findsNothing);
+      final semantics = tester.getSemantics(tileFinder);
+      expect(semantics.label, contains('Ref verse-0 verse'));
+    },
+  );
+
+  testWidgets(
     'long-pressing a memorized verse tile does not push more than one '
     'detail screen (no separate onLongPress handler duplicating onTap)',
     (tester) async {
