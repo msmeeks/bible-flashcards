@@ -1,7 +1,7 @@
 name: bible_flashcards
 description: Bible verse memorization flashcards app for Android.
 publish_to: "none"
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -55,9 +55,7 @@ dependencies:
   # Date formatting for engagement log
   intl: ^0.19.0
 
-  # Export / Import / Google Drive backup
-  google_sign_in: ^7.0.0
-  googleapis: ^13.1.0
+  # Export / Import
   share_plus: ^10.0.0
 
   # Native file picker (SAF-scoped on Android) for import/export

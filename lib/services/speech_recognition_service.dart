@@ -65,6 +65,10 @@ class SpeechRecognitionService {
         onDevice: true,
         partialResults: true,
         listenMode: ListenMode.dictation,
+        // Matches the UI's mic wedge-detection timeout (see #134-136) so the
+        // plugin doesn't auto-stop from a mid-recitation pause before the
+        // app's own "stuck listening" safety net would kick in.
+        pauseFor: const Duration(seconds: 15),
       ),
     );
     return true;

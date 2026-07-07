@@ -221,6 +221,7 @@ Full dependency list: `pubspec.yaml`.
 - **`android:allowBackup="false"`** — prevents the encrypted database from being extracted via ADB backup or cloud backup.
 - **`FOREGROUND_SERVICE_MEDIA_PLAYBACK`** — required for background TTS on Android 14+.
 - **Notification visibility `VISIBILITY_PRIVATE`** — no verse text appears on the lock screen.
+- **`android:label="Bible Flashcards"`** — on-device display name (home screen icon, recent apps, system settings); previously showed the raw package name `bible_flashcards` (#132).
 
 ---
 

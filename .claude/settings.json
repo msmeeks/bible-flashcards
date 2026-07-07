@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash scripts/emulator.sh *)",
+      "Bash(scripts/emulator.sh *)",
+      "Bash(/opt/homebrew/share/android-commandlinetools/platform-tools/adb *)",
+      "Bash(adb *)"
+    ]
+  }
+}

@@ -256,4 +256,55 @@ void main() {
       expect(disabledSwitch.value, isFalse);
     },
   );
+
+  testWidgets(
+    'Verse-of-week probability dialog uses OutlinedButton for Cancel, '
+    'not a bare TextButton',
+    (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+
+      await tester.tap(find.text('Verse-of-week probability'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(OutlinedButton, 'Cancel'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Clear test history dialog uses OutlinedButton for Cancel, keeping the '
+    'error-colored FilledButton for the destructive action',
+    (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+      await tester.scrollUntilVisible(find.text('Clear test history'), 200);
+
+      await tester.tap(find.text('Clear test history'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(OutlinedButton, 'Cancel'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Clear'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Clear Activity History dialog uses OutlinedButton for Cancel, keeping '
+    'the error-colored FilledButton for the destructive action',
+    (tester) async {
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+      await tester.scrollUntilVisible(
+          find.text('Clear Activity History'), 200);
+
+      await tester.tap(find.text('Clear Activity History'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(OutlinedButton, 'Cancel'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Clear'), findsOneWidget);
+    },
+  );
 }

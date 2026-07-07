@@ -9,6 +9,7 @@ import 'package:bible_flashcards/services/speech_recognition_service.dart';
 
 class _FakeSpeechService implements SpeechRecognitionService {
   int listenCalls = 0;
+  bool listenReturnsFalse = false;
 
   @override
   bool get isListening => false;
@@ -23,10 +24,101 @@ class _FakeSpeechService implements SpeechRecognitionService {
     required void Function() onStopped,
   }) async {
     listenCalls++;
+    if (listenReturnsFalse) return false;
     // Simulates the wedged plugin: "started" succeeds but neither
     // onTranscript nor onStopped is ever called.
     return true;
   }
+
+  @override
+  Future<void> stopListening() async {}
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  void dispose() {}
+}
+
+class _ControllableFakeSpeechService implements SpeechRecognitionService {
+  _ControllableFakeSpeechService({this.finalTranscript = 'for god so loved'});
+
+  final String finalTranscript;
+  void Function(String transcript, bool isFinal)? _onTranscript;
+
+  @override
+  bool get isListening => false;
+
+  @override
+  Future<MicPermissionResult> requestPermission() async =>
+      MicPermissionResult.granted;
+
+  @override
+  Future<bool> listen({
+    required void Function(String transcript, bool isFinal) onTranscript,
+    required void Function() onStopped,
+  }) async {
+    _onTranscript = onTranscript;
+    return true;
+  }
+
+  // Mirrors the real plugin: stop() resolves immediately, but the final
+  // recognition result arrives asynchronously afterward (a later event-loop
+  // turn, not a microtask queued during this call).
+  @override
+  Future<void> stopListening() async {
+    Future.delayed(
+      Duration.zero,
+      () => _onTranscript?.call(finalTranscript, true),
+    );
+  }
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  void dispose() {}
+}
+
+class _TransientlyDeniedSpeechService implements SpeechRecognitionService {
+  @override
+  bool get isListening => false;
+
+  @override
+  Future<MicPermissionResult> requestPermission() async =>
+      MicPermissionResult.denied;
+
+  @override
+  Future<bool> listen({
+    required void Function(String transcript, bool isFinal) onTranscript,
+    required void Function() onStopped,
+  }) async =>
+      false;
+
+  @override
+  Future<void> stopListening() async {}
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  void dispose() {}
+}
+
+class _PermanentlyDeniedSpeechService implements SpeechRecognitionService {
+  @override
+  bool get isListening => false;
+
+  @override
+  Future<MicPermissionResult> requestPermission() async =>
+      MicPermissionResult.permanentlyDenied;
+
+  @override
+  Future<bool> listen({
+    required void Function(String transcript, bool isFinal) onTranscript,
+    required void Function() onStopped,
+  }) async =>
+      false;
 
   @override
   Future<void> stopListening() async {}
@@ -98,6 +190,203 @@ void main() {
       // The first timer must not fire again and clobber this new session.
       await tester.pump(const Duration(seconds: 16));
       expect(find.text('Listening…'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the microphone permission dialog uses FilledButton for Open Settings '
+    'and OutlinedButton for Cancel',
+    (tester) async {
+      await tester.pumpWidget(_wrap(_PermanentlyDeniedSpeechService()));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Microphone access needed'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Cancel'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
+      expect(
+        find.widgetWithText(FilledButton, 'Open Settings'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(TextButton, 'Open Settings'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a transient permission denial shows the announcement without opening '
+    'the settings dialog',
+    (tester) async {
+      await tester.pumpWidget(_wrap(_TransientlyDeniedSpeechService()));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+            'Microphone permission denied. You can still self-rate below.'),
+        findsOneWidget,
+      );
+      expect(find.text('Microphone access needed'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'listen() returning false shows the unavailable announcement and '
+    'resets the listening state',
+    (tester) async {
+      await tester.pumpWidget(_wrap(_FakeSpeechService()..listenReturnsFalse = true));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+
+      expect(find.text('Recite aloud'), findsOneWidget);
+      expect(find.text('Listening…'), findsNothing);
+      expect(
+        find.text('On-device speech recognition is unavailable'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'manually stopping listening still scores the recognized transcript',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService();
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.textContaining('%'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping stop while the plugin is unresponsive resolves the listening '
+    'state within the shorter post-stop timeout, not the 15s start timeout',
+    (tester) async {
+      final fake = _FakeSpeechService();
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      expect(find.text('Listening…'), findsOneWidget);
+
+      // Explicit stop; the fake's stopListening() never calls onStopped,
+      // simulating an unresponsive plugin.
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      expect(find.text('Listening…'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(find.text('Listening…'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'after a recite score is shown, Try Again and Continue are both '
+    'visible and the self-rate buttons are hidden',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService();
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('Try Again'), findsOneWidget);
+      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('I knew it'), findsNothing);
+      expect(find.text("Didn't know"), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'tapping Try Again after a recite score resets state without '
+    'recording an attempt',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService();
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      await tester.tap(find.text('Try Again'));
+      await tester.pump();
+
+      expect(find.text('Recite aloud'), findsOneWidget);
+      expect(find.text('Verse 1 of 1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the recognized transcript is shown alongside the score, and clears '
+    'on retry',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService(
+        finalTranscript: 'for god so loved the world',
+      );
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.textContaining('for god so loved the world'), findsOneWidget);
+
+      await tester.tap(find.text('Try Again'));
+      await tester.pump();
+
+      expect(find.textContaining('for god so loved the world'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the recognized transcript caption uses the bodySmall typography role',
+    (tester) async {
+      final fake = _ControllableFakeSpeechService(
+        finalTranscript: 'for god so loved the world',
+      );
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Symbols.mic_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final textWidget = tester.widget<Text>(
+        find.textContaining('for god so loved the world'),
+      );
+      final context = tester.element(
+        find.textContaining('for god so loved the world'),
+      );
+      expect(
+        textWidget.style?.fontSize,
+        Theme.of(context).textTheme.bodySmall?.fontSize,
+      );
     },
   );
 

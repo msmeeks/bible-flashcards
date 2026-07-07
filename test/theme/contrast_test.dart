@@ -102,4 +102,24 @@ void main() {
       });
     }
   });
+
+  group('dark theme container vs surface contrast (WCAG 1.4.11 UI boundary)', () {
+    testWidgets('successContainer meets 3:1 against surface', (tester) async {
+      final s = AppTheme.dark().colorScheme;
+      final ratio = contrastRatio(s.successContainer, s.surface);
+      expect(ratio, greaterThanOrEqualTo(3.0));
+    });
+
+    testWidgets('warningContainer meets 3:1 against surface', (tester) async {
+      final s = AppTheme.dark().colorScheme;
+      final ratio = contrastRatio(s.warningContainer, s.surface);
+      expect(ratio, greaterThanOrEqualTo(3.0));
+    });
+
+    testWidgets('errorContainer meets 3:1 against surface', (tester) async {
+      final s = AppTheme.dark().colorScheme;
+      final ratio = contrastRatio(s.errorContainer, s.surface);
+      expect(ratio, greaterThanOrEqualTo(3.0));
+    });
+  });
 }

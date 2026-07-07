@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../database/database_helper.dart';
 import '../../models/test_result.dart';
+import '../../models/verse.dart';
+import '../../services/verse_result_lookup.dart';
 import '../../theme/app_colors.dart';
-import '../../utils/verse_reference_format.dart';
+import '../../widgets/verse_reference_label.dart';
 import 'test_enums.dart';
 
 class TestResultScreen extends StatefulWidget {
@@ -16,10 +18,13 @@ class TestResultScreen extends StatefulWidget {
 }
 
 class _TestResultScreenState extends State<TestResultScreen> {
+  Map<String, Verse> _versesById = {};
+
   @override
   void initState() {
     super.initState();
     _persistResults();
+    _loadVerses();
   }
 
   Future<void> _persistResults() async {
@@ -28,6 +33,17 @@ class _TestResultScreenState extends State<TestResultScreen> {
       if (!mounted) return;
       await db.insertTestResult(result);
     }
+  }
+
+  Future<void> _loadVerses() async {
+    final versesById = await resolveVersesForResults(
+      widget.sessionResult.verseResults,
+      DatabaseHelper(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _versesById = versesById;
+    });
   }
 
   @override
@@ -79,7 +95,10 @@ class _TestResultScreenState extends State<TestResultScreen> {
                 itemBuilder: (context, index) {
                   final result =
                       widget.sessionResult.verseResults[index];
-                  return _VerseResultCard(result: result);
+                  return _VerseResultCard(
+                    result: result,
+                    verse: _versesById[result.verseId],
+                  );
                 },
               ),
             ),
@@ -123,9 +142,10 @@ class _TestResultScreenState extends State<TestResultScreen> {
 }
 
 class _VerseResultCard extends StatelessWidget {
-  const _VerseResultCard({required this.result});
+  const _VerseResultCard({required this.result, required this.verse});
 
   final VerseTestResult result;
+  final Verse? verse;
 
   @override
   Widget build(BuildContext context) {
@@ -164,8 +184,7 @@ class _VerseResultCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(formatVerseReference(result.verseId),
-                      style: tt.titleSmall),
+                  VerseReferenceLabel(verse: verse, verseId: result.verseId),
                   const SizedBox(height: 2),
                   Text(
                     formatLabel,

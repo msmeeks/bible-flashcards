@@ -13,14 +13,14 @@ Crossway's ESV API terms require a visible copyright notice with an esv.org link
 - Flutter `Semantics`/`liveRegion` via `AnnounceOnChange` — accessible state announcements, fired once per real change
 
 ## Technical Overview
-`EsvCopyrightFooter` (`lib/widgets/esv_copyright_footer.dart`) is a stateful widget taking a `hasEsvContent` flag and a required `onViewFullTerms: VoidCallback`; callers compute the flag from whatever verse(s) are visible on screen and supply the callback to navigate to Settings. It renders nothing if `hasEsvContent` is false or before the persisted collapse preference has loaded (avoiding a flash of the wrong state). The widget is wired into every screen that can display ESV verse text: Add Verse (preview), Verse Detail, Test session, Review Show, and Review Play. Settings carries the permanent, non-collapsible full notice plus an external link, independent of the per-screen footer. The footer no longer imports `SettingsScreen` directly — navigation is the caller's responsibility via `onViewFullTerms`, decoupling the widget from the screen layer.
+`EsvCopyrightFooter` (`lib/widgets/esv_copyright_footer.dart`) is a stateful widget taking a `hasEsvContent` flag and a required `onViewFullTerms: VoidCallback`; callers compute the flag from whatever verse(s) are visible on screen and supply the callback to navigate to Settings. It renders nothing if `hasEsvContent` is false or before the persisted collapse preference has loaded (avoiding a flash of the wrong state). The widget is wired into every screen that can display ESV verse text: Add Verse, Verse Detail, Test session, Review Show, and Review Play. Settings carries the permanent, non-collapsible full notice plus an external link, independent of the per-screen footer. The footer no longer imports `SettingsScreen` directly — navigation is the caller's responsibility via `onViewFullTerms`, decoupling the widget from the screen layer.
 
 ## Key Files
 | File | Purpose |
 |---|---|
 | `lib/widgets/esv_copyright_footer.dart` | Collapsible footer widget; loads/persists `esv_footer_collapsed_v1` via `shared_preferences`; takes `onViewFullTerms` callback instead of navigating itself |
 | `lib/widgets/announce_on_change.dart` | Generic helper: flags a `Semantics` live region for exactly one frame after a tracked `value` actually changes, then clears it — prevents duplicate/spurious screen-reader announcements on unrelated rebuilds. Used by `EsvCopyrightFooter` and the Settings ESV notice |
-| `lib/screens/verses/add_verse_screen.dart` | Renders footer in the save-confirmation dialog when an ESV preview is showing; passes `onViewFullTerms` that pushes `SettingsScreen` |
+| `lib/screens/verses/add_verse_screen.dart` | Renders footer in the form whenever the selected translation is ESV; passes `onViewFullTerms` that pushes `SettingsScreen` |
 | `lib/screens/verses/verse_detail_screen.dart` | Renders footer when the displayed verse's translation is ESV |
 | `lib/screens/test/test_session_screen.dart` | Renders footer when the current test card's verse is ESV |
 | `lib/screens/review/review_show_screen.dart` | Renders footer when any verse in the fixed session list is ESV |
@@ -44,7 +44,7 @@ Transition between states is wrapped in `AnimatedSize` (200ms), skipped in favor
 
 ### hasEsvContent Computation Per Screen
 Each call site computes its own `hasEsvContent` from the verse(s) actually visible, not from a global "is ESV enabled" flag:
-- Add Verse: `_translation == 'ESV' && _preview != null` — only shown once a successful ESV lookup preview is on screen, in the save-confirmation dialog.
+- Add Verse: `_translation == 'ESV'` — shown in the form itself whenever ESV is the selected translation, regardless of lookup state (the old preview-gated check no longer applies since Add Verse has no preview card).
 - Verse Detail / Test session: single current verse's `translation == 'ESV'`.
 - Review Show: `verses.any((v) => v.translation == 'ESV')` over the fixed session list.
 - Review Play: `audio.queue.any((v) => v.translation == 'ESV')` over the audio queue, via the new `AudioProvider.queue` getter.
@@ -64,3 +64,4 @@ Android 11+ package-visibility restrictions require an explicit `<queries>` decl
 | 2026-06-26 | Initial implementation (#68): `EsvCopyrightFooter` widget + wiring into Add Verse, Verse Detail, Test session, Review Show, Review Play; Settings "ESV Bible" section with full notice + esv.org link; `AudioProvider.queue` getter added to support Review Play's content check; AndroidManifest `<queries>` entry for `url_launcher` |
 | 2026-06-26 | Hardening (#72, #74, #76): "ESV.org" link tap now guarded with try/catch + fallback SnackBar if `launchUrl` fails or finds no handler |
 | 2026-06-28 | Accessibility hardening (#80, #81, #82, #83, #87): new `AnnounceOnChange` helper (`lib/widgets/announce_on_change.dart`) replaces the duplicate hidden live-region `Semantics` node, fixing double announcements; collapsed toggle is now a focusable 48x48dp `IconButton` instead of a bare `InkWell`; footer no longer imports `SettingsScreen` directly — takes a required `onViewFullTerms: VoidCallback` instead, updated at all 5 call sites; Settings' ESV default-translation notice also adopts `AnnounceOnChange` to avoid announcing on every Settings open |
+| 2026-07-06 | Add Verse's preview card was removed (#128) — the footer's `hasEsvContent` check on that screen is now simply `_translation == 'ESV'`, rendered in the form itself rather than inside a save-confirmation dialog |

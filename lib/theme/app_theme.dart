@@ -100,6 +100,13 @@ class AppTheme {
       primary: const Color(0xFF4FBDCF),
       surface: const Color(0xFF1C1917),
       onSurface: const Color(0xFFEDE7DE),
+
+      // Lightened from the MD3-seed defaults (#93000A/#FFDAD6), which sat
+      // too close in luminance to `surface` (see issue #138 and
+      // AppColors' successContainer/warningContainer, which apply the same
+      // fix for the custom green/gold tokens).
+      errorContainer: const Color(0xFFD6000F),
+      onErrorContainer: const Color(0xFFFFE9E6),
     );
 
     return ThemeData(

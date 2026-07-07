@@ -23,9 +23,6 @@ class VerseDetailScreen extends StatefulWidget {
 }
 
 class _VerseDetailScreenState extends State<VerseDetailScreen> {
-  /// Currently displayed translation segment — UI-only for now.
-  String _selectedTranslation = 'ESV';
-
   @override
   void initState() {
     super.initState();
@@ -69,13 +66,6 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
               VerseCard(
                 verse: verse,
                 initialState: FlashcardState.both,
-              ),
-              const SizedBox(height: 20),
-
-              // Translation selector
-              _TranslationSelector(
-                selected: _selectedTranslation,
-                onChanged: (t) => setState(() => _selectedTranslation = t),
               ),
               const SizedBox(height: 20),
 
@@ -150,13 +140,16 @@ class _RemoveMemorizedButton extends StatelessWidget {
               content: const Text(
                   'This verse will move back to the Available list and all test history for it will be permanently deleted.'),
               actions: [
-                TextButton(
+                OutlinedButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
                   child: const Text('Cancel'),
                 ),
-                TextButton(
+                FilledButton(
                   onPressed: () => Navigator.of(ctx).pop(true),
-                  style: TextButton.styleFrom(foregroundColor: cs.error),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.error,
+                    foregroundColor: cs.onError,
+                  ),
                   child: const Text('Remove'),
                 ),
               ],
@@ -187,48 +180,6 @@ class _RemoveMemorizedButton extends StatelessWidget {
         ),
         child: const Text('Remove from Memorized'),
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Translation selector
-// ---------------------------------------------------------------------------
-
-class _TranslationSelector extends StatelessWidget {
-  final String selected;
-  final ValueChanged<String> onChanged;
-
-  const _TranslationSelector({
-    required this.selected,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Translation',
-          style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
-        ),
-        const SizedBox(height: 8),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'ESV', label: Text('ESV')),
-            ButtonSegment(value: 'CSB', label: Text('CSB')),
-            ButtonSegment(value: 'NLT', label: Text('NLT')),
-          ],
-          selected: {selected},
-          onSelectionChanged: (values) {
-            if (values.isNotEmpty) onChanged(values.first);
-          },
-        ),
-      ],
     );
   }
 }

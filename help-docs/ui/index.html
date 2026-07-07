@@ -284,12 +284,15 @@
           <li>On the Add Verse screen, type just the reference.</li>
           <li>Tap <strong>Look up verse</strong>.</li>
           <li>The first time you do this, you'll see a consent dialog naming the lookup source. Read it, then confirm if you're comfortable sending the reference to that service.</li>
-          <li>Review the verse text that appears, then tap <strong>Save</strong>.</li>
+          <li>The reference and text fields fill in automatically — review the text, editing it if you like, then tap <strong>Save</strong>.</li>
+          <li>A "Save this verse?" dialog shows exactly what will be stored. Tap <strong>Save</strong> to confirm, or <strong>Cancel</strong> to keep editing.</li>
         </ol>
         <div class="callout">
           <strong>Why a consent dialog?</strong>
           Looking up a verse online sends the reference (e.g. "Romans 8:28") to an outside service so it can return the text. This only happens when you tap "Look up verse" — the app never does this automatically, and your choice is remembered so you're not asked again for that same source.
         </div>
+        <p>Whether typed or looked up, every save shows the same confirmation dialog before anything is stored — and if the reference doesn't match a recognizable "Book Chapter:Verse" shape (checked as soon as you leave the reference field), you'll see an inline error instead, with a link to Book Name Variants settings if the book name is the issue.</p>
+        <p>Check <strong>Add directly to Memorized</strong> before saving if you already know the verse — it skips the Available list and goes straight to your Memorized verses.</p>
       </div>
     </section>
 
@@ -419,13 +422,14 @@
     <section id="backup">
       <h2>Backup &amp; Restore</h2>
       <div class="card">
-        <p>Your verses, test history, and settings can be backed up as a single file, or to your own Google Drive.</p>
+        <p>Your verses, test history, and settings can be backed up as a single local file — Bible Flashcards has no cloud backup or account sync.</p>
         <ol class="steps">
           <li>Open <strong>Settings → Data &amp; Backup</strong>.</li>
           <li>Choose <strong>Export Data</strong> to share a backup file, or <strong>Save Locally</strong> to write one directly to your device.</li>
           <li>Choose <strong>Import</strong> to restore from a backup file, with the option to merge or replace your current data.</li>
-          <li>Optionally connect <strong>Google Drive</strong> for automatic cloud backup — the app keeps your 3 most recent backups and lets you delete them at any time.</li>
         </ol>
+        <p>Keep the exported file somewhere safe — since there's no cloud backup, that file is the only way to restore your data after a reinstall or a new device.</p>
+        <p>An earlier version of Bible Flashcards offered an optional Google Drive backup. That feature has been removed. If you had previously connected it, the app no longer has any way to access or revoke that connection — visit <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a> and remove Bible Flashcards' access yourself.</p>
       </div>
     </section>
 
@@ -433,7 +437,7 @@
       <h2>FAQ</h2>
       <details class="faq">
         <summary>Does this app share my data with anyone?</summary>
-        <div class="answer">No, by default everything stays on your device in an encrypted database. The only exceptions are features you turn on yourself: looking up a verse online, ESV audio playback, and Google Drive backup. Each requires your explicit, separately recorded consent before any data leaves your device.</div>
+        <div class="answer">No, by default everything stays on your device in an encrypted database. The only exceptions are features you turn on yourself: looking up a verse online and ESV audio playback. Each requires your explicit, separately recorded consent before any data leaves your device. There's no cloud backup or account sync — an exported backup file only ever goes where you choose to send or save it.</div>
       </details>
       <details class="faq">
         <summary>What does the ESV® footer mean, and can I get rid of it?</summary>

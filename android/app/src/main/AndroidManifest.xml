@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- INTERNET required for BibleGateway/ESV verse lookup, ESV audio playback (api.esv.org, audio.esv.org), and optional Google Drive backup -->
+    <!-- INTERNET required for BibleGateway/ESV verse lookup and ESV audio playback (api.esv.org, audio.esv.org) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -11,7 +11,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
-        android:label="bible_flashcards"
+        android:label="Bible Flashcards"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"

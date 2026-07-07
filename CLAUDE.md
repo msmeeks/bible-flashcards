@@ -5,12 +5,14 @@
 Always use `scripts/emulator.sh` to control the Android emulator. Never construct raw `emulator` or `adb emu kill` invocations manually.
 
 ```sh
-bash scripts/emulator.sh start    # boot AVD + flutter run
-bash scripts/emulator.sh stop     # kill emulator
-bash scripts/emulator.sh restart  # stop then start
-bash scripts/emulator.sh restart --wipe   # use when app refuses to launch
-bash scripts/emulator.sh start --no-app  # boot only, no flutter run
+bash scripts/emulator.sh start --detach    # boot AVD + flutter run
+bash scripts/emulator.sh stop              # kill emulator
+bash scripts/emulator.sh restart --detach  # stop then start
+bash scripts/emulator.sh restart --wipe --detach   # use when app refuses to launch
+bash scripts/emulator.sh start --no-app    # boot only, no flutter run
 ```
+
+**Claude must always pass `--detach` when starting or restarting the app.** Without it, `flutter run` stays attached in the foreground for interactive hot-reload (r/R/q) and never exits — a `start`/`restart` invocation without `--detach` will hang forever and no "task complete" notification will ever arrive, because the underlying process doesn't terminate. `--detach` backgrounds `flutter run`, polls `/tmp/flutter_run.log` for the ready marker itself, and returns (or errors out on timeout) once the app is actually up — so the bash call completing *is* the notification. Do not run the script in the background and then wait for a separate "app is ready" signal; there isn't one beyond the script call returning. If you need live logs after that, `tail -f /tmp/flutter_run.log` or `adb logcat`.
 
 The AVD name is `bible_flashcards_pixel9`. The emulator binary lives at `/opt/homebrew/share/android-commandlinetools/emulator/emulator` (installed by Homebrew, not Android Studio).
 

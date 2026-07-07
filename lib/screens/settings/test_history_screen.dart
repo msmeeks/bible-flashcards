@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../database/database_helper.dart';
 import '../../models/test_result.dart';
+import '../../models/verse.dart';
+import '../../services/verse_result_lookup.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/verse_reference_label.dart';
+import '../test/test_enums.dart';
 
 /// Formats a [DateTime] as "Mon, Jan 6, 2025" using only stdlib.
 String _formatDay(DateTime dt) {
@@ -43,7 +47,7 @@ class TestHistoryScreen extends StatefulWidget {
 }
 
 class _TestHistoryScreenState extends State<TestHistoryScreen> {
-  late Future<List<VerseTestResult>> _resultsFuture;
+  late Future<_HistoryData> _resultsFuture;
   final DatabaseHelper _db = DatabaseHelper();
 
   @override
@@ -53,7 +57,13 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
   }
 
   void _loadResults() {
-    _resultsFuture = _db.getTestResults();
+    _resultsFuture = _loadHistoryData();
+  }
+
+  Future<_HistoryData> _loadHistoryData() async {
+    final results = await _db.getTestResults();
+    final versesById = await resolveVersesForResults(results, _db);
+    return _HistoryData(results: results, versesById: versesById);
   }
 
   Future<void> _confirmClearHistory() async {
@@ -68,7 +78,7 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
             'This cannot be undone.',
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
@@ -106,14 +116,15 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Test History')),
-      body: FutureBuilder<List<VerseTestResult>>(
+      body: FutureBuilder<_HistoryData>(
         future: _resultsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final results = snapshot.data ?? [];
+          final results = snapshot.data?.results ?? [];
+          final versesById = snapshot.data?.versesById ?? {};
 
           if (results.isEmpty) {
             return Center(
@@ -155,7 +166,10 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                     if (item.isHeader) {
                       return _DayHeader(dateKey: item.header!);
                     }
-                    return _HistoryResultCard(result: item.result!);
+                    return _HistoryResultCard(
+                      result: item.result!,
+                      verse: versesById[item.result!.verseId],
+                    );
                   },
                 ),
               ),
@@ -177,6 +191,15 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
       ),
     );
   }
+}
+
+/// Test results plus the verses they reference, loaded together so the list
+/// renders as a single atomic snapshot instead of per-row futures.
+class _HistoryData {
+  const _HistoryData({required this.results, required this.versesById});
+
+  final List<VerseTestResult> results;
+  final Map<String, Verse> versesById;
 }
 
 /// Internal helper to represent either a date-header or a result row.
@@ -214,9 +237,10 @@ class _DayHeader extends StatelessWidget {
 }
 
 class _HistoryResultCard extends StatelessWidget {
-  const _HistoryResultCard({required this.result});
+  const _HistoryResultCard({required this.result, required this.verse});
 
   final VerseTestResult result;
+  final Verse? verse;
 
   @override
   Widget build(BuildContext context) {
@@ -242,12 +266,9 @@ class _HistoryResultCard extends StatelessWidget {
       badgeIcon = Icons.cancel_outlined;
     }
 
-    final formatLabel = switch (result.testFormat) {
-      'recite' => 'Recite',
-      'type' => 'Type',
-      'fill_blank' => 'Fill Blanks',
-      _ => result.testFormat,
-    };
+    final formatLabel =
+        TestFormatLabel.tryFromName(result.testFormat)?.label ??
+            result.testFormat;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
@@ -259,7 +280,7 @@ class _HistoryResultCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(result.verseId, style: tt.titleSmall),
+                  VerseReferenceLabel(verse: verse, verseId: result.verseId),
                   const SizedBox(height: 2),
                   Text(
                     '$formatLabel · ${_formatTime(result.testedAt)}',
