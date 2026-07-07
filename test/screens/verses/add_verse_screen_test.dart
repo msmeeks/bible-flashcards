@@ -23,6 +23,7 @@ Widget _wrap(
   EsvLookupService? esvLookupService,
   BibleLookupService? lookupService,
   VerseProvider? verseProvider,
+  Future<Map<String, String>> Function()? customVariantLookup,
 }) {
   final dbHelper = DatabaseHelper();
 
@@ -37,6 +38,7 @@ Widget _wrap(
       home: AddVerseScreen(
         esvLookupService: esvLookupService,
         lookupService: lookupService,
+        customVariantLookup: customVariantLookup,
       ),
     ),
   );
@@ -266,6 +268,14 @@ void main() {
         expect(find.byType(AlertDialog), findsNothing);
         expect(requested, isFalse);
         expect(find.text('Accept'), findsNothing);
+
+        final searchButton = tester.widget<FilledButton>(
+          find.ancestor(
+            of: find.text('Search'),
+            matching: find.byType(FilledButton),
+          ),
+        );
+        expect(searchButton.focusNode!.hasFocus, isTrue);
       },
     );
 
@@ -540,6 +550,46 @@ void main() {
   );
 
   testWidgets(
+    'closing the Save confirmation dialog (via Cancel) restores focus to the '
+    'Save button, not the Search button',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapAndSettle(
+        tester,
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Cancel'),
+        ),
+      );
+
+      final saveButton = tester.widget<FilledButton>(
+        find.byKey(const Key('add-verse-save-button')),
+      );
+      final searchButton = tester.widget<FilledButton>(
+        find.ancestor(
+          of: find.text('Search'),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(saveButton.focusNode!.hasFocus, isTrue);
+      expect(searchButton.focusNode!.hasFocus, isFalse);
+    },
+  );
+
+  testWidgets(
     'checking "Add directly to Memorized" saves the verse as memorized',
     (tester) async {
       final settingsProvider = SettingsProvider();
@@ -574,6 +624,41 @@ void main() {
         expect(rows.single['is_memorized'], 1);
         expect(rows.single['memorized_at'], isNotNull);
       });
+    },
+  );
+
+  testWidgets(
+    'tapping Save right after editing the reference field triggers exactly '
+    'one reference resolution (not one from blur and one from Save)',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+      var lookupCount = 0;
+      Future<Map<String, String>> countingLookup() async {
+        lookupCount++;
+        return DatabaseHelper().getCustomVariantLookup();
+      }
+
+      await tester.pumpWidget(
+        _wrap(
+          settingsProvider,
+          verseProvider: verseProvider,
+          customVariantLookup: countingLookup,
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      // Tapping Save directly (without tabbing away first) blurs the
+      // reference field and invokes the save handler in close succession.
+      await _tapAndSettle(tester, find.text('Save Verse'));
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(lookupCount, 1);
     },
   );
 

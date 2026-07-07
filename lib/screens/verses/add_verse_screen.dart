@@ -19,11 +19,15 @@ class AddVerseScreen extends StatefulWidget {
     super.key,
     @visibleForTesting BibleLookupService? lookupService,
     @visibleForTesting EsvLookupService? esvLookupService,
+    @visibleForTesting
+    Future<Map<String, String>> Function()? customVariantLookup,
   })  : _lookupServiceOverride = lookupService,
-        _esvLookupServiceOverride = esvLookupService;
+        _esvLookupServiceOverride = esvLookupService,
+        _customVariantLookupOverride = customVariantLookup;
 
   final BibleLookupService? _lookupServiceOverride;
   final EsvLookupService? _esvLookupServiceOverride;
+  final Future<Map<String, String>> Function()? _customVariantLookupOverride;
 
   @override
   State<AddVerseScreen> createState() => _AddVerseScreenState();
@@ -35,6 +39,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _textController = TextEditingController();
   final _referenceFocusNode = FocusNode();
   final _searchFocusNode = FocusNode();
+  final _saveFocusNode = FocusNode();
   late String _translation;
   bool _isSaving = false;
   bool _isLookingUp = false;
@@ -44,11 +49,15 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   String? _referenceFieldError;
   bool _referenceUnresolved = false;
   bool _saveAsMemorized = false;
+  Future<({String? reference, bool unresolved})>? _pendingResolutionFuture;
+  String? _pendingResolutionInput;
 
   late final _lookupService =
       widget._lookupServiceOverride ?? BibleLookupService();
   late final _esvLookupService =
       widget._esvLookupServiceOverride ?? EsvLookupService();
+  late final _customVariantLookup = widget._customVariantLookupOverride ??
+      DatabaseHelper().getCustomVariantLookup;
 
   static const _consentPrefKey = 'bible_lookup_consent_v1';
   static const _esvConsentPrefKey = 'esv_lookup_consent_v1';
@@ -86,7 +95,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     final raw = _referenceController.text.trim();
     if (raw.isEmpty) return;
 
-    final resolution = await _resolveReference(raw);
+    final resolution = await _resolveReferenceDeduped(raw);
     if (!mounted) return;
 
     if (resolution.reference == null) {
@@ -125,6 +134,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     _textController.dispose();
     _referenceFocusNode.dispose();
     _searchFocusNode.dispose();
+    _saveFocusNode.dispose();
     _lookupService.dispose();
     _esvLookupService.dispose();
     super.dispose();
@@ -197,7 +207,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   ) async {
     var customVariants = const <String, String>{};
     try {
-      customVariants = await DatabaseHelper().getCustomVariantLookup();
+      customVariants = await _customVariantLookup();
     } catch (_) {
       // Fall through with no custom variants; built-in resolution still applies.
     }
@@ -214,6 +224,31 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       );
     }
     return (reference: result.reference, unresolved: false);
+  }
+
+  /// Reuses an in-flight [_resolveReference] call for the same [rawReference]
+  /// instead of starting a second one. Blurring the reference field (to
+  /// normalize it inline) and tapping Save both resolve the same text at
+  /// nearly the same moment when Save is tapped right after an edit; without
+  /// this, both would independently hit the database.
+  Future<({String? reference, bool unresolved})> _resolveReferenceDeduped(
+    String rawReference,
+  ) {
+    if (_pendingResolutionInput == rawReference &&
+        _pendingResolutionFuture != null) {
+      return _pendingResolutionFuture!;
+    }
+
+    final future = _resolveReference(rawReference);
+    _pendingResolutionInput = rawReference;
+    _pendingResolutionFuture = future;
+    future.whenComplete(() {
+      if (identical(_pendingResolutionFuture, future)) {
+        _pendingResolutionFuture = null;
+        _pendingResolutionInput = null;
+      }
+    });
+    return future;
   }
 
   Future<void> _lookupVerse() async {
@@ -303,7 +338,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     setState(() => _isSaving = true);
 
     final resolution =
-        await _resolveReference(_referenceController.text.trim());
+        await _resolveReferenceDeduped(_referenceController.text.trim());
     if (!mounted) return;
 
     if (resolution.reference == null) {
@@ -331,9 +366,9 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     final reference = resolution.reference!;
     final confirmed = await _showSaveConfirmationDialog(reference);
     if (!mounted) return;
-    // Restore focus to Save after the dialog closes, same as the ESV consent
-    // dialog does after its own showDialog call.
-    _searchFocusNode.requestFocus();
+    // Restore focus to Save (the control that opened this dialog), same
+    // pattern as the ESV consent dialog restoring focus to Search.
+    _saveFocusNode.requestFocus();
     if (confirmed != true) return;
 
     await _commitSave(reference);
@@ -551,6 +586,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               ),
             FilledButton(
               key: const Key('add-verse-save-button'),
+              focusNode: _saveFocusNode,
               onPressed: _isSaving ? null : _saveVerse,
               child: _isSaving
                   ? Semantics(
