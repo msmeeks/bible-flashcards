@@ -49,3 +49,15 @@ Continued a prior in-progress attempt (found 10 of 12 dialogs already swapped an
 All 12 dialogs from the plan's table now use `OutlinedButton`/`FilledButton` action pairs; verified no other `AlertDialog` action pairs remain on bare `TextButton` (the handful of remaining `TextButton`s app-wide are inline links/toggles/single-button dismissals, correctly out of scope per the plan).
 
 TDD'd the two remaining dialogs: added a `_PermanentlyDeniedSpeechService` test double (already scaffolded from the prior attempt) and a new widget test in `test/screens/test/test_session_screen_test.dart` asserting the mic-permission dialog's button types; added a new widget test in `test/screens/verses/verse_detail_screen_test.dart` asserting the remove-confirmation dialog's button types and error coloring. Confirmed both RED before implementing, then GREEN. Full suite (504 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain), plus the full `scripts/smoke_test.sh` (unit suite + on-device integration test) passed end-to-end.
+
+## 2026-07-07 — fix-dark-theme-badge-contrast.md (#138)
+
+Lightened `ConfidenceBadge`'s dark-theme Strong/Learning/Weak colors, which previously sat too close in luminance to the dark surface (#1C1917), reading muddy:
+
+- `successContainer` (`lib/theme/app_colors.dart`): `#0F3D1E` → `#1D7439` (kept the same hue/saturation, just lighter); `onSuccessContainer` unchanged (`#C8F0D0`, still clears 4.5:1 against the new fill).
+- `warningContainer`: `#4A3800` → `#816100` — a smaller lightness jump than success/error per the issue's explicit ask; `onWarningContainer` changed from the reused light-theme hex (`#FFDEA3`, no longer sufficient contrast) to a dedicated `#FFF2CC`.
+- `errorContainer`/`onErrorContainer` weren't previously overridden for dark — they fell through to the MD3-seed defaults (`#93000A`/`#FFDAD6`), also too dark. Added dark-only overrides in `lib/theme/app_theme.dart`'s `dark()` `.copyWith(...)`: `#D6000F`/`#FFE9E6`.
+
+Followed the plan's pre-implementation review: added a new `contrast_test.dart` group asserting all three dark containers meet 3:1 against `surface` (the WCAG 1.4.11 non-text/UI-boundary check the existing suite didn't cover — it only asserted on-color vs. container). TDD'd these three assertions first (confirmed RED against the old hex values), then iterated hex values (picked via a hue/saturation-preserving lightness search satisfying both the new 3:1-vs-surface and existing 4.5:1-vs-on-color constraints) until GREEN. Added one-line cross-reference comments between `app_colors.dart` and `app_theme.dart` noting the split location for future tier additions. Light theme and the Pending badge's `surfaceContainerHighest`/`onSurfaceVariant` untouched. Full suite (507 tests) + `flutter analyze` pass (only pre-existing, unrelated deprecation infos remain).
+
+All plans in `meta/plans/prd.json` are now complete.

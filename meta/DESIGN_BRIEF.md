@@ -53,14 +53,14 @@ All values chosen for WCAG AA contrast (4.5:1 text, 3:1 UI).
 | State | Token | Light | Dark |
 |---|---|---|---|
 | Error | `error` | `#BA1A1A` | `#FFB4AB` |
-| Error container | `errorContainer` | (MD3 default from seed) | `#93000A` |
-| On error container | `onErrorContainer` | (MD3 default from seed) | `#FFDAD6` |
+| Error container | `errorContainer` | (MD3 default from seed) | `#D6000F` |
+| On error container | `onErrorContainer` | (MD3 default from seed) | `#FFE9E6` |
 | Success | custom `success` | `#276234` | `#7DD996` |
-| Success container | custom `successContainer` | `#C8F0D0` | `#0F3D1E` |
+| Success container | custom `successContainer` | `#C8F0D0` | `#1D7439` |
 | On success container | custom `onSuccessContainer` | `#002111` | `#C8F0D0` |
 | Warning | custom `warning` | `#7A5800` | `#E8C24C` |
-| Warning container | custom `warningContainer` | `#FFDEA3` | `#4A3800` |
-| On warning container | custom `onWarningContainer` | `#281900` | `#FFDEA3` |
+| Warning container | custom `warningContainer` | `#FFDEA3` | `#816100` |
+| On warning container | custom `onWarningContainer` | `#281900` | `#FFF2CC` |
 
 Custom success/warning tokens applied via `ColorScheme.copyWith()` + `AppColors` extension class, branching on `ColorScheme.brightness`. Never use hex literals in widget code. Dark values are chosen from the same hue lines as light (green/gold) and individually verified to meet ≥4.5:1 (container pairs) / ≥3:1 (foreground vs. surface) contrast — see `test/theme/contrast_test.dart`.
 
