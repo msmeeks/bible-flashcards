@@ -377,6 +377,12 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
 
   Future<bool?> _showSaveConfirmationDialog(String reference) {
     final tt = Theme.of(context).textTheme;
+    // Guards the dialog's own Save button against a second, buffered tap
+    // firing after the first tap has already started popping this dialog
+    // (see #158) — without it, a stray tap can be dispatched to whatever
+    // route is revealed underneath once the dialog (and then the screen)
+    // pop in quick succession.
+    var dialogSaving = false;
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -404,7 +410,11 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
           ),
           FilledButton(
             key: const Key('add-verse-confirm-save-button'),
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () {
+              if (dialogSaving) return;
+              dialogSaving = true;
+              Navigator.of(ctx).pop(true);
+            },
             child: Text(_saveAndAddMore ? 'Save and add more' : 'Save'),
           ),
         ],

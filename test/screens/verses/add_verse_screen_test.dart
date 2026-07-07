@@ -517,6 +517,55 @@ void main() {
   );
 
   testWidgets(
+    'rapid repeat taps on the Save dialog confirm button save the verse only once',
+    (tester) async {
+      final settingsProvider = SettingsProvider();
+      final verseProvider = VerseProvider(DatabaseHelper());
+
+      await tester.pumpWidget(
+        _wrap(settingsProvider, verseProvider: verseProvider),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Phil 4:13');
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        'I can do all things through him.',
+      );
+      await _tapAndSettle(tester, find.text('Save Verse'));
+
+      final confirmButtonFinder = find.byKey(
+        const Key('add-verse-confirm-save-button'),
+      );
+      final confirmButton = tester.widget<FilledButton>(confirmButtonFinder);
+      expect(
+        confirmButton.onPressed,
+        isNotNull,
+        reason: 'confirm button should be enabled for the first tap',
+      );
+
+      await tester.runAsync(() async {
+        // Invoke the confirm button's callback twice back-to-back, as if a
+        // buffered second tap were dispatched to it before the first pop
+        // took effect — the callback itself must guard against this rather
+        // than relying on the tap never reaching it.
+        confirmButton.onPressed!();
+        confirmButton.onPressed?.call();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        await Future.delayed(const Duration(milliseconds: 200));
+        await tester.pump(const Duration(milliseconds: 500));
+      });
+
+      await tester.runAsync(() async {
+        final db = await DatabaseHelper().database;
+        final rows = await db.query('verses');
+        expect(rows, hasLength(1));
+      });
+    },
+  );
+
+  testWidgets(
     'canceling the Save dialog leaves the form unchanged and saves nothing',
     (tester) async {
       final settingsProvider = SettingsProvider();
