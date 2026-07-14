@@ -1,5 +1,6 @@
 {
   "integration_branch": "integration/2026-07-14-test-modes",
+  "pr_number": 167,
   "smoke_test": "flutter test",
   "feature_branches": [],
   "plans": [
