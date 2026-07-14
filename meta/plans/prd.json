@@ -1,0 +1,31 @@
+{
+  "integration_branch": "integration/2026-07-14-test-modes",
+  "smoke_test": "flutter test",
+  "feature_branches": [],
+  "plans": [
+    {
+      "file": "feat-test-modes.md",
+      "issues": [165, 161, 162, 166],
+      "size": "M",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "fix-notifications.md",
+      "issues": [163],
+      "size": "S",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    },
+    {
+      "file": "feat-audio-verse-playback.md",
+      "issues": [164],
+      "size": "M",
+      "status": "pending",
+      "attempts": 0,
+      "blocked_by": []
+    }
+  ]
+}
