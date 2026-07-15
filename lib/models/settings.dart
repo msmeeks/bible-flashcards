@@ -1,5 +1,19 @@
 import 'package:flutter/material.dart';
 
+/// When a periodic memory-verse playback is allowed to fire.
+enum AudioTriggerMode {
+  /// Only insert a verse while another app is playing audio.
+  whileOtherAudioPlaying,
+
+  /// Insert a verse every interval regardless of other audio.
+  always;
+
+  static AudioTriggerMode fromName(String? name) => values.firstWhere(
+        (mode) => mode.name == name,
+        orElse: () => AudioTriggerMode.whileOtherAudioPlaying,
+      );
+}
+
 class AppSettings {
   // Sentinel for copyWith to distinguish "omitted" from "explicit null"
   // on the nullable dailyNotificationTime field.
@@ -9,7 +23,10 @@ class AppSettings {
   // names are intentionally unchanged here to avoid a pref-key migration.
   final bool audioInterruptEnabled;
   final double audioInterruptProbability; // default 0.5
-  final int audioInterruptAfterMinutes; // default 60
+
+  /// How often a memory verse is inserted, in minutes. Recurring, not one-shot.
+  final int audioInterruptIntervalMinutes; // default 60
+  final AudioTriggerMode audioInterruptTriggerMode;
   final String defaultTranslation; // "ESV"
   final String themeMode; // "system" | "light" | "dark"
   final TimeOfDay? dailyNotificationTime;
@@ -21,7 +38,8 @@ class AppSettings {
   const AppSettings({
     this.audioInterruptEnabled = false,
     this.audioInterruptProbability = 0.5,
-    this.audioInterruptAfterMinutes = 60,
+    this.audioInterruptIntervalMinutes = 60,
+    this.audioInterruptTriggerMode = AudioTriggerMode.whileOtherAudioPlaying,
     this.defaultTranslation = 'ESV',
     this.themeMode = 'system',
     this.dailyNotificationTime,
@@ -34,7 +52,8 @@ class AppSettings {
   AppSettings copyWith({
     bool? audioInterruptEnabled,
     double? audioInterruptProbability,
-    int? audioInterruptAfterMinutes,
+    int? audioInterruptIntervalMinutes,
+    AudioTriggerMode? audioInterruptTriggerMode,
     String? defaultTranslation,
     String? themeMode,
     Object? dailyNotificationTime = _sentinel,
@@ -49,8 +68,10 @@ class AppSettings {
           audioInterruptEnabled ?? this.audioInterruptEnabled,
       audioInterruptProbability:
           audioInterruptProbability ?? this.audioInterruptProbability,
-      audioInterruptAfterMinutes:
-          audioInterruptAfterMinutes ?? this.audioInterruptAfterMinutes,
+      audioInterruptIntervalMinutes:
+          audioInterruptIntervalMinutes ?? this.audioInterruptIntervalMinutes,
+      audioInterruptTriggerMode:
+          audioInterruptTriggerMode ?? this.audioInterruptTriggerMode,
       defaultTranslation: defaultTranslation ?? this.defaultTranslation,
       themeMode: themeMode ?? this.themeMode,
       dailyNotificationTime: identical(dailyNotificationTime, _sentinel)
@@ -70,7 +91,8 @@ class AppSettings {
     return {
       'audio_interrupt_enabled': audioInterruptEnabled,
       'audio_interrupt_probability': audioInterruptProbability,
-      'audio_interrupt_after_minutes': audioInterruptAfterMinutes,
+      'audio_interrupt_interval_minutes': audioInterruptIntervalMinutes,
+      'audio_interrupt_trigger_mode': audioInterruptTriggerMode.name,
       'default_translation': defaultTranslation,
       'theme_mode': themeMode,
       'daily_notification_hour': dailyNotificationTime?.hour,
@@ -97,8 +119,14 @@ class AppSettings {
       audioInterruptProbability:
           ((map['audio_interrupt_probability'] as num?)?.toDouble() ?? 0.5)
               .clamp(0.0, 1.0),
-      audioInterruptAfterMinutes:
-          map['audio_interrupt_after_minutes'] as int? ?? 60,
+      // Falls back to the legacy one-shot key so rows written before the
+      // recurring-playback change keep the user's configured minutes.
+      audioInterruptIntervalMinutes:
+          map['audio_interrupt_interval_minutes'] as int? ??
+              map['audio_interrupt_after_minutes'] as int? ??
+              60,
+      audioInterruptTriggerMode: AudioTriggerMode.fromName(
+          map['audio_interrupt_trigger_mode'] as String?),
       defaultTranslation: () {
         const validTranslations = {'BSB', 'KJV', 'WEB', 'ESV'};
         final raw = map['default_translation'] as String? ?? 'ESV';

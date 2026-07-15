@@ -22,7 +22,8 @@ class _ThrowingUrlLauncherPlatform extends UrlLauncherPlatform {
 
   @override
   Future<bool> launchUrl(String url, LaunchOptions options) {
-    throw PlatformException(code: 'NO_HANDLER', message: 'no app to handle url');
+    throw PlatformException(
+        code: 'NO_HANDLER', message: 'no app to handle url');
   }
 }
 
@@ -43,12 +44,15 @@ class _SucceedingUrlLauncherPlatform extends UrlLauncherPlatform {
 }
 
 // Mirrors the provider tree BibleFlashcardsApp builds in lib/app.dart.
-Widget _wrap() {
+// Pass [settingsProvider] to supply one already loaded from prefs; the default
+// holds AppSettings' defaults, since nothing calls load() here.
+Widget _wrap({SettingsProvider? settingsProvider}) {
   final dbHelper = DatabaseHelper();
 
   return MultiProvider(
     providers: [
-      ChangeNotifierProvider<SettingsProvider>.value(value: SettingsProvider()),
+      ChangeNotifierProvider<SettingsProvider>.value(
+          value: settingsProvider ?? SettingsProvider()),
       ChangeNotifierProvider<VerseProvider>.value(
         value: VerseProvider(dbHelper),
       ),
@@ -96,6 +100,11 @@ void main() {
       await tester.pumpWidget(_wrap());
       await tester.pump();
 
+      await tester.scrollUntilVisible(
+        find.text('Auto-advance verse of the week'),
+        200,
+      );
+
       expect(
         find.text('Auto-advance verse of the week'),
         findsOneWidget,
@@ -103,8 +112,8 @@ void main() {
       final switchFinder = find.byType(SwitchListTile);
       final autoAdvanceSwitch = tester
           .widgetList<SwitchListTile>(switchFinder)
-          .firstWhere((s) => (s.title as Text).data ==
-              'Auto-advance verse of the week');
+          .firstWhere((s) =>
+              (s.title as Text).data == 'Auto-advance verse of the week');
       expect(autoAdvanceSwitch.value, isFalse);
 
       await tester.tap(find.text('Auto-advance verse of the week'));
@@ -112,8 +121,8 @@ void main() {
 
       final updatedSwitch = tester
           .widgetList<SwitchListTile>(switchFinder)
-          .firstWhere((s) => (s.title as Text).data ==
-              'Auto-advance verse of the week');
+          .firstWhere((s) =>
+              (s.title as Text).data == 'Auto-advance verse of the week');
       expect(updatedSwitch.value, isTrue);
     },
   );
@@ -236,14 +245,19 @@ void main() {
       await tester.pumpWidget(_wrap());
       await tester.pump();
 
+      await tester.scrollUntilVisible(
+        find.text('Auto-advance verse of the week'),
+        200,
+      );
+
       await tester.tap(find.text('Auto-advance verse of the week'));
       await tester.pump();
 
       final switchFinder = find.byType(SwitchListTile);
       final enabledSwitch = tester
           .widgetList<SwitchListTile>(switchFinder)
-          .firstWhere((s) => (s.title as Text).data ==
-              'Auto-advance verse of the week');
+          .firstWhere((s) =>
+              (s.title as Text).data == 'Auto-advance verse of the week');
       expect(enabledSwitch.value, isTrue);
 
       await tester.tap(find.text('Auto-advance verse of the week'));
@@ -251,8 +265,8 @@ void main() {
 
       final disabledSwitch = tester
           .widgetList<SwitchListTile>(switchFinder)
-          .firstWhere((s) => (s.title as Text).data ==
-              'Auto-advance verse of the week');
+          .firstWhere((s) =>
+              (s.title as Text).data == 'Auto-advance verse of the week');
       expect(disabledSwitch.value, isFalse);
     },
   );
@@ -296,8 +310,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(_wrap());
       await tester.pump();
-      await tester.scrollUntilVisible(
-          find.text('Clear Activity History'), 200);
+      await tester.scrollUntilVisible(find.text('Clear Activity History'), 200);
 
       await tester.tap(find.text('Clear Activity History'));
       await tester.pumpAndSettle();
@@ -305,6 +318,33 @@ void main() {
       expect(find.widgetWithText(OutlinedButton, 'Cancel'), findsOneWidget);
       expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
       expect(find.widgetWithText(FilledButton, 'Clear'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'periodic playback controls lay out without overflow at the 375px '
+    'breakpoint and reflect the stored interval and trigger mode',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'audio_interrupt_interval_minutes': 30,
+        'audio_interrupt_trigger_mode': 'always',
+      });
+      tester.view.physicalSize = const Size(375, 812);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final settingsProvider = SettingsProvider();
+      await settingsProvider.load();
+
+      await tester.pumpWidget(_wrap(settingsProvider: settingsProvider));
+      await tester.pump();
+
+      // A too-wide trailing widget or overflow would have thrown by now.
+      expect(find.text('Play verses periodically'), findsOneWidget);
+      expect(find.text('Every 30 minutes'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'While other audio plays'),
+          findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Anytime'), findsOneWidget);
     },
   );
 }

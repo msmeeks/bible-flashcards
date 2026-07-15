@@ -1,28 +1,31 @@
 # Audio
 
 ## Summary
-The audio feature lets the user hear verse recitations during other activities. It plays the reference, pauses for the user to mentally recite, then plays the text. A 50%-probability interruption feature reinforces passive memorization. (The legacy continuous "Audio review" shuffled-loop mode was retired — see #48.)
+The audio feature lets the user hear verse recitations during other activities. It plays the reference, pauses for the user to mentally recite, then plays the text. A periodic-playback feature inserts one memorized verse on a user-set interval — by default only while another app's audio is already playing, ducking it and resuming after — reinforcing passive memorization. (The legacy continuous "Audio review" shuffled-loop mode was retired — see #48.)
 
 ## Users / Use Cases
-- **Solo user**: listens to verse audio while doing other tasks; receives occasional audio interruptions as spaced-repetition prompts.
+- **Solo user**: listens to verse audio while doing other tasks; periodically hears one memorized verse inserted into (or alongside) whatever else they're listening to, as a spaced-repetition prompt.
 
 ## Technologies
 - `flutter_tts` — text-to-speech synthesis for reference and verse text (no bundled audio assets required)
 - `audioplayers` — local MP3 playback for real ESV recordings during the text phase
 - `flutter_local_notifications` — persistent notification and lock-screen controls; both notifications use `VISIBILITY_PRIVATE`
+- Android `AudioManager` (via `SystemAudioService`, a first-party `MethodChannel`) — detects other-app audio and requests/releases transient audio focus so it ducks rather than stops; the project's first platform channel
 - Provider — `AudioProvider` exposes playback state to UI
 
 ## Technical Overview
-Playback is driven by `AudioService`, a TTS state machine that sequences: speak reference → timed pause → speak text. For ESV verses, the text phase plays the real Crossway recording (fetched/cached by `EsvAudioCacheService`) instead of TTS; any cache or network failure falls back to TTS silently. `AudioInterruptService` runs a repeating timer that fires a one-verse interruption with 50% probability once a configurable threshold of elapsed time is reached.
+Playback is driven by `AudioService`, a TTS state machine that sequences: speak reference → timed pause → speak text. For ESV verses, the text phase plays the real Crossway recording (fetched/cached by `EsvAudioCacheService`) instead of TTS; any cache or network failure falls back to TTS silently. `AudioInterruptService` runs a recurring interval scheduler: every user-configured interval (default 60 min) it optionally checks — via the `SystemAudioService` platform channel — whether another app is currently playing audio before inserting one verse, requesting transient audio focus so that app ducks and resumes afterward.
 
 ## Key Files
 | File | Purpose |
 |---|---|
-| `lib/features/audio/audio_service.dart` | TTS state machine: reference → pause → text |
-| `lib/features/audio/audio_interrupt_service.dart` | Timer-based interruption, 50% probability |
-| `lib/features/audio/notification_controls.dart` | Notification construction and action handling |
+| `lib/services/audio_service.dart` | TTS state machine: reference → pause → text |
+| `lib/services/audio_interrupt_service.dart` | Recurring interval scheduler: trigger-mode gating, audio-focus bracket, verse selection |
+| `lib/services/system_audio_service.dart` | Dart wrapper over the `bible_flashcards/system_audio` platform channel (other-app-audio detection, transient audio focus) |
+| `android/app/src/main/kotlin/com/example/bible_flashcards/MainActivity.kt` | Kotlin channel handler: `isMusicActive`, `requestTransientFocus`, `abandonFocus` via `AudioManager` |
+| `lib/services/notification_service.dart` | Notification construction and action handling (playback + interrupt notifications) |
 | `lib/providers/audio_provider.dart` | Exposes playback state and controls to UI |
-| `lib/features/settings/settings_screen.dart` | Toggles for interrupt, probability slider, theme |
+| `lib/screens/settings/settings_screen.dart` | Audio section: periodic-playback toggle, interval dialog, trigger-mode chips, probability dialog |
 | `lib/services/esv_audio_cache_service.dart` | Fetches/caches Crossway ESV MP3 recordings; SSRF-guarded redirect, SHA-256 cache keys, 250-file cap |
 
 ## Technical Detail
@@ -55,10 +58,33 @@ When the state machine reaches `completed`:
 - Disabled navigation buttons (prev, rewind, forward) carry explicit `Semantics(enabled: false, button: true)`.
 - `Dismissible` wrapped in `Semantics` with a `CustomSemanticsAction(label: 'Dismiss player')` so screen readers can invoke stop.
 
-### AudioInterruptService — Timer
-- A repeating `Timer` fires every `checkInterval` (default 5 minutes).
-- No interruptions fire until `thresholdDuration` of continuous app use has elapsed (default 60 minutes, user-configurable in Settings).
-- On each timer tick after the threshold: `Random().nextDouble() < probability` (default 0.5). If true, `AudioService.play()` is called for one verse (verse-of-week 50% / random memorized verse 50%), then the timer pauses until that verse completes.
+### AudioInterruptService — Interval Scheduler
+- Tracking is polled every 10 seconds internally (fixed, not user-configurable) via `Timer.periodic`, comparing accumulated tracked time (paused/resumed by `pauseTracking`/`resumeTracking`) against the user-set `interval` (`audioInterruptIntervalMinutes`).
+- Once the interval elapses, the accumulator resets immediately — whether or not a verse ends up playing, the next interval is measured from that reset point, not from whenever playback finishes.
+- A verse is then picked via the unchanged `pickVerseForInterrupt` (verse-of-week weighted by `audioInterruptProbability` — see Settings Model below).
+- `triggerMode` gates whether it actually plays:
+  - `whileOtherAudioPlaying` (default): samples `SystemAudioService.isMusicActive()` up to 3 times with a 300ms debounce between samples (both injectable in tests), returning true on the first positive so a momentary gap between tracks/chapters doesn't skip the interval. If still inactive after all samples, the interval is skipped — no verse, no focus request.
+  - `always`: proceeds every interval without consulting `isMusicActive` at all.
+- If proceeding, requests transient audio focus (`SystemAudioService.requestTransientFocus()`). A denial — something with a stronger claim holds focus, e.g. a phone call — means the interval is skipped silently. On grant: stops any current audio, shows the interrupt notification, awaits `AudioService.playVerse()` (which resolves only after the full reference→pause→text sequence), then abandons focus in a `finally` — so focus is held for the whole verse.
+- A `_firing` re-entrancy guard stops the 10-second poll from starting a second playback if it ticks again mid-verse.
+- Changing the interval or trigger mode in Settings calls `startTracking` again, since the running `Timer` closed over the previous values.
+- Verse selection itself is unchanged by this feature, and recurrence is not new either — the prior threshold-based version already re-armed after each crossing. What's new here is the other-app-audio gate, the trigger mode, and the audio-focus bracket.
+
+### System Audio Platform Channel
+`SystemAudioService` (`lib/services/system_audio_service.dart`) wraps a new `bible_flashcards/system_audio` `MethodChannel` — the project's first platform channel — registered in `MainActivity.configureFlutterEngine` (Kotlin). Three no-argument methods:
+- `isMusicActive()` → `AudioManager.isMusicActive`; whether another app is currently playing audio. No permission required.
+- `requestTransientFocus()` → requests `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` (via `AudioFocusRequest` on API 26+; the deprecated `requestAudioFocus` overload below that, since minSdk is 24) so other audio ducks rather than stops. Returns whether focus was granted.
+- `abandonFocus()` → releases the held request so the other app returns to full volume.
+
+All three fail closed on the Dart side: a `PlatformException` or `MissingPluginException` is swallowed and reported as `false` (or a completed future for `abandonFocus`), so an unreachable platform skips the interval rather than crashing or talking over the user.
+
+Testing: `test/services/system_audio_service_test.dart` mocks the channel and covers all three methods plus their error paths. Because that only proves the Dart-side contract, `integration_test/system_audio_channel_test.dart` drives the real channel against the real `AudioManager` on a device to confirm the Kotlin side is registered and agrees on method names — run with `flutter test integration_test/system_audio_channel_test.dart -d <device>`.
+
+### Settings Model — Interval, Trigger Mode & Migration
+- `audioInterruptIntervalMinutes` (renamed from `audioInterruptAfterMinutes`) is a recurring "every N minutes" interval, not a one-shot threshold; UI presets are 15/30/45/60/90 min, default 60 (unchanged).
+- `audioInterruptTriggerMode` (`AudioTriggerMode.whileOtherAudioPlaying` default \| `always`) has a tolerant `fromName` that falls back to the default on an unknown or null value.
+- Migration: `AppSettings.fromMap` reads the new `audio_interrupt_interval_minutes` key, falling back to the legacy `audio_interrupt_after_minutes` key so existing installs keep their configured minutes; `SettingsProvider.load()` reads both keys and `_persist()` writes only the new ones (`audio_interrupt_interval_minutes`, `audio_interrupt_trigger_mode`). All settings — including this one — persist to `SharedPreferences`, not the encrypted SQLite verse database.
+- `audioInterruptEnabled` and `audioInterruptProbability` are unchanged. **`audioInterruptProbability` is the verse-of-week selection weight** (how often the verse of the week is picked over a random memorized verse) — it is not a play/skip roll on whether a verse plays at all, a common misreading of the name.
 
 ### Notifications
 Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the lock screen.
@@ -86,11 +112,13 @@ Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the
 - `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_MEDIA_PLAYBACK` for background TTS/audio.
 - `POST_NOTIFICATIONS` (Android 13+) for the dismissible notification.
 - `INTERNET` for ESV audio fetches (`api.esv.org`, `audio.esv.org`) — only used for ESV verses with consent already granted; no internet required otherwise. No microphone permission required for this feature.
+- No permission required for the system-audio channel — `AudioManager.isMusicActive` and audio-focus request/abandon are both permission-free APIs.
 
 ### Settings Exposed to User
-- Interrupt toggle (on/off)
-- Verse-of-week probability slider (10%–90%, default 50%) — controls how often the verse of the week is selected during interrupts
-- Interrupt threshold (30 min / 60 min / 90 min, default 60 min)
+- "Play verses periodically" toggle (on/off) — enabling requires a verse of the week to be set first
+- "Play a verse every" — interval presets 15 / 30 / 45 / 60 / 90 min, default 60 min, recurring; disabled while the toggle is off
+- "When to play" — trigger mode, "While other audio plays" (default) or "Anytime"; disabled while the toggle is off
+- Verse-of-week probability slider (10%–90%, default 50%) — the verse-of-week **selection weight**, not a play/skip roll on whether a verse plays at all
 - Theme selector (light / dark / system)
 - Test history list and "Clear History" action
 
@@ -105,3 +133,5 @@ Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the
 | 2026-06-26 | Added ESV audio playback: `EsvAudioCacheService` fetches/caches real Crossway recordings; `AudioService` plays them for the text phase of ESV verses via `audioplayers`, falling back to TTS silently on any failure (#70) |
 | 2026-06-26 | Added `AudioProvider.queue` read-only getter and wired `EsvCopyrightFooter` into `ReviewPlayScreen` (#68) |
 | 2026-06-26 | Internal hardening (#72, #74, #76): `EsvAudioCacheService`'s host/scheme checks now delegate to the shared `assertAllowedHttpsHost` guard, wrapping its `StateError` in `EsvAudioException` to preserve the existing exception contract |
+| 2026-07-14 | Periodic verse playback (#164): renamed `audioInterruptAfterMinutes` → `audioInterruptIntervalMinutes` (recurring "every N minutes" interval; presets 15/30/45/60/90 min, default 60 unchanged); added `AudioTriggerMode` (`whileOtherAudioPlaying` default \| `always`) with tolerant `fromName`; `fromMap`/`SettingsProvider` migrate from the legacy `audio_interrupt_after_minutes` SharedPreferences key. `audioInterruptEnabled`/`audioInterruptProbability` unchanged. Settings reworked: "Play verses periodically" toggle, "Play a verse every" interval dialog, "When to play" trigger-mode chips |
+| 2026-07-14 | Periodic verse playback (#164): added `SystemAudioService`, the project's first platform channel (`bible_flashcards/system_audio`), wrapping `AudioManager.isMusicActive` and transient-audio-focus request/abandon in Kotlin (`MainActivity`, no new permission; fails closed on channel errors). `AudioInterruptService` gates `whileOtherAudioPlaying` on a debounced (3× / 300ms) `isMusicActive` check, holds focus for the whole verse (denial skips silently), and guards mid-verse re-entrancy — recurrence itself isn't new, the prior threshold logic already re-armed after each crossing. Added `system_audio_service_test.dart`, expanded `audio_interrupt_service_test.dart`, a 375px settings layout test, and `integration_test/system_audio_channel_test.dart` for the real channel |

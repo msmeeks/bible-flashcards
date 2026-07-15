@@ -45,11 +45,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Saved default may be 'ESV' from a build that had a key configured;
     // fall back to BSB for display when this build has none, mirroring
     // AddVerseScreen's fallback for the same situation.
-    final effectiveDefaultTranslation =
-        settings.defaultTranslation == 'ESV' &&
-                !EsvLookupService.isApiKeyConfigured
-            ? 'BSB'
-            : settings.defaultTranslation;
+    final effectiveDefaultTranslation = settings.defaultTranslation == 'ESV' &&
+            !EsvLookupService.isApiKeyConfigured
+        ? 'BSB'
+        : settings.defaultTranslation;
     final esvSelected = effectiveDefaultTranslation == 'ESV';
 
     return Scaffold(
@@ -61,15 +60,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ----------------------------------------------------------------
           _SectionHeader(label: 'Audio', textTheme: tt),
           SwitchListTile(
-            title: const Text('Interrupt audio for verse reminders'),
-            subtitle: const Text(
-              'After 1 hour of audio, play a memorized verse',
+            title: const Text('Play verses periodically'),
+            subtitle: Text(
+              settings.audioInterruptTriggerMode ==
+                      AudioTriggerMode.whileOtherAudioPlaying
+                  ? 'Every ${settings.audioInterruptIntervalMinutes} minutes, '
+                      'while other audio is playing'
+                  : 'Every ${settings.audioInterruptIntervalMinutes} minutes',
             ),
             value: settings.audioInterruptEnabled,
             onChanged: (value) => _onAudioInterruptChanged(
               context,
               settingsProvider,
               value,
+            ),
+          ),
+          ListTile(
+            enabled: settings.audioInterruptEnabled,
+            title: const Text('Play a verse every'),
+            subtitle: const Text('How often a memorized verse is played'),
+            trailing: MergeSemantics(
+              child: Text(
+                '${settings.audioInterruptIntervalMinutes} min',
+                style: tt.bodyMedium,
+              ),
+            ),
+            onTap: settings.audioInterruptEnabled
+                ? () => _showIntervalDialog(context, settingsProvider)
+                : null,
+          ),
+          // The choices are laid out under the title rather than in the
+          // trailing slot: their labels are too wide for a ListTile trailing
+          // widget at a 375px viewport.
+          ListTile(
+            enabled: settings.audioInterruptEnabled,
+            title: const Text('When to play'),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Semantics(
+                label: 'When to play a verse',
+                explicitChildNodes: true,
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final mode in AudioTriggerMode.values)
+                      ChoiceChip(
+                        label: Text(_triggerModeLabel(mode)),
+                        selected: settings.audioInterruptTriggerMode == mode,
+                        onSelected: settings.audioInterruptEnabled
+                            ? (_) =>
+                                _onTriggerModeChanged(settingsProvider, mode)
+                            : null,
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
           ListTile(
@@ -114,21 +159,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: MergeSemantics(
               child: ListTile(
                 title: const Text('Notification type'),
-                trailing: SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                        value: 'verseOfWeek', label: Text('Verse of week')),
-                    ButtonSegment(
-                        value: 'reviewVerse', label: Text('Review verse')),
-                  ],
-                  selected: {settings.notificationType},
-                  onSelectionChanged: (selected) {
-                    settingsProvider.update(
-                      settings.copyWith(notificationType: selected.first),
-                      announcement:
-                          'Notification type set to ${selected.first == 'verseOfWeek' ? 'verse of week' : 'review verse'}',
-                    );
-                  },
+                // Under the title, not trailing: these labels overflow a
+                // ListTile trailing slot on a ~360dp phone.
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                          value: 'verseOfWeek', label: Text('Verse of week')),
+                      ButtonSegment(
+                          value: 'reviewVerse', label: Text('Review verse')),
+                    ],
+                    selected: {settings.notificationType},
+                    onSelectionChanged: (selected) {
+                      settingsProvider.update(
+                        settings.copyWith(notificationType: selected.first),
+                        announcement:
+                            'Notification type set to ${selected.first == 'verseOfWeek' ? 'verse of week' : 'review verse'}',
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -182,8 +232,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 builder: (context, liveRegion) => esvSelected
                     ? Semantics(
                         liveRegion: liveRegion,
-                        label:
-                            'ESV is for personal, non-commercial use only.',
+                        label: 'ESV is for personal, non-commercial use only.',
                         child: Text(
                           'ESV is for personal, non-commercial use only.',
                           style: tt.bodySmall?.copyWith(
@@ -332,7 +381,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final uri = Uri.parse('https://www.esv.org');
               bool launched = false;
               try {
-                launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+                launched =
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
               } catch (_) {
                 launched = false;
               }
@@ -379,30 +429,113 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      final memorized = verseProvider.memorizedVerses;
-      final settings = settingsProvider.settings;
-      final notifService = context.read<NotificationService>();
-
-      _interruptService ??= AudioInterruptService(
-        audioService: AudioService(),
-        notificationService: notifService,
-      );
-
-      _interruptService!.startTracking(
-        threshold: Duration(minutes: settings.audioInterruptAfterMinutes),
-        interruptProbability: settings.audioInterruptProbability,
-        memorizedVerses: memorized,
-        verseOfWeek: verseOfWeek,
-      );
+      _startTracking(context, settingsProvider.settings);
 
       await settingsProvider.update(
-        settings.copyWith(audioInterruptEnabled: true),
+        settingsProvider.settings.copyWith(audioInterruptEnabled: true),
       );
     } else {
       _interruptService?.stopTracking();
       await settingsProvider.update(
         settingsProvider.settings.copyWith(audioInterruptEnabled: false),
       );
+    }
+  }
+
+  static String _triggerModeLabel(AudioTriggerMode mode) => switch (mode) {
+        AudioTriggerMode.whileOtherAudioPlaying => 'While other audio plays',
+        AudioTriggerMode.always => 'Anytime',
+      };
+
+  /// (Re)starts tracking against [settings]. Also called when the interval or
+  /// trigger mode changes, since the running timer captured the old values.
+  void _startTracking(BuildContext context, AppSettings settings) {
+    final verseProvider = context.read<VerseProvider>();
+    final verseOfWeek = verseProvider.verseOfWeek;
+    if (verseOfWeek == null) return;
+
+    _interruptService ??= AudioInterruptService(
+      audioService: AudioService(),
+      notificationService: context.read<NotificationService>(),
+    );
+
+    _interruptService!.startTracking(
+      interval: Duration(minutes: settings.audioInterruptIntervalMinutes),
+      triggerMode: settings.audioInterruptTriggerMode,
+      interruptProbability: settings.audioInterruptProbability,
+      memorizedVerses: verseProvider.memorizedVerses,
+      verseOfWeek: verseOfWeek,
+    );
+  }
+
+  Future<void> _onTriggerModeChanged(
+    SettingsProvider settingsProvider,
+    AudioTriggerMode mode,
+  ) async {
+    final updated =
+        settingsProvider.settings.copyWith(audioInterruptTriggerMode: mode);
+    await settingsProvider.update(
+      updated,
+      announcement: mode == AudioTriggerMode.whileOtherAudioPlaying
+          ? 'Verses play only while other audio is playing'
+          : 'Verses play at any time',
+    );
+    if (updated.audioInterruptEnabled && mounted) {
+      _startTracking(context, updated);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Interval dialog
+  // ---------------------------------------------------------------------------
+
+  static const _intervalPresets = <int>[15, 30, 45, 60, 90];
+
+  Future<void> _showIntervalDialog(
+    BuildContext context,
+    SettingsProvider settingsProvider,
+  ) async {
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        final current = settingsProvider.settings.audioInterruptIntervalMinutes;
+        return AlertDialog(
+          title: const Text('Play a verse every'),
+          content: Semantics(
+            label: 'Playback interval presets',
+            explicitChildNodes: true,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final minutes in _intervalPresets)
+                  ChoiceChip(
+                    label: Text('$minutes min'),
+                    selected: minutes == current,
+                    onSelected: (_) => Navigator.of(dialogContext).pop(minutes),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selected == null) return;
+    final updated = settingsProvider.settings
+        .copyWith(audioInterruptIntervalMinutes: selected);
+    await settingsProvider.update(
+      updated,
+      announcement: 'Playing a verse every $selected minutes',
+    );
+    if (updated.audioInterruptEnabled && mounted) {
+      _startTracking(this.context, updated);
     }
   }
 

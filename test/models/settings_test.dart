@@ -19,6 +19,12 @@ void main() {
       const s = AppSettings();
       expect(s.dailyNotificationTime, isNull);
     });
+
+    test('audioInterruptTriggerMode defaults to whileOtherAudioPlaying', () {
+      const s = AppSettings();
+      expect(
+          s.audioInterruptTriggerMode, AudioTriggerMode.whileOtherAudioPlaying);
+    });
   });
 
   group('AppSettings.toMap', () {
@@ -94,6 +100,13 @@ void main() {
       expect(s.notificationType, 'verseOfWeek');
     });
 
+    test(
+        'legacy audio_interrupt_after_minutes row migrates to the recurring '
+        'interval', () {
+      final s = AppSettings.fromMap({'audio_interrupt_after_minutes': 90});
+      expect(s.audioInterruptIntervalMinutes, 90);
+    });
+
     test('midnight boundary round-trips correctly', () {
       const original = AppSettings(
         dailyNotificationTime: TimeOfDay(hour: 0, minute: 0),
@@ -167,8 +180,7 @@ void main() {
       expect(s.lastVerseAdvanceDate, isNull);
     });
 
-    test('lastVerseAdvanceDate just inside the 365-day window is accepted',
-        () {
+    test('lastVerseAdvanceDate just inside the 365-day window is accepted', () {
       final justInside = DateTime.now().add(const Duration(days: 364));
       final s = AppSettings.fromMap(
         {'last_verse_advance_date': justInside.toIso8601String()},

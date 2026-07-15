@@ -239,8 +239,7 @@ void main() {
     // Settings tab, underneath the IndexedStack) must not be reachable via
     // the semantics tree at all.
     expect(
-      () =>
-          tester.getSemantics(find.text('Interrupt audio for verse reminders')),
+      () => tester.getSemantics(find.text('Play verses periodically')),
       throwsA(isA<StateError>()),
     );
 
@@ -249,8 +248,7 @@ void main() {
 
     // Now that Settings is active, its control is reachable again.
     expect(
-      () =>
-          tester.getSemantics(find.text('Interrupt audio for verse reminders')),
+      () => tester.getSemantics(find.text('Play verses periodically')),
       returnsNormally,
     );
 

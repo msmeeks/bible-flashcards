@@ -84,3 +84,4 @@ Three fields on `AppSettings` (all persisted via `settings` SQLite table):
 |---|---|
 | 2026-06-12 | Initial documentation — daily reminder scheduling, timezone init, lock-screen toggle, notification channels, settings model fields |
 | 2026-06-12 | Corrected notification body text per-type, snackbar-on-false behavior, interrupt notification title, notificationType wiring |
+| 2026-07-14 | Fixed "Notification type" `SegmentedButton` overflowing its `ListTile` trailing slot at 375px width; now renders full-width under the title (found incidentally during #164) |

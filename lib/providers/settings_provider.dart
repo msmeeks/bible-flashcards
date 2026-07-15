@@ -16,8 +16,13 @@ class SettingsProvider extends ChangeNotifier {
       'audio_interrupt_enabled': prefs.getBool('audio_interrupt_enabled'),
       'audio_interrupt_probability':
           prefs.getDouble('audio_interrupt_probability'),
+      'audio_interrupt_interval_minutes':
+          prefs.getInt('audio_interrupt_interval_minutes'),
+      // Legacy key, still read so pre-recurring installs keep their minutes.
       'audio_interrupt_after_minutes':
           prefs.getInt('audio_interrupt_after_minutes'),
+      'audio_interrupt_trigger_mode':
+          prefs.getString('audio_interrupt_trigger_mode'),
       'default_translation': prefs.getString('default_translation'),
       'theme_mode': prefs.getString('theme_mode'),
       'daily_notification_hour': prefs.getInt('daily_notification_hour'),
@@ -48,8 +53,10 @@ class SettingsProvider extends ChangeNotifier {
         'audio_interrupt_enabled', appSettings.audioInterruptEnabled);
     await prefs.setDouble(
         'audio_interrupt_probability', appSettings.audioInterruptProbability);
-    await prefs.setInt('audio_interrupt_after_minutes',
-        appSettings.audioInterruptAfterMinutes);
+    await prefs.setInt('audio_interrupt_interval_minutes',
+        appSettings.audioInterruptIntervalMinutes);
+    await prefs.setString('audio_interrupt_trigger_mode',
+        appSettings.audioInterruptTriggerMode.name);
     await prefs.setString(
         'default_translation', appSettings.defaultTranslation);
     await prefs.setString('theme_mode', appSettings.themeMode);
@@ -65,8 +72,8 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.remove('daily_notification_minute');
     }
 
-    await prefs.setBool('auto_advance_verse_of_week',
-        appSettings.autoAdvanceVerseOfWeek);
+    await prefs.setBool(
+        'auto_advance_verse_of_week', appSettings.autoAdvanceVerseOfWeek);
     final advanceDate = appSettings.lastVerseAdvanceDate;
     if (advanceDate != null) {
       await prefs.setString(

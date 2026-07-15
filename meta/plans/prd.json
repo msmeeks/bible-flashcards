@@ -6,15 +6,22 @@
   "plans": [
     {
       "file": "feat-test-modes.md",
-      "issues": [165, 161, 162, 166],
+      "issues": [
+        165,
+        161,
+        162,
+        166
+      ],
       "size": "M",
       "status": "pending",
-      "attempts": 0,
+      "attempts": 5,
       "blocked_by": []
     },
     {
       "file": "fix-notifications.md",
-      "issues": [163],
+      "issues": [
+        163
+      ],
       "size": "S",
       "status": "pending",
       "attempts": 0,
@@ -22,10 +29,12 @@
     },
     {
       "file": "feat-audio-verse-playback.md",
-      "issues": [164],
+      "issues": [
+        164
+      ],
       "size": "M",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 1,
       "blocked_by": []
     }
   ]

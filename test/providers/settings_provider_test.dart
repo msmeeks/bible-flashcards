@@ -37,6 +37,18 @@ void main() {
       expect(provider.settings.showOnLockScreen, isTrue);
     });
 
+    test(
+        'upgrade from a build with only the legacy after-minutes key keeps '
+        'the configured minutes as the recurring interval', () async {
+      SharedPreferences.setMockInitialValues(
+          {'audio_interrupt_after_minutes': 30});
+      final provider = SettingsProvider();
+      await provider.load();
+      expect(provider.settings.audioInterruptIntervalMinutes, 30);
+      expect(provider.settings.audioInterruptTriggerMode,
+          AudioTriggerMode.whileOtherAudioPlaying);
+    });
+
     test('load with notification_type reviewVerse', () async {
       SharedPreferences.setMockInitialValues(
           {'notification_type': 'reviewVerse'});
@@ -47,7 +59,8 @@ void main() {
   });
 
   group('SettingsProvider.update persistence', () {
-    test('update with dailyNotificationTime persists hour and minute', () async {
+    test('update with dailyNotificationTime persists hour and minute',
+        () async {
       final provider = SettingsProvider();
       await provider.update(
         const AppSettings(
@@ -122,9 +135,9 @@ void main() {
       expect(provider.settings.dailyNotificationTime, isNull);
     });
 
-    test('load with only minute key yields null dailyNotificationTime', () async {
-      SharedPreferences.setMockInitialValues(
-          {'daily_notification_minute': 30});
+    test('load with only minute key yields null dailyNotificationTime',
+        () async {
+      SharedPreferences.setMockInitialValues({'daily_notification_minute': 30});
       final provider = SettingsProvider();
       await provider.load();
       expect(provider.settings.dailyNotificationTime, isNull);
