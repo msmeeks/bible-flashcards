@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ import 'package:url_launcher_platform_interface/link.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
+import 'package:bible_flashcards/models/settings.dart';
 import 'package:bible_flashcards/providers/settings_provider.dart';
 import 'package:bible_flashcards/providers/tracking_provider.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
@@ -29,6 +31,11 @@ class _FakeAndroidPlugin extends AndroidFlutterLocalNotificationsPlugin {
 
   @override
   Future<bool?> requestExactAlarmsPermission() async => exactAlarmsGranted;
+
+  /// Without this the inherited implementation reaches for a real MethodChannel
+  /// and throws, so any flow that cancels the reminder dies mid-handler.
+  @override
+  Future<void> cancel({required int id, String? tag}) async {}
 
   @override
   Future<void> zonedSchedule({
@@ -380,6 +387,152 @@ void main() {
     },
   );
 
+  // ListTile.enabled only dims the row, which carries the state by contrast
+  // alone — invisible to a screen reader and unreliable for low-vision users.
+  testWidgets(
+    'with periodic playback off, the dependent audio rows state their '
+    'unavailability in text and the trigger chips report disabled',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+
+      expect(
+        find.text('Turn on "Play verses periodically" to choose an interval'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Turn on "Play verses periodically" to choose when'),
+        findsOneWidget,
+      );
+
+      final chipGroup =
+          tester.getSemantics(find.byKey(const Key('trigger-mode-group')));
+      expect(chipGroup.hasFlag(SemanticsFlag.hasEnabledState), isTrue);
+      expect(chipGroup.hasFlag(SemanticsFlag.isEnabled), isFalse);
+      handle.dispose();
+    },
+  );
+
+  // Previously the tile emitted three unrelated static nodes with no button
+  // role, so the value read as chrome detached from the control that sets it.
+  testWidgets(
+    'the interval row is one merged node with a button role whose label '
+    'carries the live value',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'audio_interrupt_interval_minutes': 45,
+      });
+      final settingsProvider = SettingsProvider();
+      await settingsProvider.load();
+
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_wrap(settingsProvider: settingsProvider));
+      await tester.pump();
+
+      final row = tester.getSemantics(find.byKey(const Key('interval-row')));
+      expect(row.hasFlag(SemanticsFlag.isButton), isTrue);
+      expect(row.label, contains('Play a verse every'));
+      expect(row.label, contains('45 min'));
+      handle.dispose();
+    },
+  );
+
+  // A MergeSemantics whose only descendant is a Text has nothing to merge.
+  testWidgets('no MergeSemantics wraps a single leaf child', (tester) async {
+    await tester.pumpWidget(_wrap());
+    await tester.pump();
+
+    for (final merge in tester.widgetList<MergeSemantics>(
+      find.byType(MergeSemantics),
+    )) {
+      expect(merge.child, isNot(isA<Text>()),
+          reason: 'MergeSemantics around a bare Text is a no-op');
+    }
+  });
+
+  // The interval dialog and trigger-mode handler shipped with #164 untested.
+  // VerseProvider has no verse of the week here, which is the case that makes
+  // _startTracking bail out — so these also pin the no-verse no-op path.
+  group('periodic playback interaction', () {
+    Future<SettingsProvider> pumpEnabled(WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({
+        'audio_interrupt_enabled': true,
+        'audio_interrupt_interval_minutes': 30,
+        'audio_interrupt_trigger_mode': 'whileOtherAudioPlaying',
+      });
+      final settingsProvider = SettingsProvider();
+      await settingsProvider.load();
+      await tester.pumpWidget(_wrap(settingsProvider: settingsProvider));
+      await tester.pump();
+      return settingsProvider;
+    }
+
+    testWidgets('choosing a preset persists the interval and closes the dialog',
+        (tester) async {
+      final provider = await pumpEnabled(tester);
+
+      await tester.tap(find.text('Play a verse every'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, '45 min'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(provider.settings.audioInterruptIntervalMinutes, 45);
+      expect(find.text('45 min'), findsOneWidget);
+    });
+
+    testWidgets('cancelling the interval dialog leaves the interval unchanged',
+        (tester) async {
+      final provider = await pumpEnabled(tester);
+
+      await tester.tap(find.text('Play a verse every'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(provider.settings.audioInterruptIntervalMinutes, 30);
+    });
+
+    testWidgets('tapping a trigger chip persists the mode and moves the '
+        'selection to it', (tester) async {
+      final provider = await pumpEnabled(tester);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Anytime'));
+      await tester.pump();
+
+      expect(provider.settings.audioInterruptTriggerMode,
+          AudioTriggerMode.always);
+      expect(
+        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Anytime'))
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<ChoiceChip>(
+                find.widgetWithText(ChoiceChip, 'While other audio plays'))
+            .selected,
+        isFalse,
+      );
+    });
+
+    testWidgets('tapping a trigger chip while playback is off changes nothing',
+        (tester) async {
+      final provider = SettingsProvider();
+      await provider.load();
+      await tester.pumpWidget(_wrap(settingsProvider: provider));
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Anytime'));
+      await tester.pump();
+
+      expect(provider.settings.audioInterruptTriggerMode,
+          AudioTriggerMode.whileOtherAudioPlaying);
+    });
+  });
+
   group('daily reminder permission denial', () {
     late _FakeAndroidPlugin fake;
 
@@ -417,7 +570,8 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('shows an inline message naming notifications when the '
+    testWidgets(
+        'shows an inline message naming notifications when the '
         'notification permission is refused', (tester) async {
       fake.notificationsGranted = false;
 
@@ -430,7 +584,8 @@ void main() {
       );
     });
 
-    testWidgets('shows an inline message naming exact alarms when that '
+    testWidgets(
+        'shows an inline message naming exact alarms when that '
         'permission is refused', (tester) async {
       fake.exactAlarmsGranted = false;
 
@@ -443,11 +598,60 @@ void main() {
       );
     });
 
-    testWidgets('shows no message once the reminder schedules successfully',
-        (tester) async {
+    // The banner stays mounted with a null message so its live region is in the
+    // tree before the error arrives; that is what makes the change announce.
+    testWidgets(
+        'stays mounted but renders nothing once the reminder '
+        'schedules successfully', (tester) async {
       await toggleLockScreen(tester);
 
-      expect(find.byType(InlineStatusBanner), findsNothing);
+      expect(find.byType(InlineStatusBanner), findsOneWidget);
+      expect(
+        tester
+            .widget<InlineStatusBanner>(find.byType(InlineStatusBanner))
+            .message,
+        isNull,
+      );
+      expect(tester.getSize(find.byType(InlineStatusBanner)).height, 0);
+    });
+
+    // The banner's live region announces once. A user who arrives at the tile
+    // later — or tabs back to it — needs the reason from the control itself.
+    testWidgets(
+        'folds the error into the reminder tile semantics, and only '
+        'the banner is a live region', (tester) async {
+      fake.notificationsGranted = false;
+      final handle = tester.ensureSemantics();
+
+      await toggleLockScreen(tester);
+
+      final tile = tester.getSemantics(find.byKey(const Key('daily-reminder')));
+      expect(tile.label, contains('Allow notifications'));
+
+      // A live region on the tile as well would double-announce the message.
+      expect(tile.hasFlag(SemanticsFlag.isLiveRegion), isFalse);
+      handle.dispose();
+    });
+
+    testWidgets(
+        'turning the reminder off clears a scheduling error, so '
+        'Settings stops asking for a permission no reminder needs',
+        (tester) async {
+      fake.notificationsGranted = false;
+
+      await toggleLockScreen(tester);
+      expect(
+        find.textContaining('Allow notifications', findRichText: true),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.bySemanticsLabel('Clear daily reminder'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Allow notifications', findRichText: true),
+        findsNothing,
+      );
     });
   });
 }

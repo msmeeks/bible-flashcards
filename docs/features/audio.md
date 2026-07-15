@@ -122,6 +122,16 @@ Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the
 - Theme selector (light / dark / system)
 - Test history list and "Clear History" action
 
+### Audio Rows — Disabled State & Semantics
+Both dependent rows are gated on the "Play verses periodically" master switch. `ListTile.enabled: false` only dims the row, which carries the state by **contrast alone** — unreliable for a low-vision user and entirely invisible to a screen reader. So the dependency is also stated in text and in the semantics tree:
+
+- **Subtitle qualifier.** With the switch off, each row swaps its descriptive subtitle for the dependency: `Turn on "Play verses periodically" to choose an interval` / `... to choose when`.
+- **Trigger-chip group** (key `trigger-mode-group`) passes `enabled: settings.audioInterruptEnabled` to the same `Semantics` node that carries its group label and `explicitChildNodes: true` (the latter required by Design Brief §7 for preset chip rows), so the group reports `hasEnabledState` + not-`isEnabled`.
+- **Interval row** (key `interval-row`) and the sibling **verse-of-week probability row** (key `probability-row`) are each one `MergeSemantics` + `Semantics(button: true)` around the whole `ListTile`, matching the "Notification type" and "Theme" rows. Previously the trailing value sat in its own `MergeSemantics` around a bare `Text` — a no-op that emitted the value as a static node detached from the control that changes it. The merged label carries the live value (e.g. "Play a verse every … 45 min").
+- Trailing values use `tt.labelMedium`, not `tt.bodyMedium`: `bodyMedium` maps to Lora, reserved for scripture text (Design Brief §4). It rendered correctly only by coincidence of the `ListTile` default.
+
+Dialog commit semantics differ by input type and are specified in Design Brief §7: the interval dialog is a discrete preset chip list, so it commits on tap with Cancel as the sole escape; the probability dialog is a slider, so it follows Action Pairs with an explicit Save.
+
 ## Changelog
 | Date | Change |
 |---|---|
@@ -130,6 +140,7 @@ Both notification types use `VISIBILITY_PRIVATE` so no verse text appears on the
 | 2026-06-10 | Bug fixes: isCompleted getter; resume() guard; _currentVerse kept on completed/nulled on idle; player bar play button disabled + accessible; Symbols.* icons; Dismissible semantics |
 | 2026-06-24 | Retired legacy continuous "Audio review" shuffled-loop mode and `AudioReviewService` entirely (#48); `audioReviewEnabled` removed from settings model/SharedPreferences |
 | 2026-06-26 | Repurposed interrupt probability slider to control verse-of-week selection weight; interrupts now always fire once the threshold is crossed (#42) |
+| 2026-07-15 | Audio rows state their master-switch dependency in text and semantics; interval/probability rows merged into one button-role node with the live value; trailing values moved off the Lora-mapped role (#176, #177, #179, #183, #184) |
 | 2026-06-26 | Added ESV audio playback: `EsvAudioCacheService` fetches/caches real Crossway recordings; `AudioService` plays them for the text phase of ESV verses via `audioplayers`, falling back to TTS silently on any failure (#70) |
 | 2026-06-26 | Added `AudioProvider.queue` read-only getter and wired `EsvCopyrightFooter` into `ReviewPlayScreen` (#68) |
 | 2026-06-26 | Internal hardening (#72, #74, #76): `EsvAudioCacheService`'s host/scheme checks now delegate to the shared `assertAllowedHttpsHost` guard, wrapping its `StateError` in `EsvAudioException` to preserve the existing exception contract |

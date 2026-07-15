@@ -43,8 +43,24 @@ Scheduling is gated on two independent permissions, and `scheduleDailyNotificati
 3. Service calls `androidImpl?.requestExactAlarmsPermission()`. Returns `exactAlarmsDenied` and schedules nothing if refused.
 4. `TZDateTime` is computed for today at the picked hour/minute. If already past, adds 1 day so first fire is tomorrow at that time.
 5. `zonedSchedule` with `AndroidScheduleMode.exactAllowWhileIdle` (so Doze does not defer it) and `matchDateTimeComponents: DateTimeComponents.time` fires daily. Returns `scheduled`.
-6. `_applyNotificationSettings` maps a denied result to an inline `InlineStatusBanner` under the "Daily reminder" tile naming the permission to grant (a live region, so screen readers announce it). Per design brief §13 errors are never a `SnackBar`. A successful schedule clears the banner.
+6. `_applyNotificationSettings` maps a denied result to an inline `InlineStatusBanner` under the "Daily reminder" tile naming the permission to grant (a live region, so screen readers announce it). Per design brief §13 errors are never a `SnackBar`.
 7. Cancellation: `cancelDailyNotification()` calls `_plugin.cancel(id: 42)`. Also called when lock-screen toggle changes and `dailyNotificationTime` is null.
+
+### Reminder Error Lifecycle
+`_reminderError` (screen state in `settings_screen.dart`) holds the denial message. It is cleared on **every** path that leaves no reminder to describe, not just on success:
+
+| Path | Effect on `_reminderError` |
+|---|---|
+| Schedule succeeds (`scheduled`) | cleared |
+| Schedule denied | set to the message naming the missing permission |
+| User clears the reminder (`_clearDailyNotification`) | cleared **before** the platform call, so a failing cancel cannot strand it |
+| `_applyNotificationSettings` with a null `dailyNotificationTime` | cleared before the early return |
+
+The clear-on-off paths are the fix for #168: previously a denial left Settings indefinitely instructing the user to grant a permission for a reminder they had already turned off.
+
+The banner is **always mounted** and passed the nullable message rather than being wrapped in an `if (_reminderError != null)`. `InlineStatusBanner` collapses to `SizedBox.shrink()` on null and documents always-mounted as its intended contract — the live region must already be in the tree for the change to announce. Its horizontal padding sits outside the banner so a null message adds no vertical space.
+
+The message is also folded into the "Daily reminder" tile's own semantic label (`Semantics(label: _reminderError, ...)`, key `daily-reminder`) so the reason is discoverable from the control later in the session, not only via the banner's one-shot announcement. The tile is deliberately **not** a live region — only the banner is — otherwise the initial transition double-announces.
 
 ### API-Version Branching
 No Dart-side version check exists, and none is needed: the plugin branches natively. On API 33+ `requestNotificationsPermission` prompts for `POST_NOTIFICATIONS`; below 33 it reports `areNotificationsEnabled()` without prompting. `requestExactAlarmsPermission` likewise returns true automatically below API 31.
@@ -102,3 +118,4 @@ Three fields on `AppSettings` (all persisted via SharedPreferences, not the SQLi
 | 2026-06-12 | Corrected notification body text per-type, snackbar-on-false behavior, interrupt notification title, notificationType wiring |
 | 2026-07-14 | Fixed "Notification type" `SegmentedButton` overflowing its `ListTile` trailing slot at 375px width; now renders full-width under the title (found incidentally during #164) |
 | 2026-07-15 | #163: request `POST_NOTIFICATIONS` at runtime before scheduling (the reminder never appeared without it); `DailyReminderResult` replaces the bool return so Settings names the denied permission; denial now renders as an inline banner instead of a `SnackBar` (brief §13); added `RECEIVE_BOOT_COMPLETED` + `ScheduledNotificationBootReceiver` so alarms survive reboot. Corrected this doc's claim that notification settings persist to SQLite — they use SharedPreferences |
+| 2026-07-15 | #168/#178/#181: reminder error now clears on every reminder-off path (was stranding a permission request for a reminder the user had already turned off); banner always mounted with a nullable message per `InlineStatusBanner`'s contract; error folded into the reminder tile's semantic label, with the live region left on the banner alone to avoid a double announcement |

@@ -157,3 +157,64 @@ that test now calls `ensureVisible` + `pumpAndSettle`.
 Note for a human: `feat-test-modes.md` is `stalled` at 6 attempts and the driver
 will not retry it, so this iteration cannot reach all-plans-complete without a
 decision on that plan.
+
+---
+
+## 2026-07-15 — `fix-settings-audio-ux.md` (#168, #169, #176–#179, #181–#184, #186) — done
+
+Fixed the stale reminder-error banner and gave the new audio rows a state that
+screen readers and low-vision users can actually perceive.
+
+**Chosen over the other two pending plans** because both are `blocked_by` this
+one, so it was the only unblocked pending work. It also carries the iteration's
+one remaining user-visible correctness bug (#168), which outranks the docs and
+test-coverage plans behind it.
+
+**A prior attempt had already done most of this and left it uncommitted** —
+`attempts` was at 1 with `status: pending`, and the working tree held ~350 lines
+of unstaged changes to `settings_screen.dart`, its test file, and
+`DESIGN_BRIEF.md`. Rather than restart, I verified that work and finished it. It
+covers plan steps 1–7 and all 577 tests pass. What I checked before trusting it:
+
+- **Mutation-tested the load-bearing fix.** Deleted the
+  `setState(() => _reminderError = null)` from `_clearDailyNotification` — the
+  #168 deny-then-clear test fails, so the fix is genuinely pinned, not just
+  green.
+- **Read the new interaction tests** rather than counting them. They assert
+  against the persisted `AppSettings` and injected fakes as step 7 requires, not
+  private screen state, and the a11y tests read the real semantics tree
+  (`hasEnabledState`/`isEnabled` on the chip group, `isButton` + live value on
+  the merged interval node).
+- The #179/#184 conflict was resolved the way the plan's pre-implementation
+  review demanded: whole-tile merge, satisfying both rather than the #184-only
+  reading that would have stripped the value announcement.
+
+What I added: the two doc updates the plan's Files-to-Modify table lists and the
+prior attempt never made — a "Reminder Error Lifecycle" table in
+`docs/features/notifications.md` (all four clear paths, the always-mounted banner
+contract, and why the tile is deliberately *not* a live region) and an "Audio
+Rows — Disabled State & Semantics" section in `docs/features/audio.md`, plus
+changelog entries in both.
+
+**Acceptance criteria: all met except one, which is not achievable in scope.**
+`dart format --output=none --set-exit-if-changed .` exits 1 — but it exits 1 on a
+clean tree at this commit's base too, wanting to reformat **53 files repo-wide**,
+the same set either way. The installed `dart format` disagrees with the repo's
+committed style generally; this plan did not introduce it.
+`settings_screen.dart` is format-clean, and `settings_screen_test.dart` was
+already non-conformant at baseline. Reformatting 53 mostly-untouched files would
+bury this plan's diff in unrelated churn, so I left it. **Worth a human
+decision** — a repo-wide `dart format` commit of its own would fix it properly.
+
+Verification: 577 unit/widget tests pass (568 → 577); `flutter analyze` reports 0
+errors/warnings (14 pre-existing deprecation infos). No emulator smoke this time
+— `prd.json`'s `smoke_test` is `flutter test`, and the widget tests render the
+whole Settings screen at a 375px viewport, which is what the layout defects
+needed.
+
+Note for a human, unchanged from the entry above: `feat-test-modes.md` is still
+`stalled` at 6 attempts. The two remaining plans
+(`test-notification-audio-services.md`, `docs-privacy-audio-disclosure.md`) are
+now unblocked by this one. Also carried forward from the plan's own review: the
+#182 immediate-commit decision for chip dialogs was made at triage, not derived
+from an existing rule — it is reversible and flagged for PR review.

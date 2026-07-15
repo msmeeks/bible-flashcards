@@ -1,0 +1,65 @@
+## For the Product Manager
+
+**PRD:** No PRD issue linked
+
+**Overview:** This iteration delivers two user-visible fixes to the app's audio and reminder features. The old "Interrupt audio for verse reminders" setting has been reworked into periodic memory-verse playback: by default a verse is only inserted while another app is already playing audio, ducking that app and letting it resume afterwards, and the user can now choose both how often verses play and when they are allowed to play (#164). Separately, the daily reminder now actually fires — the app requests the Android 13+ notification permission before scheduling, tells the user exactly which permission is missing when one is refused, and re-registers its alarm after a reboot (#163). Two pre-existing layout defects that broke the Settings screen on ~360dp phones were fixed along the way.
+
+**User-facing changes:**
+
+- The Audio setting "Interrupt audio for verse reminders" is renamed to **"Play verses periodically"**, and its subtitle now reflects the configured interval and trigger mode instead of the hard-coded "After 1 hour of audio" text.
+- New **"Play a verse every"** setting opens a dialog to choose an interval of 15, 30, 45, 60, or 90 minutes. Previously the interval was fixed at 60 minutes with no UI to change it.
+- New **"When to play"** choice between *While other audio plays* (the default) and *Anytime*. In the default mode, a verse is only inserted when another app is actually playing audio.
+- While a verse plays, other apps' audio now **ducks and resumes** rather than being talked over. If the app cannot get audio focus (during a phone call, for example), it stays silent instead of playing.
+- Both new controls are disabled while "Play verses periodically" is off.
+- Existing users keep their configured interval — the settings migration reads the old stored value.
+- The **daily reminder now works**: the app requests the Android 13+ notification permission before scheduling. Previously the alarm fired but the OS silently dropped every notification (#163).
+- When scheduling fails, an **inline error banner** on the Settings screen names which of the two permissions was refused (notifications vs. exact alarms) — they live in different system screens. This replaces the old generic SnackBar. A successful schedule clears the banner.
+- The daily reminder **survives a device reboot** and an app update; previously the scheduled alarm was lost on reboot and never re-registered.
+- Fixed: the **"Notification type"** and **"Theme"** controls threw a "Trailing widget consumes the entire tile width" layout error on ~360dp phones. Both now render full-width beneath their titles. (Pre-existing defects, found incidentally.)
+
+**Test plan:**
+
+- [ ] Open Settings → Audio. Confirm the switch reads "Play verses periodically" and that "Play a verse every" and "When to play" are greyed out while the switch is off.
+- [ ] Turn the switch on. Tap "Play a verse every", pick 15 min, and confirm the switch's subtitle updates to say every 15 minutes while other audio is playing.
+- [ ] With "When to play" set to *While other audio plays* and nothing else playing audio, wait through an interval and confirm no verse plays.
+- [ ] Start music in another app, then wait through an interval. Confirm the music ducks (drops in volume, doesn't stop), a verse plays, and the music returns to full volume afterwards.
+- [ ] Switch "When to play" to *Anytime* with no other audio playing, and confirm a verse plays at the next interval.
+- [ ] Start a phone call and wait through an interval. Confirm the app stays silent rather than playing over the call.
+- [ ] Upgrade from a build on `main` with the interval previously configured, and confirm the setting still shows the same number of minutes after the update.
+- [ ] On an Android 13+ device with notifications never granted, set a daily reminder time in Settings. Confirm the system permission prompt appears.
+- [ ] Deny the notification prompt. Confirm a red inline message appears on the Settings screen naming notifications (not a SnackBar), and that no reminder is scheduled.
+- [ ] Grant notifications but deny the exact-alarm permission. Confirm the inline message names the alarm permission instead.
+- [ ] Grant both, confirm the reminder is scheduled and the error message disappears, then wait for the scheduled time and confirm the notification actually appears.
+- [ ] With a reminder scheduled, reboot the device and do **not** reopen the app. Confirm the reminder still fires at its scheduled time.
+- [ ] View Settings on a ~360dp-wide phone (or a 375px window). Confirm the "Notification type" and "Theme" controls render fully beneath their labels with no red overflow error.
+
+## For the Engineer
+
+**Overview:** The load-bearing engineering change is the project's **first platform channel** (`bible_flashcards/system_audio`), which exposes Android `AudioManager` state and audio-focus control to Dart. Around it sit an audio-focus lifecycle in `AudioInterruptService`, a SharedPreferences settings migration, and a `bool` → enum widening of the notification scheduling API. Test infrastructure grew substantially: the old claim that `NotificationService` "cannot be satisfied in a headless unit test environment" turned out to be false — `FlutterLocalNotificationsPlatform.instance` is settable, so the whole plugin surface is now fakeable with no production refactor, unlocking the permission tests. The suite went from roughly 387 to 568 tests, plus a new on-device integration test that is the only thing proving the Kotlin side is registered and agrees on method names.
+
+**Engineering changes:**
+
+- **New platform channel** `bible_flashcards/system_audio`, handled in `MainActivity.configureFlutterEngine`: `isMusicActive`, `requestTransientFocus` (`AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, using `AudioFocusRequest` on API 26+ and the legacy overload down to minSdk 24), and `abandonFocus`. No new Android permission; no method takes arguments, so nothing crossing the channel needs validation.
+- **New `SystemAudioService`** (`lib/services/system_audio_service.dart`) — Dart wrapper that fails closed: `PlatformException` and `MissingPluginException` become "no other audio" / "focus denied" rather than throwing, so an unreachable platform skips the interval instead of crashing.
+- **`AudioInterruptService`**: gates each interval on trigger mode; debounces `isMusicActive` (3 samples / 300ms, both injectable) so a gap between tracks doesn't skip; holds focus across the whole verse (`playVerse` resolves only after reference → pause → text) and releases it in a `finally`; re-entrancy guard prevents the 10s poll from starting a second playback mid-verse.
+- **Settings model**: new `AudioTriggerMode` enum with a `fromName` fallback; `audioInterruptAfterMinutes` renamed to `audioInterruptIntervalMinutes`. `AppSettings.fromMap` falls back to the legacy `audio_interrupt_after_minutes` pref key, and `SettingsProvider` reads both keys while writing only the new one.
+- **`NotificationService.scheduleDailyNotification`** now returns `DailyReminderResult` (`scheduled` / `notificationsDenied` / `exactAlarmsDenied`) instead of `bool`, and requests `POST_NOTIFICATIONS` before scheduling. `PlatformException` during the request fails closed to denied. No Dart-side API-version branching was added — the plugin branches natively, so no `device_info_plus` dependency.
+- **AndroidManifest**: added `RECEIVE_BOOT_COMPLETED` and the plugin's `ScheduledNotificationBootReceiver` (`exported="false"`) with `BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`, and both QUICKBOOT actions for OEMs that skip `BOOT_COMPLETED`.
+- **Settings UI** now restarts tracking when the interval or trigger mode changes, since the running timer captured the old values. Error display reuses the existing `InlineStatusBanner` (error severity, live region) rather than a `SnackBar`, per `DESIGN_BRIEF.md:221`.
+- **New tests**: `test/services/system_audio_service_test.dart`, `test/android_manifest_test.dart` (guards manifest declarations whose absence is silent and only observable after a reboot), `test/helpers/fake_audio_service.dart`, plus substantial additions to the audio-interrupt, notification, settings-screen, settings-provider, and settings-model suites.
+- **New on-device integration test** `integration_test/system_audio_channel_test.dart` drives the real channel against the real `AudioManager`; unit tests mock the channel, so this is the only coverage of the Kotlin side.
+- **Docs**: updated `docs/features/audio.md`, `docs/features/notifications.md`, and the `docs/llms.md` index. Both feature docs previously claimed settings persist to SQLite; they use SharedPreferences. Corrected.
+- **Plan/process files**: `meta/plans/*` and `meta/sdlc-review-findings.md` record the iteration's plans, progress log, and the 21 SDLC review findings filed as issues #168–#188.
+
+**Test plan:**
+
+- [ ] **Settings migration safety** (`AppSettings.fromMap`, `lib/models/settings.dart:119`): the fallback chain reads `audio_interrupt_interval_minutes` then the legacy `audio_interrupt_after_minutes`. `SettingsProvider.save` writes only the new key and never removes the old one, so both keys persist indefinitely on migrated installs. Confirm that's intended, and check by hand that an install carrying only the legacy key still surfaces its configured minutes after an upgrade-in-place (not a fresh install).
+- [ ] **`AudioTriggerMode.fromName` silent fallback** (`lib/models/settings.dart:9`): an unrecognized or corrupted stored value silently resolves to `whileOtherAudioPlaying` rather than surfacing. Confirm silently reverting to the default is the right call versus logging, given this is also the path a downgrade would take.
+- [ ] **Audio-focus lifecycle under partial failure** (`AudioInterruptService`): focus is acquired before playback and released in a `finally`. Exercise the paths where playback throws mid-verse, and where tracking is stopped (switch turned off, Settings disposed) while a verse is playing. Correct behavior is that focus is always abandoned and the other app resumes — a leaked focus request means the user's music stays ducked indefinitely. Note that #172 records these "tracking stopped mid-flight" branches as still uncovered.
+- [ ] **Re-entrancy guard vs. the 10s poll** (`AudioInterruptService`): the guard is what stops the poll from starting a second playback mid-verse. Verify by inspection that the flag is cleared on every exit path, including the focus-denied and exception paths, and not just on the happy path — a stuck flag silently disables playback for the rest of the session.
+- [ ] **Channel contract drift** (`MainActivity.configureFlutterEngine` ↔ `SystemAudioService`): method names are matched by string across Kotlin and Dart, and `SystemAudioService` swallows `MissingPluginException` as "no other audio" / "focus denied". A rename on either side therefore degrades to permanent silence rather than an error. Confirm `integration_test/system_audio_channel_test.dart` is actually run somewhere on-device — it is the only thing that catches this, and unit tests will stay green through the break.
+- [ ] **Audio-focus API branching across SDK levels** (`MainActivity`): `AudioFocusRequest` on API 26+ versus the legacy overload down to minSdk 24. Exercise `requestTransientFocus`/`abandonFocus` on an API 24–25 device or emulator image; the integration test's load-bearing assertion is only that `requestTransientFocus` returns true, and the error path can only return false, so a broken legacy branch looks identical to a denial.
+- [ ] **Boot receiver actually re-registers** (`AndroidManifest.xml:44`): `test/android_manifest_test.dart` only asserts the XML declarations exist. Verify on a real reboot, without reopening the app and without a manual `am broadcast` (a manual broadcast overlapping the real one made the first verification attempt inconclusive). Also confirm the `MY_PACKAGE_REPLACED` path re-registers after an app update.
+- [ ] **`bool` → `DailyReminderResult` API widening** (`lib/services/notification_service.dart`): confirm every caller of `scheduleDailyNotification` handles all three enum values rather than treating any non-`scheduled` result as a generic failure, and that the fail-closed `PlatformException` catch cannot mask a real bug by reporting a denial the user never saw.
+- [ ] **Banner lifecycle** (`_reminderError` in `settings_screen.dart:33`): state is held in the widget, cleared on success. #168 reports the banner going stale after the reminder is turned off — worth a design-level read on whether this belongs in the provider rather than screen state, since it is currently lost on rebuild and survives changes that invalidate it.
+- [ ] **Debounce tuning** (`isMusicActive`, 3 samples / 300ms): the sample count and window are injectable but the production defaults are a judgment call. Sanity-check them against a real gap between tracks and against a paused-then-resumed stream — too tight and the app talks into a pause, too loose and it misses the window.
