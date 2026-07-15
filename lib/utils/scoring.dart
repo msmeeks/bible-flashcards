@@ -121,7 +121,8 @@ int blankCountForPercentage(int candidateWordCount, int percentage) {
 /// tests; production callers should omit it and get a real [Random].
 List<int> blankIndices(List<String> words, int count, {Random? random}) {
   final candidatePositions = <int>[
-    for (var i = 0; i < words.length; i++) if (words[i] != ':') i,
+    for (var i = 0; i < words.length; i++)
+      if (words[i] != ':') i,
   ];
   if (candidatePositions.isEmpty || count <= 0) return [];
 

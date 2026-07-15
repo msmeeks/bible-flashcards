@@ -31,8 +31,7 @@ void main() {
       expect(find.widgetWithText(FilterChip, '20'), findsNothing);
     });
 
-    testWidgets('tapping a preset chip invokes onCountChanged',
-        (tester) async {
+    testWidgets('tapping a preset chip invokes onCountChanged', (tester) async {
       int? changedTo;
       await tester.pumpWidget(_wrap(ReviewCountControls(
         count: 5,

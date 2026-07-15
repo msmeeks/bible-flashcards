@@ -84,8 +84,8 @@ void main() {
       );
 
       // ...and Cancel is disabled too, so it cannot race the in-flight pop.
-      final cancel = tester
-          .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Cancel'));
+      final cancel = tester.widget<OutlinedButton>(
+          find.widgetWithText(OutlinedButton, 'Cancel'));
       expect(cancel.onPressed, isNull,
           reason: 'Cancel must be disabled while submitting');
 

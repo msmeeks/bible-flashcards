@@ -7,8 +7,7 @@ import 'package:bible_flashcards/services/legacy_settings_migration.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel =
-      MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+  const channel = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
 
   final deletedKeys = <String>[];
 

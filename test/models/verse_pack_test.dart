@@ -33,8 +33,8 @@ void main() {
     });
 
     test('single verseId survives round-trip', () {
-      const pack = VersePack(
-          id: 'p1', name: 'N', description: '', verseIds: ['only']);
+      const pack =
+          VersePack(id: 'p1', name: 'N', description: '', verseIds: ['only']);
       expect(VersePack.fromMap(pack.toMap()).verseIds, ['only']);
     });
 
@@ -76,24 +76,20 @@ void main() {
 
   group('VersePack equality', () {
     test('equality uses only id', () {
-      const a =
-          VersePack(id: 'same', name: 'A', description: '', verseIds: []);
+      const a = VersePack(id: 'same', name: 'A', description: '', verseIds: []);
       const b =
           VersePack(id: 'same', name: 'B', description: '', verseIds: ['x']);
       expect(a, equals(b));
     });
 
     test('different ids are not equal', () {
-      const a =
-          VersePack(id: 'p1', name: 'A', description: '', verseIds: []);
-      const b =
-          VersePack(id: 'p2', name: 'A', description: '', verseIds: []);
+      const a = VersePack(id: 'p1', name: 'A', description: '', verseIds: []);
+      const b = VersePack(id: 'p2', name: 'A', description: '', verseIds: []);
       expect(a, isNot(equals(b)));
     });
 
     test('hashCode consistent with equality', () {
-      const a =
-          VersePack(id: 'same', name: 'A', description: '', verseIds: []);
+      const a = VersePack(id: 'same', name: 'A', description: '', verseIds: []);
       const b =
           VersePack(id: 'same', name: 'B', description: '', verseIds: ['x']);
       expect(a.hashCode, b.hashCode);

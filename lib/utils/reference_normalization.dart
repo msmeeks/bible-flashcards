@@ -14,8 +14,7 @@ enum ReferenceNormalizationFailure {
 /// Outcome of [normalizeReferenceForSave]: either a canonical reference
 /// string, or a [failure] reason the caller can use to drive UI state.
 class ReferenceNormalizationResult {
-  const ReferenceNormalizationResult.success(this.reference)
-      : failure = null;
+  const ReferenceNormalizationResult.success(this.reference) : failure = null;
   const ReferenceNormalizationResult.failure(ReferenceNormalizationFailure f)
       : reference = null,
         failure = f;

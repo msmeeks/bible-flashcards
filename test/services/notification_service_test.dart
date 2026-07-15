@@ -142,13 +142,15 @@ void main() {
 
       expect(
         fake.channels.map((c) => c.id),
-        containsAll(<String>['bible_flashcards_audio', 'bible_flashcards_daily']),
+        containsAll(
+            <String>['bible_flashcards_audio', 'bible_flashcards_daily']),
       );
     });
   });
 
   group('scheduleDailyNotification permissions', () {
-    test('returns notificationsDenied and does not schedule when the '
+    test(
+        'returns notificationsDenied and does not schedule when the '
         'notification permission is refused', () async {
       fake.notificationsGranted = false;
 
@@ -159,7 +161,8 @@ void main() {
       expect(fake.scheduleCount, 0);
     });
 
-    test('returns exactAlarmsDenied and does not schedule when exact alarms '
+    test(
+        'returns exactAlarmsDenied and does not schedule when exact alarms '
         'are refused', () async {
       fake.exactAlarmsGranted = false;
 
@@ -194,7 +197,8 @@ void main() {
   });
 
   group('scheduleDailyNotification scheduling', () {
-    test('schedules once and reports scheduled when both permissions are '
+    test(
+        'schedules once and reports scheduled when both permissions are '
         'granted', () async {
       final result = await NotificationService()
           .scheduleDailyNotification(const TimeOfDay(hour: 9, minute: 0));
@@ -238,7 +242,8 @@ void main() {
         now: () => tz.TZDateTime(newYork(), 2026, 7, 15, 10, 30),
       );
 
-      await service.scheduleDailyNotification(const TimeOfDay(hour: 9, minute: 0));
+      await service
+          .scheduleDailyNotification(const TimeOfDay(hour: 9, minute: 0));
 
       expect(fake.scheduledDate, tz.TZDateTime(newYork(), 2026, 7, 16, 9, 0));
     });

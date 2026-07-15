@@ -16,7 +16,8 @@ class TestScreen extends StatefulWidget {
 class _TestScreenState extends State<TestScreen> {
   TestMode _mode = TestMode.verseOfWeek;
   final Set<TestFormat> _selectedFormats = TestFormat.values.toSet();
-  final Set<PromptDirection> _selectedDirections = PromptDirection.values.toSet();
+  final Set<PromptDirection> _selectedDirections =
+      PromptDirection.values.toSet();
   String? _prerequisiteError;
   int _reviewCount = 5;
   bool _includeVerseOfWeek = true;

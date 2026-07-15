@@ -41,8 +41,7 @@ void main() {
       ),
     ];
 
-    final versesById =
-        await resolveVersesForResults(results, DatabaseHelper());
+    final versesById = await resolveVersesForResults(results, DatabaseHelper());
 
     expect(versesById['a']?.reference, 'A 1:1');
     expect(versesById.containsKey('gone'), isFalse);

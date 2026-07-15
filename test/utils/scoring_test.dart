@@ -18,15 +18,24 @@ void main() {
     });
 
     test('identical inputs → 1.0', () {
-      expect(computeScore('for God so loved the world', 'for God so loved the world'), 1.0);
+      expect(
+          computeScore(
+              'for God so loved the world', 'for God so loved the world'),
+          1.0);
     });
 
     test('case-insensitive matching', () {
-      expect(computeScore('FOR GOD SO LOVED THE WORLD', 'for God so loved the world'), 1.0);
+      expect(
+          computeScore(
+              'FOR GOD SO LOVED THE WORLD', 'for God so loved the world'),
+          1.0);
     });
 
     test('punctuation stripped — commas and periods ignored', () {
-      expect(computeScore('for, God so loved the world.', 'for God so loved the world'), 1.0);
+      expect(
+          computeScore(
+              'for, God so loved the world.', 'for God so loved the world'),
+          1.0);
     });
 
     test('apostrophes preserved — "don\'t" stays one token', () {
@@ -78,7 +87,8 @@ void main() {
       expect(blankCountForPercentage(2, 20), 1);
     });
 
-    test('30/50/75% floor at 2 blanks even when the percentage math rounds lower',
+    test(
+        '30/50/75% floor at 2 blanks even when the percentage math rounds lower',
         () {
       expect(blankCountForPercentage(2, 30), 2);
       expect(blankCountForPercentage(2, 50), 2);
@@ -122,7 +132,8 @@ void main() {
       expect(indices, [0, 1, 3]);
     });
 
-    test('returns exactly the requested count when enough candidates exist', () {
+    test('returns exactly the requested count when enough candidates exist',
+        () {
       final words = List.generate(20, (i) => 'w$i');
       final indices = blankIndices(words, 5, random: Random(42));
       expect(indices.length, 5);
@@ -166,8 +177,8 @@ void main() {
     });
 
     test('plain verse text splits on whitespace only', () {
-      expect(splitAnswerTokens('for God so loved'),
-          ['for', 'God', 'so', 'loved']);
+      expect(
+          splitAnswerTokens('for God so loved'), ['for', 'God', 'so', 'loved']);
     });
 
     test('two-token reference splits chapter:verse on the colon', () {
@@ -194,8 +205,7 @@ void main() {
     test('longhand "Gospel of X" / "St X" forms match', () {
       expect(computeReferenceScore('The Gospel of Mark 4:9', 'Mark 4:9'), 1.0);
       expect(
-        computeReferenceScore(
-            'The Gospel According to Mark 4:9', 'Mark 4:9'),
+        computeReferenceScore('The Gospel According to Mark 4:9', 'Mark 4:9'),
         1.0,
       );
       expect(computeReferenceScore('St Mark 4:9', 'Mark 4:9'), 1.0);
@@ -209,7 +219,8 @@ void main() {
       expect(computeReferenceScore('The Book of Acts 2:1', 'Acts 2:1'), 1.0);
     });
 
-    test('unrecognized book name falls through to plain LCS, no false credit', () {
+    test('unrecognized book name falls through to plain LCS, no false credit',
+        () {
       final score = computeReferenceScore('Frodo 3:16', '1 Peter 3:16');
       expect(score, computeScore('Frodo 3:16', '1 Peter 3:16'));
       expect(score, lessThan(1.0));
@@ -221,12 +232,14 @@ void main() {
       expect(score, lessThan(1.0));
     });
 
-    test('typed side unrecognized, correct side recognized → falls through', () {
+    test('typed side unrecognized, correct side recognized → falls through',
+        () {
       final score = computeReferenceScore('Frodo 4:9', 'Mark 4:9');
       expect(score, computeScore('Frodo 4:9', 'Mark 4:9'));
     });
 
-    test('typed side recognized, correct side unrecognized → falls through', () {
+    test('typed side recognized, correct side unrecognized → falls through',
+        () {
       final score = computeReferenceScore('Mark 4:9', 'Frodo 4:9');
       expect(score, computeScore('Mark 4:9', 'Frodo 4:9'));
     });
@@ -245,21 +258,17 @@ void main() {
     });
 
     test('"to" and "through" range connectors normalized to a dash', () {
+      expect(computeReferenceScore('John 3:16 to 17', 'John 3:16-17'), 1.0);
       expect(
-          computeReferenceScore('John 3:16 to 17', 'John 3:16-17'), 1.0);
-      expect(
-          computeReferenceScore('John 3:16 through 17', 'John 3:16-17'),
-          1.0);
+          computeReferenceScore('John 3:16 through 17', 'John 3:16-17'), 1.0);
     });
 
     test('word-form "dash" range connector normalized', () {
-      expect(
-          computeReferenceScore('John 3:16 dash 17', 'John 3:16-17'), 1.0);
+      expect(computeReferenceScore('John 3:16 dash 17', 'John 3:16-17'), 1.0);
     });
 
     test('"and" after a chapter:verse token normalized to a range dash', () {
-      expect(
-          computeReferenceScore('John 3:16 and 17', 'John 3:16-17'), 1.0);
+      expect(computeReferenceScore('John 3:16 and 17', 'John 3:16-17'), 1.0);
     });
 
     test('"and" joining book-number prefixes is not mangled', () {
@@ -284,16 +293,21 @@ void main() {
       );
     });
 
-    test('verse-range form (chapter:verse-verse) matches across book variants', () {
+    test('verse-range form (chapter:verse-verse) matches across book variants',
+        () {
       expect(
         computeReferenceScore('1 Pt 3:16-18', '1 Peter 3:16-18'),
         1.0,
       );
     });
 
-    test('en dash and em dash range separators on the correct side still resolve the book span', () {
-      expect(computeReferenceScore('1 cor 15:3-4', '1 Corinthians 15:3–4'), 1.0);
-      expect(computeReferenceScore('1 cor 15:3-4', '1 Corinthians 15:3—4'), 1.0);
+    test(
+        'en dash and em dash range separators on the correct side still resolve the book span',
+        () {
+      expect(
+          computeReferenceScore('1 cor 15:3-4', '1 Corinthians 15:3–4'), 1.0);
+      expect(
+          computeReferenceScore('1 cor 15:3-4', '1 Corinthians 15:3—4'), 1.0);
     });
 
     test('custom variant resolves to its mapped book', () {
@@ -307,8 +321,7 @@ void main() {
 
     test(
         'bare-space verse + trailing "and" range does not fully normalize '
-        '(range connector resolves before the bare-space colon insertion)',
-        () {
+        '(range connector resolves before the bare-space colon insertion)', () {
       // Documents the ordering tradeoff called out in
       // _normalizeReferenceInput: "16 and 17" only becomes a range once a
       // colon already precedes it, but "3 16" hasn't been colonized yet
@@ -345,8 +358,7 @@ void main() {
   });
 
   group('scoreBlankedBookNameTokens', () {
-    test('single-token book name blanked with a recognized abbreviation',
-        () {
+    test('single-token book name blanked with a recognized abbreviation', () {
       final tokens = splitAnswerTokens('Mark 4:9');
       final result = scoreBlankedBookNameTokens(
         'Mark 4:9',
@@ -400,8 +412,7 @@ void main() {
       expect(result, {0: false, 1: false});
     });
 
-    test('typed value that does not resolve to any book stays incorrect',
-        () {
+    test('typed value that does not resolve to any book stays incorrect', () {
       final tokens = splitAnswerTokens('Mark 4:9');
       final result = scoreBlankedBookNameTokens(
         'Mark 4:9',

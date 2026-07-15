@@ -19,7 +19,8 @@ class ConfidenceBadge extends StatelessWidget {
   final double? accuracy;
   final String verseRef;
 
-  const ConfidenceBadge({super.key, required this.accuracy, required this.verseRef});
+  const ConfidenceBadge(
+      {super.key, required this.accuracy, required this.verseRef});
 
   @override
   Widget build(BuildContext context) {

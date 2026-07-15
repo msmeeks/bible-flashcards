@@ -5,7 +5,8 @@ import '../models/verse.dart';
 /// Renders a test result's verse reference, or an italic
 /// "$verseId (verse deleted)" fallback if the verse no longer exists.
 class VerseReferenceLabel extends StatelessWidget {
-  const VerseReferenceLabel({super.key, required this.verse, required this.verseId});
+  const VerseReferenceLabel(
+      {super.key, required this.verse, required this.verseId});
 
   final Verse? verse;
   final String verseId;

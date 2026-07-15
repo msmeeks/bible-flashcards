@@ -101,7 +101,8 @@ class _VerseOfWeekSection extends StatelessWidget {
                 header: true,
                 child: Text(
                   'Verse of the Week',
-                  style: tt.titleMedium?.copyWith(color: cs.onTertiaryContainer),
+                  style:
+                      tt.titleMedium?.copyWith(color: cs.onTertiaryContainer),
                 ),
               ),
               const SizedBox(height: 12),
@@ -109,8 +110,7 @@ class _VerseOfWeekSection extends StatelessWidget {
                 label: 'No verse of the week selected',
                 child: Text(
                   'No verse selected',
-                  style:
-                      tt.bodyMedium?.copyWith(color: cs.onTertiaryContainer),
+                  style: tt.bodyMedium?.copyWith(color: cs.onTertiaryContainer),
                 ),
               ),
               const SizedBox(height: 16),

@@ -237,7 +237,8 @@ void main() {
     'listen() returning false shows the unavailable announcement and '
     'resets the listening state',
     (tester) async {
-      await tester.pumpWidget(_wrap(_FakeSpeechService()..listenReturnsFalse = true));
+      await tester
+          .pumpWidget(_wrap(_FakeSpeechService()..listenReturnsFalse = true));
       await tester.pump();
 
       await tester.tap(find.byIcon(Symbols.mic_none_rounded));
@@ -561,13 +562,15 @@ void main() {
         wrapFillBlankWithDensity(longVerse(), BlankDensity.twenty),
       );
       await tester.pump();
-      final lowCount = tester.widgetList<TextField>(find.byType(TextField)).length;
+      final lowCount =
+          tester.widgetList<TextField>(find.byType(TextField)).length;
 
       await tester.pumpWidget(
         wrapFillBlankWithDensity(longVerse(), BlankDensity.seventyFive),
       );
       await tester.pump();
-      final highCount = tester.widgetList<TextField>(find.byType(TextField)).length;
+      final highCount =
+          tester.widgetList<TextField>(find.byType(TextField)).length;
 
       expect(highCount, greaterThan(lowCount));
     },

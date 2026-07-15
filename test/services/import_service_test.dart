@@ -123,5 +123,4 @@ void main() {
       expect(e.toString(), contains('test message'));
     });
   });
-
 }

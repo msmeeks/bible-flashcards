@@ -232,8 +232,8 @@ void main() {
         await _tapAndSettle(tester, find.text('Continue'));
 
         expect(find.byType(AlertDialog), findsNothing);
-        expect(find.textContaining('For God so loved the world.'),
-            findsOneWidget);
+        expect(
+            find.textContaining('For God so loved the world.'), findsOneWidget);
       },
     );
 
@@ -1074,7 +1074,8 @@ void main() {
       expect(find.byType(AlertDialog), findsOneWidget);
       await _tapAndSettle(tester, find.text('Continue'));
 
-      expect(find.textContaining('For God so loved the world.'), findsOneWidget);
+      expect(
+          find.textContaining('For God so loved the world.'), findsOneWidget);
       expect(find.textContaining('Unrecognized book name'), findsNothing);
     },
   );

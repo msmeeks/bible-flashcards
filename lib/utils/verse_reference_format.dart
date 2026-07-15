@@ -13,8 +13,7 @@ String formatVerseReference(String verseId) {
   final bookName = _bookDisplayNames[bookSlug];
   if (bookName == null) return verseId;
 
-  final verseRange =
-      verseEnd != null ? '$verseStart-$verseEnd' : verseStart;
+  final verseRange = verseEnd != null ? '$verseStart-$verseEnd' : verseStart;
   return '$bookName $chapter:$verseRange ($translation)';
 }
 

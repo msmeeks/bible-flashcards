@@ -495,17 +495,19 @@ void main() {
       expect(provider.settings.audioInterruptIntervalMinutes, 30);
     });
 
-    testWidgets('tapping a trigger chip persists the mode and moves the '
+    testWidgets(
+        'tapping a trigger chip persists the mode and moves the '
         'selection to it', (tester) async {
       final provider = await pumpEnabled(tester);
 
       await tester.tap(find.widgetWithText(ChoiceChip, 'Anytime'));
       await tester.pump();
 
-      expect(provider.settings.audioInterruptTriggerMode,
-          AudioTriggerMode.always);
       expect(
-        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Anytime'))
+          provider.settings.audioInterruptTriggerMode, AudioTriggerMode.always);
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Anytime'))
             .selected,
         isTrue,
       );

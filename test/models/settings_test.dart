@@ -39,8 +39,8 @@ void main() {
     });
 
     test('garbage falls back to the default', () {
-      expect(modeFrom('!!not-a-mode!!'),
-          AudioTriggerMode.whileOtherAudioPlaying);
+      expect(
+          modeFrom('!!not-a-mode!!'), AudioTriggerMode.whileOtherAudioPlaying);
     });
 
     test('an unknown but plausible name falls back to the default', () {

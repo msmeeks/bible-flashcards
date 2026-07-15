@@ -10,7 +10,8 @@ void main() {
   late String manifest;
 
   setUpAll(() {
-    manifest = File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+    manifest =
+        File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
   });
 
   group('AndroidManifest daily reminder requirements', () {

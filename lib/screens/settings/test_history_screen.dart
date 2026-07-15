@@ -11,11 +11,27 @@ import '../test/test_enums.dart';
 /// Formats a [DateTime] as "Mon, Jan 6, 2025" using only stdlib.
 String _formatDay(DateTime dt) {
   const weekdays = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday'
   ];
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
   ];
   // dt.weekday: 1=Monday … 7=Sunday
   final wd = weekdays[dt.weekday - 1];
@@ -133,9 +149,7 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                 child: Text(
                   'No test history yet.\nComplete a test to see results here.',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                   textAlign: TextAlign.center,
                 ),
@@ -177,8 +191,7 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                 padding: const EdgeInsets.all(16),
                 child: TextButton.icon(
                   style: TextButton.styleFrom(
-                    foregroundColor:
-                        Theme.of(context).colorScheme.error,
+                    foregroundColor: Theme.of(context).colorScheme.error,
                   ),
                   icon: const Icon(Icons.delete_outline_rounded),
                   label: const Text('Clear History'),
@@ -266,9 +279,8 @@ class _HistoryResultCard extends StatelessWidget {
       badgeIcon = Icons.cancel_outlined;
     }
 
-    final formatLabel =
-        TestFormatLabel.tryFromName(result.testFormat)?.label ??
-            result.testFormat;
+    final formatLabel = TestFormatLabel.tryFromName(result.testFormat)?.label ??
+        result.testFormat;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 6),

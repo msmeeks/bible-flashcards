@@ -78,8 +78,8 @@ void main() {
 
     testWidgets('initialState=both shows reference and text immediately',
         (tester) async {
-      await tester.pumpWidget(_wrap(
-          VerseCard(verse: _verse(), initialState: FlashcardState.both)));
+      await tester.pumpWidget(
+          _wrap(VerseCard(verse: _verse(), initialState: FlashcardState.both)));
       await _pump(tester);
 
       expect(find.text('John 3:16'), findsAtLeastNWidgets(1));
@@ -95,8 +95,7 @@ void main() {
     });
 
     testWidgets('memorized verse shows Memorized chip', (tester) async {
-      await tester
-          .pumpWidget(_wrap(VerseCard(verse: _verse(memorized: true))));
+      await tester.pumpWidget(_wrap(VerseCard(verse: _verse(memorized: true))));
       await _pump(tester);
       expect(find.text('Memorized'), findsOneWidget);
     });

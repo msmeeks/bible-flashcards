@@ -80,8 +80,7 @@ class _VersesScreenState extends State<VersesScreen>
       body: Consumer<VerseProvider>(
         builder: (context, provider, _) {
           // Copy lists before sorting to avoid mutating provider state.
-          final memorized = [...provider.memorizedVerses]
-            ..sort((a, b) {
+          final memorized = [...provider.memorizedVerses]..sort((a, b) {
               final aDate = a.memorizedAt ?? a.addedAt;
               final bDate = b.memorizedAt ?? b.addedAt;
               return bDate.compareTo(aDate);
@@ -219,7 +218,6 @@ class _MemorizedListTile extends StatelessWidget {
     );
   }
 }
-
 
 class _EmptyMemorizedState extends StatelessWidget {
   const _EmptyMemorizedState();

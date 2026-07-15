@@ -58,7 +58,8 @@ class ImportService {
       throw const ImportException('Missing or invalid schema_version');
     }
     if (version > 1) {
-      throw ImportException('File version $version is not supported by this app version');
+      throw ImportException(
+          'File version $version is not supported by this app version');
     }
 
     final rawVerses = raw['verses'];
@@ -82,7 +83,8 @@ class ImportService {
       if (text is! String || text.isEmpty || text.length > 2000) continue;
       if (ref is! String || ref.isEmpty || ref.length > 100) continue;
       if (id is! String || id.isEmpty || id.length > 100) continue;
-      if (translation is! String || translation.isEmpty ||
+      if (translation is! String ||
+          translation.isEmpty ||
           translation.length > 20) {
         continue;
       }
@@ -140,7 +142,8 @@ class ImportService {
       }
     });
 
-    return ImportSummary(versesImported: verses.length, resultsImported: results.length);
+    return ImportSummary(
+        versesImported: verses.length, resultsImported: results.length);
   }
 }
 

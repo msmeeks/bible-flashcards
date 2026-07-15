@@ -396,7 +396,8 @@ void main() {
     // to completion, which is what leaves the cancellation guards untested.
     // Kept small — a passing run short-circuits before ever awaiting it, and a
     // regression fails on the call-count assertion rather than by timing out.
-    AudioInterruptService buildService(CancellingSystemAudioService systemAudio) {
+    AudioInterruptService buildService(
+        CancellingSystemAudioService systemAudio) {
       final service = AudioInterruptService(
         audioService: audio,
         notificationService: notifications,
@@ -415,7 +416,8 @@ void main() {
           verseOfWeek: vow,
         );
 
-    test('stopping between debounce samples plays no verse and abandons the '
+    test(
+        'stopping between debounce samples plays no verse and abandons the '
         'probe loop', () async {
       // Silent throughout: without the guard the loop would sample all three.
       final systemAudio = CancellingSystemAudioService(
@@ -434,7 +436,8 @@ void main() {
       expect(systemAudio.isMusicActiveCalls, 1);
     });
 
-    test('stopping after a positive sample but before playback keeps the verse '
+    test(
+        'stopping after a positive sample but before playback keeps the verse '
         'silent', () async {
       // The probe says "yes, audio is playing" and the user stops in the same
       // instant — the guard between sampling and playback is the only thing

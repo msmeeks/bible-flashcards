@@ -106,7 +106,8 @@ void main() {
     expect(show.verses.length, 5);
   });
 
-  testWidgets('Start with Play selected queues playback and pushes ReviewPlayScreen',
+  testWidgets(
+      'Start with Play selected queues playback and pushes ReviewPlayScreen',
       (tester) async {
     final provider = VerseProvider(DatabaseHelper());
     provider.debugSetVerses(List.generate(7, (i) => makeVerse('v$i')));

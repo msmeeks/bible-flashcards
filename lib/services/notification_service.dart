@@ -265,7 +265,8 @@ class NotificationService {
 
   void _handleResponse(NotificationResponse response) {
     final action = response.actionId;
-    if (action != null && _validActions.contains(action)) onAction?.call(action);
+    if (action != null && _validActions.contains(action))
+      onAction?.call(action);
   }
 }
 

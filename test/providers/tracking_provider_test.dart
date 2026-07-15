@@ -16,38 +16,70 @@ void main() {
 
     test('today only → 1', () {
       final rows = [
-        {'date': _dateKey(DateTime.now()), 'event_type': 'flashcard_tap', 'count': 1},
+        {
+          'date': _dateKey(DateTime.now()),
+          'event_type': 'flashcard_tap',
+          'count': 1
+        },
       ];
       expect(TrackingProvider.computeStreak(rows), 1);
     });
 
     test('yesterday + day before, no today → 2 (grace period)', () {
       final rows = [
-        {'date': _dateKey(DateTime.now().subtract(const Duration(days: 1))), 'event_type': 'flashcard_tap', 'count': 1},
-        {'date': _dateKey(DateTime.now().subtract(const Duration(days: 2))), 'event_type': 'flashcard_tap', 'count': 1},
+        {
+          'date': _dateKey(DateTime.now().subtract(const Duration(days: 1))),
+          'event_type': 'flashcard_tap',
+          'count': 1
+        },
+        {
+          'date': _dateKey(DateTime.now().subtract(const Duration(days: 2))),
+          'event_type': 'flashcard_tap',
+          'count': 1
+        },
       ];
       expect(TrackingProvider.computeStreak(rows), 2);
     });
 
     test('today + yesterday → 2', () {
       final rows = [
-        {'date': _dateKey(DateTime.now()), 'event_type': 'flashcard_tap', 'count': 1},
-        {'date': _dateKey(DateTime.now().subtract(const Duration(days: 1))), 'event_type': 'flashcard_tap', 'count': 1},
+        {
+          'date': _dateKey(DateTime.now()),
+          'event_type': 'flashcard_tap',
+          'count': 1
+        },
+        {
+          'date': _dateKey(DateTime.now().subtract(const Duration(days: 1))),
+          'event_type': 'flashcard_tap',
+          'count': 1
+        },
       ];
       expect(TrackingProvider.computeStreak(rows), 2);
     });
 
     test('today + 2 days ago, no yesterday → 1 (gap stops streak)', () {
       final rows = [
-        {'date': _dateKey(DateTime.now()), 'event_type': 'flashcard_tap', 'count': 1},
-        {'date': _dateKey(DateTime.now().subtract(const Duration(days: 2))), 'event_type': 'flashcard_tap', 'count': 1},
+        {
+          'date': _dateKey(DateTime.now()),
+          'event_type': 'flashcard_tap',
+          'count': 1
+        },
+        {
+          'date': _dateKey(DateTime.now().subtract(const Duration(days: 2))),
+          'event_type': 'flashcard_tap',
+          'count': 1
+        },
       ];
       expect(TrackingProvider.computeStreak(rows), 1);
     });
 
     test('only 8 days ago → 0', () {
       final rows = [
-        {'date': _dateKey(DateTime.now().subtract(const Duration(days: 8))), 'event_type': 'flashcard_tap', 'count': 1},
+        {
+          'date': _dateKey(DateTime.now().subtract(const Duration(days: 8))),
+          'event_type': 'flashcard_tap',
+          'count': 1
+        },
       ];
       expect(TrackingProvider.computeStreak(rows), 0);
     });
@@ -92,7 +124,8 @@ void main() {
     });
 
     test('row exactly 6 days ago appears at index 0', () {
-      final sixDaysAgo = _dateKey(DateTime.now().subtract(const Duration(days: 6)));
+      final sixDaysAgo =
+          _dateKey(DateTime.now().subtract(const Duration(days: 6)));
       final rows = [
         {'date': sixDaysAgo, 'event_type': 'flashcard_tap', 'count': 5},
       ];
@@ -156,9 +189,18 @@ void main() {
     test('results sorted oldest-first for correct chart X-axis', () {
       final now = DateTime.now();
       final rows = [
-        {'tested_at': now.subtract(const Duration(days: 1)).toIso8601String(), 'accuracy': 0.8},
-        {'tested_at': now.subtract(const Duration(days: 5)).toIso8601String(), 'accuracy': 0.6},
-        {'tested_at': now.subtract(const Duration(days: 3)).toIso8601String(), 'accuracy': 0.7},
+        {
+          'tested_at': now.subtract(const Duration(days: 1)).toIso8601String(),
+          'accuracy': 0.8
+        },
+        {
+          'tested_at': now.subtract(const Duration(days: 5)).toIso8601String(),
+          'accuracy': 0.6
+        },
+        {
+          'tested_at': now.subtract(const Duration(days: 3)).toIso8601String(),
+          'accuracy': 0.7
+        },
       ];
       final result = TrackingProvider.computeLast30DaysScores(rows);
       expect(result[0].value, closeTo(0.6, 0.001));
@@ -190,7 +232,10 @@ void main() {
       final today = DateTime.now().subtract(const Duration(hours: 1));
       final rows = [
         {'tested_at': today.toIso8601String(), 'accuracy': 0.6},
-        {'tested_at': today.add(const Duration(minutes: 5)).toIso8601String(), 'accuracy': 1.0},
+        {
+          'tested_at': today.add(const Duration(minutes: 5)).toIso8601String(),
+          'accuracy': 1.0
+        },
       ];
       final result = TrackingProvider.computeLast30DaysScores(rows);
       expect(result, hasLength(1));
@@ -242,8 +287,7 @@ void main() {
       );
       final justBeforeMidnight =
           midnightTonight.subtract(const Duration(minutes: 1));
-      final justAfterMidnight =
-          midnightTonight.add(const Duration(minutes: 1));
+      final justAfterMidnight = midnightTonight.add(const Duration(minutes: 1));
       final rows = [
         {'tested_at': justBeforeMidnight.toIso8601String(), 'accuracy': 0.2},
         {'tested_at': justAfterMidnight.toIso8601String(), 'accuracy': 0.8},
@@ -274,14 +318,24 @@ void main() {
       final dayB = noonToday.subtract(const Duration(days: 3));
       final rows = [
         {'tested_at': dayA.toIso8601String(), 'accuracy': 0.4},
-        {'tested_at': dayA.add(const Duration(hours: 2)).toIso8601String(), 'accuracy': 1.0},
+        {
+          'tested_at': dayA.add(const Duration(hours: 2)).toIso8601String(),
+          'accuracy': 1.0
+        },
         {'tested_at': dayB.toIso8601String(), 'accuracy': 0.2},
-        {'tested_at': dayB.add(const Duration(hours: 1)).toIso8601String(), 'accuracy': 0.4},
-        {'tested_at': dayB.add(const Duration(hours: 2)).toIso8601String(), 'accuracy': 0.6},
+        {
+          'tested_at': dayB.add(const Duration(hours: 1)).toIso8601String(),
+          'accuracy': 0.4
+        },
+        {
+          'tested_at': dayB.add(const Duration(hours: 2)).toIso8601String(),
+          'accuracy': 0.6
+        },
       ];
       final result = TrackingProvider.computeLast30DaysScores(rows);
       expect(result, hasLength(2));
-      expect(result[0].value, closeTo(0.4, 0.001)); // dayB average: (0.2+0.4+0.6)/3
+      expect(result[0].value,
+          closeTo(0.4, 0.001)); // dayB average: (0.2+0.4+0.6)/3
       expect(result[1].value, closeTo(0.7, 0.001)); // dayA average: (0.4+1.0)/2
     });
 
@@ -291,7 +345,8 @@ void main() {
         DateTime.now().month,
         DateTime.now().day,
       );
-      final lateTonight = midnightTonight.add(const Duration(hours: 23, minutes: 59));
+      final lateTonight =
+          midnightTonight.add(const Duration(hours: 23, minutes: 59));
       final earlyToday = midnightTonight.add(const Duration(minutes: 1));
       final rows = [
         {'tested_at': earlyToday.toIso8601String(), 'accuracy': 0.2},

@@ -17,8 +17,7 @@ void main() {
     'add verse, memorize it, home shows verse of week, complete a test',
     (tester) async {
       const reference = 'Genesis 1:1';
-      const text =
-          'In the beginning God created the heavens and the earth.';
+      const text = 'In the beginning God created the heavens and the earth.';
 
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 2));
@@ -61,17 +60,14 @@ void main() {
       await tester.pumpAndSettle();
 
       final saved = await DatabaseHelper().getVerses();
-      final addedVerse =
-          saved.firstWhere((v) => v.reference == reference);
+      final addedVerse = saved.firstWhere((v) => v.reference == reference);
 
       // The newly added verse is grouped in its own pack at the end of the
       // Available list, below the fold — scroll it into view first.
       final memorizeButton =
           find.byKey(Key('memorize-button-${addedVerse.id}'));
       final availableList = find.byType(ListView);
-      for (var i = 0;
-          i < 20 && memorizeButton.evaluate().isEmpty;
-          i++) {
+      for (var i = 0; i < 20 && memorizeButton.evaluate().isEmpty; i++) {
         await tester.drag(availableList, const Offset(0, -300));
         await tester.pumpAndSettle();
       }

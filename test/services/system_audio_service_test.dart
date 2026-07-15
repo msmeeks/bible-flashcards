@@ -79,7 +79,8 @@ void main() {
       expect(await service.requestTransientFocus(), isFalse);
     });
 
-    test('requestTransientFocus reports denial when the channel is not '
+    test(
+        'requestTransientFocus reports denial when the channel is not '
         'registered at all', () async {
       // No mock handler installed -> MissingPluginException.
       expect(await service.requestTransientFocus(), isFalse);

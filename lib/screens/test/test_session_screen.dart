@@ -150,11 +150,10 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   void _initBlankState() {
     _currentBlankWords = splitAnswerTokens(_answerText);
     final percentage = widget.blankDensity == BlankDensity.random
-        ? BlankDensityLabel
-            .fixedPercentages[_rng.nextInt(BlankDensityLabel.fixedPercentages.length)]
+        ? BlankDensityLabel.fixedPercentages[
+            _rng.nextInt(BlankDensityLabel.fixedPercentages.length)]
         : widget.blankDensity.percentage;
-    final candidateCount =
-        _currentBlankWords.where((w) => w != ':').length;
+    final candidateCount = _currentBlankWords.where((w) => w != ':').length;
     final blankCount = blankCountForPercentage(candidateCount, percentage);
     _currentBlankIndices = widget.debugBlankIndices ??
         blankIndices(_currentBlankWords, blankCount, random: _rng);
@@ -208,9 +207,9 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       // Best-effort stop; a hung native stop() must not re-wedge the UI.
       unawaited(
         _speechService.stopListening().timeout(
-          const Duration(seconds: 3),
-          onTimeout: () {},
-        ),
+              const Duration(seconds: 3),
+              onTimeout: () {},
+            ),
       );
     });
   }
@@ -646,9 +645,7 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                       _isListening ? cs.onPrimary : cs.onPrimaryContainer,
                 ),
                 icon: Icon(
-                  _isListening
-                      ? Symbols.mic_rounded
-                      : Symbols.mic_none_rounded,
+                  _isListening ? Symbols.mic_rounded : Symbols.mic_none_rounded,
                 ),
                 label: Text(_isListening ? 'Listening…' : 'Recite aloud'),
                 onPressed: _onMicPressed,
@@ -774,11 +771,10 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
                   focusNode: _blankFocusNodes[blankIdx],
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 8),
-                    errorText: (isCorrect == false)
-                        ? _currentBlankWords[i]
-                        : null,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    errorText:
+                        (isCorrect == false) ? _currentBlankWords[i] : null,
                     errorStyle: TextStyle(color: cs.onErrorContainer),
                     errorMaxLines: 2,
                     suffixIcon: isCorrect == false
@@ -815,8 +811,8 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
         );
       }
       final isColon = _currentBlankWords[i] == ':';
-      final nextIsColon = i + 1 < _currentBlankWords.length &&
-          _currentBlankWords[i + 1] == ':';
+      final nextIsColon =
+          i + 1 < _currentBlankWords.length && _currentBlankWords[i + 1] == ':';
       if (!isColon && !nextIsColon) {
         spans.add(const SizedBox(width: 4));
       }

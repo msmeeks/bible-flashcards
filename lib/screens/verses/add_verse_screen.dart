@@ -76,9 +76,10 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     super.initState();
     final defaultTranslation =
         context.read<SettingsProvider>().settings.defaultTranslation;
-    _translation = (defaultTranslation == 'ESV' && !_esvLookupService.isAvailable)
-        ? 'BSB'
-        : defaultTranslation;
+    _translation =
+        (defaultTranslation == 'ESV' && !_esvLookupService.isAvailable)
+            ? 'BSB'
+            : defaultTranslation;
     _referenceController.addListener(_onReferenceEdited);
     _referenceFocusNode.addListener(_onReferenceFocusChange);
   }
@@ -180,7 +181,8 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   Future<bool> _ensureConsent() => _ensureConsentFor(
         prefsKey: _consentPrefKey,
         title: 'Online Verse Lookup',
-        body: 'Tapping Search will send the verse reference to bible.helloao.org '
+        body:
+            'Tapping Search will send the verse reference to bible.helloao.org '
             'over HTTPS to retrieve the text. Your IP address will be visible '
             'to that server. No other data is sent.\n\n'
             'Do you want to continue?',
@@ -264,14 +266,15 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     if (isEsv) {
       final count = context.read<VerseProvider>().esvVerseCount;
       if (count >= _esvCap) {
-        setState(() => _capWarning =
-            'You have $count ESV verses stored (the maximum). '
-            'Delete an ESV verse to add more.');
+        setState(() =>
+            _capWarning = 'You have $count ESV verses stored (the maximum). '
+                'Delete an ESV verse to add more.');
         return;
       }
     }
 
-    final consented = isEsv ? await _ensureEsvConsent() : await _ensureConsent();
+    final consented =
+        isEsv ? await _ensureEsvConsent() : await _ensureConsent();
     if (!consented || !mounted) return;
 
     setState(() {
@@ -287,8 +290,9 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       setState(() {
         _isLookingUp = false;
         _referenceUnresolved = resolution.unresolved;
-        _lookupError =
-            resolution.unresolved ? _unresolvedBookMessage : _invalidFormatMessage;
+        _lookupError = resolution.unresolved
+            ? _unresolvedBookMessage
+            : _invalidFormatMessage;
       });
       return;
     }
@@ -468,9 +472,10 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     _textController.clear();
     setState(() {
       _isSaving = false;
-      _translation = (defaultTranslation == 'ESV' && !_esvLookupService.isAvailable)
-          ? 'BSB'
-          : defaultTranslation;
+      _translation =
+          (defaultTranslation == 'ESV' && !_esvLookupService.isAvailable)
+              ? 'BSB'
+              : defaultTranslation;
       _saveAsMemorized = false;
       _saveError = null;
       _lookupError = null;
@@ -654,9 +659,8 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
             ),
             const SizedBox(height: 12),
             OutlinedButton(
-              onPressed: _isSaving
-                  ? null
-                  : () => Navigator.of(context).pop(false),
+              onPressed:
+                  _isSaving ? null : () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
             EsvCopyrightFooter(

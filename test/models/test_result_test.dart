@@ -44,7 +44,8 @@ void main() {
       expect(restored.testedAt, original.testedAt);
     });
 
-    test('accuracy as int (SQLite can return int for 1.0) converted to double', () {
+    test('accuracy as int (SQLite can return int for 1.0) converted to double',
+        () {
       final map = baseResult().toMap();
       map['accuracy'] = 1; // int, not double
       final r = VerseTestResult.fromMap(map);

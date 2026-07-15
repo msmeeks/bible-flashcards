@@ -14,7 +14,9 @@ import 'net_security.dart';
 /// Crossway's terms cap local ESV storage at 500 verses (enforced by callers,
 /// not this service — see `DatabaseHelper.insertEsvVerse`).
 class EsvLookupService {
-  EsvLookupService({http.Client? client, String apiKey = const String.fromEnvironment('ESV_API_KEY')})
+  EsvLookupService(
+      {http.Client? client,
+      String apiKey = const String.fromEnvironment('ESV_API_KEY')})
       : _client = client ?? http.Client(),
         _apiKey = apiKey;
 
@@ -41,7 +43,8 @@ class EsvLookupService {
   bool get isAvailable => _apiKey.isNotEmpty;
 
   static final _referencePattern = RegExp(r'^[A-Za-z0-9 :,\-]{1,100}$');
-  static final _refParsePattern = RegExp(r'^(.+?)\s+(\d+):(\d+)(?:-(\d+))?\s*$');
+  static final _refParsePattern =
+      RegExp(r'^(.+?)\s+(\d+):(\d+)(?:-(\d+))?\s*$');
 
   Future<VerseLookupResult> lookup(String reference) async {
     if (_apiKey.isEmpty) {
@@ -68,9 +71,10 @@ class EsvLookupService {
 
     late final http.Response response;
     try {
-      response = await _client
-          .get(uri, headers: {'Authorization': 'Token $_apiKey', 'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 10));
+      response = await _client.get(uri, headers: {
+        'Authorization': 'Token $_apiKey',
+        'Accept': 'application/json'
+      }).timeout(const Duration(seconds: 10));
     } on TimeoutException {
       throw const LookupException('Request timed out. Check your connection.');
     } catch (_) {
@@ -78,7 +82,8 @@ class EsvLookupService {
     }
 
     if (response.statusCode == 404) {
-      throw const LookupException('Verse not found. Check the reference and try again.');
+      throw const LookupException(
+          'Verse not found. Check the reference and try again.');
     }
     if (response.statusCode != 200) {
       throw LookupException('Lookup failed (${response.statusCode}).');
@@ -95,12 +100,14 @@ class EsvLookupService {
   String _canonicalReference(String reference) {
     final m = _refParsePattern.firstMatch(reference.trim());
     if (m == null) {
-      throw const LookupException('Use format "Book Chapter:Verse" e.g. "Romans 8:28".');
+      throw const LookupException(
+          'Use format "Book Chapter:Verse" e.g. "Romans 8:28".');
     }
     final bookName = m.group(1)!.trim();
     final usfm = bookNameToUsfm(bookName);
     if (usfm == null) {
-      throw const LookupException('Unknown book name. Check spelling and try again.');
+      throw const LookupException(
+          'Unknown book name. Check spelling and try again.');
     }
     final displayName = bookDisplayNames[usfm]!;
     final chapter = m.group(2)!;
@@ -124,7 +131,8 @@ class EsvLookupService {
       if (text.isEmpty) {
         throw const LookupException('No verse text found for that reference.');
       }
-      return VerseLookupResult(reference: reference, text: text, translation: 'ESV');
+      return VerseLookupResult(
+          reference: reference, text: text, translation: 'ESV');
     } on LookupException {
       rethrow;
     } catch (_) {
