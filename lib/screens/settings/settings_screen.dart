@@ -13,6 +13,7 @@ import '../../services/audio_service.dart';
 import '../../services/esv_lookup_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/announce_on_change.dart';
+import '../../widgets/inline_status_banner.dart';
 import '../history/history_screen.dart';
 import 'book_variants_screen.dart';
 import 'data_management_screen.dart';
@@ -28,6 +29,9 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   AudioInterruptService? _interruptService;
   final FocusNode _reminderFocusNode = FocusNode();
+
+  /// Why the daily reminder could not be scheduled, or null when it is fine.
+  String? _reminderError;
 
   @override
   void dispose() {
@@ -154,6 +158,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
             onTap: () => _showTimePicker(context, settingsProvider),
           ),
+          if (_reminderError != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: InlineStatusBanner(
+                severity: BannerSeverity.error,
+                message: _reminderError,
+              ),
+            ),
           Semantics(
             label: 'Notification type',
             child: MergeSemantics(
@@ -272,19 +284,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           MergeSemantics(
             child: ListTile(
               title: const Text('Theme'),
-              trailing: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'system', label: Text('System')),
-                  ButtonSegment(value: 'light', label: Text('Light')),
-                  ButtonSegment(value: 'dark', label: Text('Dark')),
-                ],
-                selected: {settings.themeMode},
-                onSelectionChanged: (selected) {
-                  settingsProvider.update(
-                    settings.copyWith(themeMode: selected.first),
-                    announcement: 'Theme set to ${selected.first}',
-                  );
-                },
+              // Under the title, not trailing: these labels overflow a
+              // ListTile trailing slot on a ~360dp phone.
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'system', label: Text('System')),
+                    ButtonSegment(value: 'light', label: Text('Light')),
+                    ButtonSegment(value: 'dark', label: Text('Dark')),
+                  ],
+                  selected: {settings.themeMode},
+                  onSelectionChanged: (selected) {
+                    settingsProvider.update(
+                      settings.copyWith(themeMode: selected.first),
+                      announcement: 'Theme set to ${selected.first}',
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -665,20 +682,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await notifService.cancelDailyNotification();
       return;
     }
-    final granted = await notifService.scheduleDailyNotification(
+    final result = await notifService.scheduleDailyNotification(
       settings.dailyNotificationTime!,
       showOnLockScreen: settings.showOnLockScreen,
       notificationType: settings.notificationType,
     );
-    if (!granted && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+    if (!context.mounted) return;
+    setState(() => _reminderError = switch (result) {
+          DailyReminderResult.scheduled => null,
+          DailyReminderResult.notificationsDenied =>
+            'Allow notifications in system settings to enable the daily reminder',
+          DailyReminderResult.exactAlarmsDenied =>
             'Allow exact alarms in system settings to enable the daily reminder',
-          ),
-        ),
-      );
-    }
+        });
   }
 
   // ---------------------------------------------------------------------------

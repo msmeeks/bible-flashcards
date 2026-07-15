@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest_all.dart' as tz_data;
+import 'package:timezone/timezone.dart';
 import 'package:url_launcher_platform_interface/link.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
@@ -12,6 +15,33 @@ import 'package:bible_flashcards/providers/tracking_provider.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
 import 'package:bible_flashcards/screens/settings/settings_screen.dart';
 import 'package:bible_flashcards/services/notification_service.dart';
+import 'package:bible_flashcards/widgets/inline_status_banner.dart';
+
+/// Lets a test dictate the permission answers the settings flow receives.
+/// See test/services/notification_service_test.dart for why swapping the
+/// platform instance works.
+class _FakeAndroidPlugin extends AndroidFlutterLocalNotificationsPlugin {
+  bool notificationsGranted = true;
+  bool exactAlarmsGranted = true;
+
+  @override
+  Future<bool?> requestNotificationsPermission() async => notificationsGranted;
+
+  @override
+  Future<bool?> requestExactAlarmsPermission() async => exactAlarmsGranted;
+
+  @override
+  Future<void> zonedSchedule({
+    required int id,
+    String? title,
+    String? body,
+    required TZDateTime scheduledDate,
+    AndroidNotificationDetails? notificationDetails,
+    required AndroidScheduleMode scheduleMode,
+    String? payload,
+    DateTimeComponents? matchDateTimeComponents,
+  }) async {}
+}
 
 class _ThrowingUrlLauncherPlatform extends UrlLauncherPlatform {
   @override
@@ -294,6 +324,8 @@ void main() {
       await tester.pumpWidget(_wrap());
       await tester.pump();
       await tester.scrollUntilVisible(find.text('Clear test history'), 200);
+      await tester.ensureVisible(find.text('Clear test history'));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Clear test history'));
       await tester.pumpAndSettle();
@@ -347,4 +379,75 @@ void main() {
       expect(find.widgetWithText(ChoiceChip, 'Anytime'), findsOneWidget);
     },
   );
+
+  group('daily reminder permission denial', () {
+    late _FakeAndroidPlugin fake;
+
+    // Scheduling resolves tz.local, which app startup normally initializes.
+    setUpAll(() {
+      tz_data.initializeTimeZones();
+      setLocalLocation(getLocation('UTC'));
+    });
+
+    // The test binding already reports TargetPlatform.android, which is what
+    // the plugin's resolvePlatformSpecificImplementation checks.
+    setUp(() {
+      fake = _FakeAndroidPlugin();
+      FlutterLocalNotificationsPlatform.instance = fake;
+      SharedPreferences.setMockInitialValues({
+        'daily_notification_hour': 9,
+        'daily_notification_minute': 0,
+      });
+    });
+
+    // Re-scheduling runs whenever a notification setting changes while a
+    // reminder time is set; the lock-screen switch is the simplest trigger.
+    // The tall surface keeps the whole Notifications section built, so both
+    // the switch and the banner above it are reachable without scrolling.
+    Future<void> toggleLockScreen(WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final settingsProvider = SettingsProvider();
+      await settingsProvider.load();
+      await tester.pumpWidget(_wrap(settingsProvider: settingsProvider));
+      await tester.pump();
+
+      await tester.tap(find.text('Show on lock screen'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('shows an inline message naming notifications when the '
+        'notification permission is refused', (tester) async {
+      fake.notificationsGranted = false;
+
+      await toggleLockScreen(tester);
+
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        find.textContaining('Allow notifications', findRichText: true),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows an inline message naming exact alarms when that '
+        'permission is refused', (tester) async {
+      fake.exactAlarmsGranted = false;
+
+      await toggleLockScreen(tester);
+
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        find.textContaining('exact alarms', findRichText: true),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows no message once the reminder schedules successfully',
+        (tester) async {
+      await toggleLockScreen(tester);
+
+      expect(find.byType(InlineStatusBanner), findsNothing);
+    });
+  });
 }

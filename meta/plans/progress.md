@@ -76,3 +76,84 @@ Known issue, **not** caused by this work: `integration_test/app_smoke_test.dart`
 fails at `home-choose-verse-button` ("Found 0 widgets"). Reproduced identically
 on a clean tree at this commit's base. It taps `format-chip-recite`, so it likely
 belongs with `feat-test-modes.md` (#165 removes Recite). Left for that plan.
+
+---
+
+## 2026-07-15 10:10 — `fix-notifications.md` (#163) — done
+
+Made the daily reminder actually fire: the app now requests the Android 13+
+notification permission before scheduling, names whichever permission is
+missing, and re-registers its alarm after reboot.
+
+**Chosen over `feat-test-modes.md`** because that plan is auto-marked `stalled`
+(6 attempts against the driver's `MAX_ATTEMPTS = 5`), and it is the UI-polish
+plan this prompt says to rank last; notifications is the platform/permissions
+work. The driver had independently bumped this plan's attempt counter, so both
+readings agreed.
+
+What shipped:
+
+- **Runtime `POST_NOTIFICATIONS` request** in `scheduleDailyNotification`,
+  before scheduling — the actual bug. Without it the OS drops every
+  notification even though the alarm fires, which is exactly what #163
+  reported.
+- **`DailyReminderResult`** (`scheduled` / `notificationsDenied` /
+  `exactAlarmsDenied`) replaces the bare `bool`. The two permissions live in
+  different system screens, so a single "denied" could not tell the user where
+  to go. Fails closed: a `PlatformException` (e.g. a request already in flight)
+  counts as denied rather than crashing Settings.
+- **Inline denial banner** reusing the existing `InlineStatusBanner` (error
+  severity, live region) instead of the `SnackBar` the old code used —
+  `DESIGN_BRIEF.md:221` forbids `SnackBar` for errors. A successful schedule
+  clears it.
+- **Reboot survival**: `RECEIVE_BOOT_COMPLETED` + the plugin's
+  `ScheduledNotificationBootReceiver` (`exported="false"`), plus the QUICKBOOT /
+  `MY_PACKAGE_REPLACED` actions for OEMs that skip `BOOT_COMPLETED`.
+
+Corrections to the plan (code was source of truth):
+
+- Plan step 3 (use allow-while-idle) was **already done** — `zonedSchedule`
+  already passed `exactAllowWhileIdle`. No change needed; added a test to pin it.
+- Plan implied Dart-side API-version branching. None is needed and none was
+  added: the plugin branches natively (`Build.VERSION.SDK_INT >= TIRAMISU`),
+  reporting `areNotificationsEnabled()` below 33 without prompting. So no
+  `device_info_plus` dependency.
+- The notifications doc claimed settings persist to SQLite; they use
+  SharedPreferences. Corrected (same error the #164 entry above hit).
+
+Testing — the old test file asserted this service "cannot be satisfied in a
+headless unit test environment". That was **wrong**: the plugin facade resolves
+through `FlutterLocalNotificationsPlatform.instance`, which is settable, so a
+subclass of `AndroidFlutterLocalNotificationsPlugin` fakes the whole surface
+with zero production refactor. That unlocked the permission tests the plan's
+acceptance criteria demanded. 15 new tests (553 → 568):
+
+- 7 in `notification_service_test.dart` — denial per permission, request
+  ordering, `PlatformException` fail-closed, schedules-once, allow-while-idle,
+  generic body. Mutation-checked: deleting the permission gate kills 3.
+- 3 in `settings_screen_test.dart` — each denial renders an inline message (and
+  no `SnackBar`); success shows none.
+- 5 in new `test/android_manifest_test.dart` — guards the manifest
+  declarations, whose absence is silent and only observable after a reboot.
+
+Verification: 568 unit/widget tests pass; `flutter analyze` clean (10
+pre-existing deprecation infos). Debug APK builds and the merged manifest
+contains the receiver + permissions. On the Pixel 9 emulator (API 35,
+`granted=false` reproduced first): the permission prompt now appears; denying
+shows the inline banner and schedules nothing; granting proceeds to the
+exact-alarm system screen; then alarm 42 registers `RTC_WAKEUP`. **Rebooted
+twice** — the alarm re-registers with the same `origWhen`, app never reopened
+and no manual broadcast (the first attempt was inconclusive because a manual
+`am broadcast` overlapped it).
+
+Incidental fix (pre-existing, unrelated to #163): the "Theme" `SegmentedButton`
+had the same "Trailing widget consumes the entire tile width" defect the #164
+entry above fixed for "Notification type" — it only escaped notice because the
+default 800px test surface and the lazy `ListView` meant no test ever built that
+tile at phone width. Now full-width under the title. This shifted the Data
+section down and exposed a brittle test that tapped without settling its scroll;
+that test now calls `ensureVisible` + `pumpAndSettle`.
+
+Note for a human: `feat-test-modes.md` is `stalled` at 6 attempts and the driver
+will not retry it, so this iteration cannot reach all-plans-complete without a
+decision on that plan.

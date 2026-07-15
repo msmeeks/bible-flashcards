@@ -13,8 +13,8 @@
         166
       ],
       "size": "M",
-      "status": "pending",
-      "attempts": 5,
+      "status": "stalled",
+      "attempts": 6,
       "blocked_by": []
     },
     {
@@ -23,8 +23,8 @@
         163
       ],
       "size": "S",
-      "status": "pending",
-      "attempts": 0,
+      "status": "done",
+      "attempts": 1,
       "blocked_by": []
     },
     {
