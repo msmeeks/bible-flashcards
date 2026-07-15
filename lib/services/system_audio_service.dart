@@ -13,23 +13,19 @@ class SystemAudioService {
   ///
   /// Fails closed: if the platform is unreachable we report "no other audio",
   /// which skips the interval rather than talking over the user.
-  Future<bool> isMusicActive() async {
-    try {
-      return await channel.invokeMethod<bool>('isMusicActive') ?? false;
-    } on PlatformException {
-      return false;
-    } on MissingPluginException {
-      return false;
-    }
-  }
+  Future<bool> isMusicActive() => _invokeBool('isMusicActive');
 
   /// Requests transient audio focus so other audio ducks while a verse plays.
   ///
   /// Returns whether focus was granted. A denial means something with a
   /// stronger claim holds it (a call, say), so callers should stay silent.
-  Future<bool> requestTransientFocus() async {
+  Future<bool> requestTransientFocus() => _invokeBool('requestTransientFocus');
+
+  /// Fails closed for both callers above: an absent or erroring platform, or a
+  /// null result, all read as false — "no other audio" / "focus not granted".
+  Future<bool> _invokeBool(String method) async {
     try {
-      return await channel.invokeMethod<bool>('requestTransientFocus') ?? false;
+      return await channel.invokeMethod<bool>(method) ?? false;
     } on PlatformException {
       return false;
     } on MissingPluginException {

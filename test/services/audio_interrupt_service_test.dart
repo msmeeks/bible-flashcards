@@ -24,6 +24,27 @@ class BlockingAudioService extends FakeAudioService {
   void finishPlayback() => _playing.complete();
 }
 
+/// Cancels tracking from inside the probe itself, standing in for the user
+/// flipping the feature off mid-sample. Driving the cancellation from the probe
+/// keeps it deterministic — no timers, no real sleeps.
+class CancellingSystemAudioService extends FakeSystemAudioService {
+  CancellingSystemAudioService({
+    required this.cancelOnCall,
+    required super.musicActiveResults,
+  });
+
+  /// 1-based probe call after which [onCancel] runs.
+  final int cancelOnCall;
+  late final void Function() onCancel;
+
+  @override
+  Future<bool> isMusicActive() async {
+    final result = await super.isMusicActive();
+    if (isMusicActiveCalls == cancelOnCall) onCancel();
+    return result;
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -357,6 +378,81 @@ void main() {
 
       expect(blocking.playedVerses, [vow]);
       expect(systemAudio.abandonFocusCalls, 1);
+    });
+  });
+
+  group('AudioInterruptService mid-flight cancellation', () {
+    late FakeAudioService audio;
+    late FakeNotificationService notifications;
+    late Verse vow;
+
+    setUp(() {
+      audio = FakeAudioService();
+      notifications = FakeNotificationService();
+      vow = makeVerse('vow', isVerseOfWeek: true);
+    });
+
+    // Non-zero, unlike the other groups: a zero delay lets sampling always run
+    // to completion, which is what leaves the cancellation guards untested.
+    // Kept small — a passing run short-circuits before ever awaiting it, and a
+    // regression fails on the call-count assertion rather than by timing out.
+    AudioInterruptService buildService(CancellingSystemAudioService systemAudio) {
+      final service = AudioInterruptService(
+        audioService: audio,
+        notificationService: notifications,
+        systemAudioService: systemAudio,
+        debounceDelay: const Duration(milliseconds: 20),
+      );
+      systemAudio.onCancel = service.stopTracking;
+      return service;
+    }
+
+    void start(AudioInterruptService service) => service.startTracking(
+          interval: Duration.zero,
+          triggerMode: AudioTriggerMode.whileOtherAudioPlaying,
+          interruptProbability: 1.0,
+          memorizedVerses: const [],
+          verseOfWeek: vow,
+        );
+
+    test('stopping between debounce samples plays no verse and abandons the '
+        'probe loop', () async {
+      // Silent throughout: without the guard the loop would sample all three.
+      final systemAudio = CancellingSystemAudioService(
+        cancelOnCall: 1,
+        musicActiveResults: const [false, false, false],
+      );
+      final service = buildService(systemAudio);
+      addTearDown(service.stopTracking);
+      start(service);
+
+      await service.debugFireInterval();
+
+      expect(audio.playedVerses, isEmpty);
+      expect(systemAudio.requestFocusCalls, 0);
+      // Short-circuited rather than sampling to completion and filtering after.
+      expect(systemAudio.isMusicActiveCalls, 1);
+    });
+
+    test('stopping after a positive sample but before playback keeps the verse '
+        'silent', () async {
+      // The probe says "yes, audio is playing" and the user stops in the same
+      // instant — the guard between sampling and playback is the only thing
+      // preventing a verse here.
+      final systemAudio = CancellingSystemAudioService(
+        cancelOnCall: 1,
+        musicActiveResults: const [true],
+      );
+      final service = buildService(systemAudio);
+      addTearDown(service.stopTracking);
+      start(service);
+
+      await service.debugFireInterval();
+
+      expect(systemAudio.isMusicActiveCalls, 1);
+      expect(audio.playedVerses, isEmpty);
+      expect(systemAudio.requestFocusCalls, 0);
+      expect(notifications.showInterruptCalls, 0);
     });
   });
 

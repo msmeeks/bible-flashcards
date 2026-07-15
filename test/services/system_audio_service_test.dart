@@ -79,6 +79,18 @@ void main() {
       expect(await service.requestTransientFocus(), isFalse);
     });
 
+    test('requestTransientFocus reports denial when the channel is not '
+        'registered at all', () async {
+      // No mock handler installed -> MissingPluginException.
+      expect(await service.requestTransientFocus(), isFalse);
+    });
+
+    test('requestTransientFocus reports denial when the platform returns null',
+        () async {
+      mockPlatform((_) => null);
+      expect(await service.requestTransientFocus(), isFalse);
+    });
+
     test('abandonFocus invokes the platform', () async {
       mockPlatform((_) => null);
       await service.abandonFocus();

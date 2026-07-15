@@ -27,6 +27,31 @@ void main() {
     });
   });
 
+  group('AppSettings.fromMap trigger mode', () {
+    // The route a corrupted SharedPreferences value actually takes. Without the
+    // fallback these throw a StateError and settings fail to load at all.
+    AudioTriggerMode modeFrom(Object? raw) =>
+        AppSettings.fromMap({'audio_interrupt_trigger_mode': raw})
+            .audioInterruptTriggerMode;
+
+    test('a valid persisted name round-trips', () {
+      expect(modeFrom('always'), AudioTriggerMode.always);
+    });
+
+    test('garbage falls back to the default', () {
+      expect(modeFrom('!!not-a-mode!!'),
+          AudioTriggerMode.whileOtherAudioPlaying);
+    });
+
+    test('an unknown but plausible name falls back to the default', () {
+      expect(modeFrom('never'), AudioTriggerMode.whileOtherAudioPlaying);
+    });
+
+    test('a missing value falls back to the default', () {
+      expect(modeFrom(null), AudioTriggerMode.whileOtherAudioPlaying);
+    });
+  });
+
   group('AppSettings.toMap', () {
     test('dailyNotificationTime non-null encodes hour and minute', () {
       const s = AppSettings(

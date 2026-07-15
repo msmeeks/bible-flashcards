@@ -62,6 +62,14 @@ The banner is **always mounted** and passed the nullable message rather than bei
 
 The message is also folded into the "Daily reminder" tile's own semantic label (`Semantics(label: _reminderError, ...)`, key `daily-reminder`) so the reason is discoverable from the control later in the session, not only via the banner's one-shot announcement. The tile is deliberately **not** a live region — only the banner is — otherwise the initial transition double-announces.
 
+### Test Seams
+Two seams exist purely so correctness-critical branches can be asserted deterministically. Both are production-safe defaults; no call site passes them outside tests.
+
+| Seam | Why it exists |
+|---|---|
+| `NotificationService({tz.TZDateTime Function()? now})` | Defaults to `tz.TZDateTime.now(tz.local)`. The step-4 rollover branch reads the clock, so without this its coverage depended on the wall-clock time the suite ran at — the suite passed either way while silently exercising a different branch each run. **The seam must stay zone-aware**: the scheduling math builds the target in `now().location`, so a naive `DateTime` seam would lose the zone and compute wrong times at DST boundaries. |
+| `debugHandleResponse` (`@visibleForTesting`) | Runs the same dispatch the plugin callback runs, without a platform round trip. It **delegates** to `_handleResponse` rather than reproducing the valid-action filter — a hook that re-implemented the filter would pass while testing a copy. `_validActions` stays private. |
+
 ### API-Version Branching
 No Dart-side version check exists, and none is needed: the plugin branches natively. On API 33+ `requestNotificationsPermission` prompts for `POST_NOTIFICATIONS`; below 33 it reports `areNotificationsEnabled()` without prompting. `requestExactAlarmsPermission` likewise returns true automatically below API 31.
 
@@ -119,3 +127,4 @@ Three fields on `AppSettings` (all persisted via SharedPreferences, not the SQLi
 | 2026-07-14 | Fixed "Notification type" `SegmentedButton` overflowing its `ListTile` trailing slot at 375px width; now renders full-width under the title (found incidentally during #164) |
 | 2026-07-15 | #163: request `POST_NOTIFICATIONS` at runtime before scheduling (the reminder never appeared without it); `DailyReminderResult` replaces the bool return so Settings names the denied permission; denial now renders as an inline banner instead of a `SnackBar` (brief §13); added `RECEIVE_BOOT_COMPLETED` + `ScheduledNotificationBootReceiver` so alarms survive reboot. Corrected this doc's claim that notification settings persist to SQLite — they use SharedPreferences |
 | 2026-07-15 | #168/#178/#181: reminder error now clears on every reminder-off path (was stranding a permission request for a reminder the user had already turned off); banner always mounted with a nullable message per `InlineStatusBanner`'s contract; error folded into the reminder tile's semantic label, with the live region left on the banner alone to avoid a double announcement |
+| 2026-07-15 | #171/#170/#188: added a zone-aware `now` clock seam (midnight rollover was previously covered nondeterministically — which branch ran depended on CI's wall-clock time) and a `debugHandleResponse` dispatch hook that delegates to the production filter. Tests now pin both rollover sides, all four action ids plus unknown/null, the unknown-timezone→UTC fallback, both channel creations, and both notification bodies. No scheduling or dispatch behavior changed |

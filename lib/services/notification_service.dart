@@ -29,6 +29,14 @@ enum DailyReminderResult {
 /// All notifications use [NotificationVisibility.private] unless the user
 /// explicitly opts into lock-screen visibility.
 class NotificationService {
+  /// [now] must yield a zone-aware value — the scheduling math is done in the
+  /// returned location, so a naive [DateTime] would give wrong results at DST
+  /// boundaries. Defaults to the real clock in [tz.local].
+  NotificationService({tz.TZDateTime Function()? now})
+      : _now = now ?? (() => tz.TZDateTime.now(tz.local));
+
+  final tz.TZDateTime Function() _now;
+
   static const _channelId = 'bible_flashcards_audio';
   static const _channelName = 'Audio Playback';
   static const _dailyChannelId = 'bible_flashcards_daily';
@@ -45,6 +53,13 @@ class NotificationService {
   void Function(String actionId)? onAction;
 
   static const _validActions = {'pause', 'stop', 'play', 'dismiss'};
+
+  /// Runs the same dispatch the plugin callback runs, without a platform round
+  /// trip. Delegates rather than duplicating, so the valid-action filter under
+  /// test is the production one.
+  @visibleForTesting
+  void debugHandleResponse(NotificationResponse response) =>
+      _handleResponse(response);
 
   AndroidFlutterLocalNotificationsPlugin? get _androidImpl =>
       _plugin.resolvePlatformSpecificImplementation<
@@ -125,9 +140,9 @@ class NotificationService {
         await _androidImpl?.requestExactAlarmsPermission() ?? false;
     if (!hasPermission) return DailyReminderResult.exactAlarmsDenied;
 
-    final now = tz.TZDateTime.now(tz.local);
+    final now = _now();
     var scheduledDate = tz.TZDateTime(
-      tz.local,
+      now.location,
       now.year,
       now.month,
       now.day,
