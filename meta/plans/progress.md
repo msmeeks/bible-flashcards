@@ -218,3 +218,73 @@ Note for a human, unchanged from the entry above: `feat-test-modes.md` is still
 now unblocked by this one. Also carried forward from the plan's own review: the
 #182 immediate-commit decision for chip dialogs was made at triage, not derived
 from an existing rule — it is reversible and flagged for PR review.
+
+---
+
+## 2026-07-15 19:56 — `test-notification-audio-services.md` (#170, #171, #172, #185, #187, #188) — done
+
+Gave the notification and audio services deterministic coverage of the branches
+that guard user-visible failures, and cleared the repo-wide `dart format` drift.
+
+**Chosen over `docs-privacy-audio-disclosure.md`** — both became unblocked when
+`fix-settings-audio-ux.md` landed, but this one carries the correctness risk
+(one branch was covered *nondeterministically*, two guards were dead to the
+suite) while the docs plan is copy. This prompt ranks unknowns first, polish
+last.
+
+What shipped — two production seams, both defaulting to real behavior, plus one
+refactor:
+
+- **Zone-aware clock seam (#171)**, `NotificationService({now})`. The sharpest
+  item here: the midnight-rollover branch read the wall clock, so *which side
+  ran depended on what time CI started*, and the suite passed either way. The
+  seam yields a `TZDateTime` and the target is now built in `now().location`
+  rather than `tz.local` — a naive `DateTime` seam would look correct and be
+  wrong at DST boundaries. `main.dart`'s call site is unchanged.
+- **`debugHandleResponse` (#170)** delegates to the production `_handleResponse`
+  instead of reproducing the valid-action filter; `_validActions` stays private.
+  A hook that re-implemented the filter would have passed while testing a copy.
+- **`_invokeBool` (#187)**. `abandonFocus` deliberately untouched — the plan's
+  pre-implementation review was right that the report miscounted: it returns
+  void and its catch clauses carry distinct comments, so folding it would
+  discard them to remove no duplication.
+
+Coverage added (578 → 600), **mutation-checked rather than counted**:
+
+- Removing either mid-flight guard (#172) now fails exactly one test each —
+  Mutant B's output is literally `Actual: [Instance of 'Verse']`, i.e. "a verse
+  played after I turned this off". These needed a **non-zero** `debounceDelay`;
+  every pre-existing test used `Duration.zero`, which runs sampling to
+  completion, which is precisely why the guards were invisible.
+- Removing the rollover branch kills 2; removing the UTC fallback kills 1;
+  removing `fromName`'s `orElse` kills 18 (a corrupted preference would
+  `StateError` the whole settings load).
+- Also: all four action ids + unknown/null/no-callback, `initialize()`'s
+  timezone fallback and both channels, both notification bodies,
+  `requestTransientFocus`'s two fail-closed paths (added *before* the refactor,
+  as its safety net).
+
+Determinism verified, not assumed: the services suite passes under
+`TZ=Asia/Kolkata`, `Pacific/Kiritimati` (UTC+14), `America/Anchorage`, and
+`UTC`; the cancellation group ran 5× green, each in <1s (no real sleeps — the
+guards short-circuit before the delay; cancellation is driven from inside the
+probe fake).
+
+**Resolved the human decision flagged in the entry above.** #185's `dart format`
+drift was repo-wide (56 files) and predated this iteration, which is why
+`fix-settings-audio-ux.md` deferred it. Ran it repo-wide per this plan's step 6,
+as its **own commit** (`82cee4e`) so it doesn't bury the logic diff. Checked
+first that this is benign reflow, **not** the Dart 3.7 tall-style migration —
+the pubspec's `>=3.4.0` language version keeps the formatter on the old short
+style. `dart format --output=none --set-exit-if-changed .` now exits zero, which
+it did not on a clean tree before.
+
+All 9 acceptance criteria met. 600 tests pass; `flutter analyze` reports 0
+errors/warnings (14 pre-existing deprecation infos). No emulator smoke —
+`prd.json`'s `smoke_test` is `flutter test`, and this plan changed no runtime
+behavior.
+
+Note for a human, carried forward unchanged: `feat-test-modes.md` is still
+`stalled` at 6 attempts against the driver's `MAX_ATTEMPTS = 5` and will not be
+retried, so this iteration cannot reach all-plans-complete without a decision on
+it. `docs-privacy-audio-disclosure.md` is now the only remaining unblocked plan.
