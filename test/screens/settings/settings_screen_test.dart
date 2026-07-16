@@ -414,6 +414,60 @@ void main() {
     },
   );
 
+  // The mechanic is otherwise invisible: an opted-in user carrying the old
+  // "audio threshold" model has no way to learn the app queries system audio
+  // state, and PRIVACY.md leans on this copy in place of a consent dialog.
+  testWidgets(
+    'in the other-audio trigger mode, "When to play" states that the app '
+    'checks whether audio is playing but not what it is',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'audio_interrupt_enabled': true,
+        'audio_interrupt_trigger_mode': 'whileOtherAudioPlaying',
+      });
+      // The existing 375px layout test runs this row disabled and in "always"
+      // mode, so it never builds this line; an overflow here would go unseen.
+      tester.view.physicalSize = const Size(375, 812);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final settingsProvider = SettingsProvider();
+      await settingsProvider.load();
+
+      await tester.pumpWidget(_wrap(settingsProvider: settingsProvider));
+      await tester.pump();
+
+      expect(
+        find.text('Checks whether another app is playing audio, '
+            'not what it is'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  // Nothing queries system audio state in this mode, so the disclosure above
+  // would describe a check that never runs.
+  testWidgets(
+    'in the anytime trigger mode, "When to play" makes no detection claim',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'audio_interrupt_enabled': true,
+        'audio_interrupt_trigger_mode': 'always',
+      });
+      final settingsProvider = SettingsProvider();
+      await settingsProvider.load();
+
+      await tester.pumpWidget(_wrap(settingsProvider: settingsProvider));
+      await tester.pump();
+
+      expect(
+        find.text('Checks whether another app is playing audio, '
+            'not what it is'),
+        findsNothing,
+      );
+    },
+  );
+
   // Previously the tile emitted three unrelated static nodes with no button
   // role, so the value read as chrome detached from the control that sets it.
   testWidgets(

@@ -16,6 +16,7 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 | Engagement log (date, event type, aggregate count) | Local SQLite (`engagement_log`) | Streak & activity history display | 90 days auto-purge; user-clearable via Settings → Activity History |
 | Export file (JSON snapshot of above) | App internal storage (temporary) | User-initiated data transfer | Deleted immediately after share |
 | ESV verse audio cache (MP3 files) | App cache dir (`getApplicationCacheDirectory()/esv_audio/`) | Audio playback for ESV verses | Evicted once cache exceeds 250 files (oldest first); also subject to OS cache eviction under storage pressure; excluded from Android Auto Backup |
+| Other-app audio state (a single boolean: is any other app playing audio right now) | In-memory only — never written to SQLite, SharedPreferences, or logs | Decide whether to insert a memory verse into audio the user is already listening to | None — the boolean is discarded when the interval check returns; see Periodic Verse Playback below |
 
 ### engagement_log schema
 - `date` — calendar date only (`YYYY-MM-DD`), no time component
@@ -30,6 +31,8 @@ Bible Flashcards stores all core data exclusively on the user's device in encryp
 - No usage analytics or crash reporting
 - No location data
 - No audio recordings persisted to disk — see Voice Recitation (Recite Mode) below for ephemeral, on-device microphone use
+- **No capture or analysis of other apps' audio.** Periodic verse playback asks the operating system a yes/no question — is audio playing — and receives a yes/no answer. It does not record, listen to, sample, or identify what is playing: not the app, not the track, not the content. No microphone access is involved, and none is requested for this feature
+- No history of what the user was listening to, or of when other audio was detected — the signal is never logged or accumulated
 - No automatic network requests; all network calls (verse lookup, pack import) are user-initiated and require prior consent
 
 ## Special Category Data (GDPR Art. 9)
@@ -76,6 +79,34 @@ This feature plays the real Crossway recording for ESV verses during the text ph
 - **Local cache:** Fetched MP3s are cached on-device under `esv_audio/`, keyed by the SHA-256 hash of the lowercased, trimmed reference (never the raw reference string, to rule out path traversal). Capped at 250 files; oldest files are evicted first
 - **Offline/error behavior:** Any cache or network failure falls back to on-device text-to-speech silently — no error is shown to the user, and no partial data is transmitted
 
+## Periodic Verse Playback (Other-App Audio Detection)
+
+Periodic verse playback is **off by default**. Once enabled, it plays a memorized verse at the configured interval. In its default trigger mode ("While other audio plays") it first checks whether another app is currently playing audio, so a verse lands inside an audiobook or podcast rather than out of silence; in "Anytime" mode no such check is performed at all.
+
+- **What is read:** A single boolean from the Android `AudioManager` (`isMusicActive`), via a first-party platform channel (`bible_flashcards/system_audio`). It reveals only *whether* audio is playing — never which app, which track, or what content. Up to three samples are taken per interval check, spaced 300ms apart, so a brief gap between tracks does not read as silence
+- **No permission required:** `isMusicActive` is an unprotected system query. This feature adds no Android permission — in particular it does not use, and cannot use, the microphone
+- **Retention:** None. The boolean lives in a local variable for the duration of one interval check and is discarded when that check returns. It is never written to the database, SharedPreferences, or logs, and never transmitted
+- **Audio focus:** While a verse plays, the app holds transient audio focus so the other app ducks and then resumes. This is a playback control, not a data flow — nothing is read from the other app
+- **In-app disclosure:** The Settings row for the trigger mode states that the app checks whether another app is playing audio, and not what it is
+
+### Why no first-enable notice is shown
+
+The "Changes" clause below commits to an in-app notice for changes that introduce additional data collection. This feature does not meet that bar, and the judgment is recorded here so it need not be re-litigated:
+
+1. **No permission is required** — nothing is requested of the user or the OS
+2. **Nothing is persisted** — the boolean does not outlive the function call that read it
+3. **Nothing is transmitted** — no network request is involved at any point
+4. **Nothing is revealed beyond a yes/no** — the signal carries no information about what is playing
+
+The feature is also opt-in and off by default, so no detection occurs until the user turns it on.
+
+**Contrast with the two existing consent precedents.** Neither extends to this case, and the distinction is the reason:
+
+- **`engagement_notice_shown`** (first-launch dialog) was triggered by data **persisted** to the database under a 90-day retention window — data a user could reasonably want to inspect or clear. Nothing is persisted here, so there is no data subject right to exercise over it: erasure, portability, and access are all vacuous for a boolean that no longer exists.
+- **The ESV consent dialogs** were triggered by Art. 9 religious-practice data **transmitted to Crossway**, a third-party controller. There is no third party here and no transmission; the signal never leaves the process that read it.
+
+A dialog for a discarded boolean would also dilute the two dialogs that guard real disclosures, which is the practical case against adding one.
+
 ## Permissions Used
 
 | Permission | Reason |
@@ -84,6 +115,7 @@ This feature plays the real Crossway recording for ESV verses during the text ph
 | `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Audio classification for Android media session |
 | `POST_NOTIFICATIONS` (Android 13+) | Dismissible interruption notification and daily reminder |
 | `SCHEDULE_EXACT_ALARM` | Daily reminder fires at the configured time (requires user consent via system Settings on API 31+; auto-granted below API 31) |
+| `RECEIVE_BOOT_COMPLETED` | Re-registers the daily reminder alarm after device reboot or app update, via the plugin's `ScheduledNotificationBootReceiver` (not exported). Android clears scheduled alarms on reboot, so without this the reminder silently stops. No data is read, stored, or transmitted |
 | `RECORD_AUDIO` | Optional mic button in recite-mode tests (on-device speech-to-text only); requested at point-of-use, not pre-granted; typed/self-rated recite works fully without it |
 | `INTERNET` | Optional verse lookup/pack import; user-initiated, does not run without explicit consent |
 

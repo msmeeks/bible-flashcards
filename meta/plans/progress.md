@@ -288,3 +288,83 @@ Note for a human, carried forward unchanged: `feat-test-modes.md` is still
 `stalled` at 6 attempts against the driver's `MAX_ATTEMPTS = 5` and will not be
 retried, so this iteration cannot reach all-plans-complete without a decision on
 it. `docs-privacy-audio-disclosure.md` is now the only remaining unblocked plan.
+
+---
+
+## 2026-07-15 21:40 — `docs-privacy-audio-disclosure.md` (#173, #174, #175) — done
+
+Made `meta/PRIVACY.md` account for the other-app audio detection and the boot
+receiver, and recorded — durably — why the audio detection ships without a
+consent notice.
+
+**The only plan available.** It was the last unblocked one; `feat-test-modes.md`
+remains `stalled`. It is also the plan this prompt would otherwise rank last, so
+this entry is the end of the useful queue, not a priority judgment.
+
+**Every claim was verified against the code before it was written** (step 1 and
+the last acceptance criterion), which is the whole risk in a plan like this — a
+privacy document asserting something the code doesn't do is worse than one that's
+merely incomplete. What I confirmed in `system_audio_service.dart`,
+`audio_interrupt_service.dart`, and `MainActivity.kt`: the signal is
+`audioManager.isMusicActive`, a bare boolean; it lives in a local inside
+`_isOtherAudioActive` and dies when the interval check returns; no write to
+SQLite, SharedPreferences, or any log; no network; `isMusicActive` is an
+unprotected API, so no permission, and the mic is not involved. All six claims
+hold, so the section says them plainly.
+
+What shipped:
+
+- **Audio-detection section + Data Collected row (#173)** — in-memory-only,
+  retention none. Plus two "Data NOT Collected" bullets foreclosing the
+  misreading the plan flagged: "the app checks what's playing" invites "the app
+  listens," so the document states it is a system state query, not a recording,
+  and that no listening history is accumulated.
+- **`RECEIVE_BOOT_COMPLETED` row (#174).** Cross-checked the whole table against
+  the manifest per step 3: that was the only omission — the other six all had
+  rows (debug/profile manifests add only `INTERNET`, already listed).
+- **The no-notice rationale (#175)**, with its four facts and the explicit
+  contrast: `engagement_notice_shown` was triggered by *persistence* with a
+  90-day window, the ESV dialogs by *third-party transmission* to Crossway.
+  Neither condition exists here, and there is no data subject right to exercise
+  over a boolean that no longer exists.
+- **Settings copy (#175, step 5)** — the "When to play" subtitle now reads
+  "Checks whether another app is playing audio, not what it is". It renders
+  **only** in `whileOtherAudioPlaying` mode: `always` never queries audio state,
+  so showing it there would describe a check that doesn't run. No dialog, no
+  consent flag, no preference key, per the plan's constraint.
+
+Beyond the plan: `test/android_manifest_test.dart` now fails if any manifest
+permission lacks a `PRIVACY.md` row. The table's entire value is completeness,
+and #174 is proof it degrades silently — adding a `uses-permission` is a one-line
+change nothing otherwise forces you to disclose. The test names the offender in
+its failure message.
+
+Mutation-checked rather than counted (603 tests, up from 600):
+
+- Dropping the trigger-mode condition from the new subtitle fails the "anytime"
+  test — the mode gate is load-bearing, not decoration.
+- Deleting the `RECEIVE_BOOT_COMPLETED` row fails the new disclosure test with
+  `[RECEIVE_BOOT_COMPLETED]`, i.e. it would have caught #174 itself.
+- The new copy is asserted at a 375px viewport: the existing layout test runs
+  this row *disabled* and in `always` mode, so it never builds the line, and I
+  added a line to a subtitle `Column` — an overflow would have gone unseen.
+
+All 7 acceptance criteria met. 603 tests pass; `dart format` exits clean;
+`flutter analyze` reports 0 errors/warnings and **17 infos — the same 17 as a
+clean tree at this base** (I stashed and re-ran to confirm; the "14" in the
+entries above was a stale count, not a regression introduced here). No emulator
+smoke: `prd.json`'s `smoke_test` is `flutter test`, and the widget test renders
+the real screen at phone width, which is what a copy-and-layout change needs.
+
+**All plans are now `done` except `feat-test-modes.md`**, which is `stalled` at 6
+attempts and will not be retried by the driver. Two items still want a human:
+
+1. **`feat-test-modes.md` needs a decision** (#165, #161, #162, #166) — it is the
+   only thing between this iteration and complete. Note `integration_test/app_smoke_test.dart`
+   still fails at `home-choose-verse-button`; it taps `format-chip-recite`, which
+   #165 removes, so it likely belongs to that plan.
+2. **#175's no-dialog decision is reversible.** It was made at triage, not
+   derived from an existing rule, and this plan implemented it as written. If you
+   prefer a first-enable notice, the section titled "Why no first-enable notice
+   is shown" is where the argument lives — invert it and gate a dialog on a new
+   preference flag following the `engagement_notice_shown` pattern.

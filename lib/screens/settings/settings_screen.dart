@@ -117,6 +117,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (!settings.audioInterruptEnabled)
                   const Text(
                       'Turn on "Play verses periodically" to choose when'),
+                // Stands in for a first-enable consent notice; see
+                // meta/PRIVACY.md. Shown only in the mode that actually
+                // queries system audio state.
+                if (settings.audioInterruptEnabled &&
+                    settings.audioInterruptTriggerMode ==
+                        AudioTriggerMode.whileOtherAudioPlaying)
+                  const Text('Checks whether another app is playing audio, '
+                      'not what it is'),
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Semantics(

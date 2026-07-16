@@ -50,4 +50,25 @@ void main() {
       expect(manifest, contains('android.permission.POST_NOTIFICATIONS'));
     });
   });
+
+  // PRIVACY.md presents its permission table as exhaustive, which stops being
+  // true the moment it silently isn't: adding a uses-permission is a one-line
+  // change nothing otherwise forces you to disclose.
+  test('every declared permission has a row in PRIVACY.md', () {
+    final declared = RegExp(r'android\.permission\.(\w+)')
+        .allMatches(manifest)
+        .map((m) => m.group(1)!)
+        .toSet();
+    final privacy = File('meta/PRIVACY.md').readAsStringSync();
+
+    final undisclosed =
+        declared.where((p) => !privacy.contains('`$p`')).toList()..sort();
+
+    expect(
+      undisclosed,
+      isEmpty,
+      reason: 'Permissions declared in AndroidManifest.xml with no row in '
+          "meta/PRIVACY.md's Permissions Used table: $undisclosed",
+    );
+  });
 }
