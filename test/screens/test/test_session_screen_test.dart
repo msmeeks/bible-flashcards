@@ -1,134 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:bible_flashcards/models/verse.dart';
 import 'package:bible_flashcards/screens/test/test_enums.dart';
 import 'package:bible_flashcards/screens/test/test_session_screen.dart';
-import 'package:bible_flashcards/services/speech_recognition_service.dart';
-
-class _FakeSpeechService implements SpeechRecognitionService {
-  int listenCalls = 0;
-  bool listenReturnsFalse = false;
-
-  @override
-  bool get isListening => false;
-
-  @override
-  Future<MicPermissionResult> requestPermission() async =>
-      MicPermissionResult.granted;
-
-  @override
-  Future<bool> listen({
-    required void Function(String transcript, bool isFinal) onTranscript,
-    required void Function() onStopped,
-  }) async {
-    listenCalls++;
-    if (listenReturnsFalse) return false;
-    // Simulates the wedged plugin: "started" succeeds but neither
-    // onTranscript nor onStopped is ever called.
-    return true;
-  }
-
-  @override
-  Future<void> stopListening() async {}
-
-  @override
-  Future<void> cancel() async {}
-
-  @override
-  void dispose() {}
-}
-
-class _ControllableFakeSpeechService implements SpeechRecognitionService {
-  _ControllableFakeSpeechService({this.finalTranscript = 'for god so loved'});
-
-  final String finalTranscript;
-  void Function(String transcript, bool isFinal)? _onTranscript;
-
-  @override
-  bool get isListening => false;
-
-  @override
-  Future<MicPermissionResult> requestPermission() async =>
-      MicPermissionResult.granted;
-
-  @override
-  Future<bool> listen({
-    required void Function(String transcript, bool isFinal) onTranscript,
-    required void Function() onStopped,
-  }) async {
-    _onTranscript = onTranscript;
-    return true;
-  }
-
-  // Mirrors the real plugin: stop() resolves immediately, but the final
-  // recognition result arrives asynchronously afterward (a later event-loop
-  // turn, not a microtask queued during this call).
-  @override
-  Future<void> stopListening() async {
-    Future.delayed(
-      Duration.zero,
-      () => _onTranscript?.call(finalTranscript, true),
-    );
-  }
-
-  @override
-  Future<void> cancel() async {}
-
-  @override
-  void dispose() {}
-}
-
-class _TransientlyDeniedSpeechService implements SpeechRecognitionService {
-  @override
-  bool get isListening => false;
-
-  @override
-  Future<MicPermissionResult> requestPermission() async =>
-      MicPermissionResult.denied;
-
-  @override
-  Future<bool> listen({
-    required void Function(String transcript, bool isFinal) onTranscript,
-    required void Function() onStopped,
-  }) async =>
-      false;
-
-  @override
-  Future<void> stopListening() async {}
-
-  @override
-  Future<void> cancel() async {}
-
-  @override
-  void dispose() {}
-}
-
-class _PermanentlyDeniedSpeechService implements SpeechRecognitionService {
-  @override
-  bool get isListening => false;
-
-  @override
-  Future<MicPermissionResult> requestPermission() async =>
-      MicPermissionResult.permanentlyDenied;
-
-  @override
-  Future<bool> listen({
-    required void Function(String transcript, bool isFinal) onTranscript,
-    required void Function() onStopped,
-  }) async =>
-      false;
-
-  @override
-  Future<void> stopListening() async {}
-
-  @override
-  Future<void> cancel() async {}
-
-  @override
-  void dispose() {}
-}
 
 Verse _verse() => Verse(
       id: 'john_3_16',
@@ -139,257 +14,325 @@ Verse _verse() => Verse(
       addedAt: DateTime(2024, 1, 1),
     );
 
-Widget _wrap(SpeechRecognitionService speechService) => MaterialApp(
-      home: TestSessionScreen(
-        verses: [_verse()],
-        testMode: TestMode.review,
-        selectedFormats: const {TestFormat.recite},
-        selectedDirections: const {PromptDirection.textToRef},
-        speechService: speechService,
-      ),
+/// Finds diff tokens with [op] rendering [word]. Diff keys carry their
+/// position (`diff-<i>-<op>-<word>`) because a verse may repeat a word, so
+/// this matches on op+word and lets the caller assert the count.
+Finder diffToken(String op, String word) => find.byWidgetPredicate(
+      (w) =>
+          w is Text &&
+          w.key is ValueKey<String> &&
+          RegExp('^diff-\\d+-$op-${RegExp.escape(word)}\$')
+              .hasMatch((w.key as ValueKey<String>).value),
+      description: '$op diff token "$word"',
     );
 
 void main() {
-  testWidgets(
-    'mic listening recovers on its own after the bounded timeout',
-    (tester) async {
-      await tester.pumpWidget(_wrap(_FakeSpeechService()));
+  // Prompt is the reference, so the answer is the verse text — the diff's
+  // real use case.
+  Widget wrapType(Verse verse) => MaterialApp(
+        home: TestSessionScreen(
+          verses: [verse],
+          testMode: TestMode.review,
+          selectedFormats: const {TestFormat.type},
+          selectedDirections: const {PromptDirection.refToText},
+        ),
+      );
+
+  Future<void> checkAnswer(WidgetTester tester, String answer) async {
+    await tester.enterText(find.byKey(const Key('type-answer-field')), answer);
+    await tester.tap(find.byKey(const Key('type-check-button')));
+    await tester.pump();
+  }
+
+  group('Type-mode word diff (#162)', () {
+    testWidgets('a perfect answer renders every source word plainly',
+        (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
       await tester.pump();
 
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
+      await checkAnswer(tester, 'For God so loved the world');
+
+      expect(find.byKey(const Key('type-answer-diff')), findsOneWidget);
+      for (final word in ['For', 'God', 'so', 'loved', 'the', 'world']) {
+        expect(diffToken('match', word), findsOneWidget);
+      }
+      expect(find.byKey(const Key('type-answer-diff-legend')), findsNothing);
+    });
+
+    testWidgets(
+        'a missed source word renders struck through, not by colour '
+        'alone', (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
       await tester.pump();
 
-      expect(find.text('Listening…'), findsOneWidget);
+      await checkAnswer(tester, 'For God so the world');
 
-      await tester.pump(const Duration(seconds: 16));
-
-      expect(find.text('Listening…'), findsNothing);
-      expect(find.textContaining("Didn't catch that"), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'tapping the mic again after a timeout starts a fresh listen session',
-    (tester) async {
-      final fakeService = _FakeSpeechService();
-      await tester.pumpWidget(_wrap(fakeService));
-      await tester.pump();
-
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 16));
-
-      expect(fakeService.listenCalls, 1);
-
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pump();
-
-      expect(fakeService.listenCalls, 2);
-      expect(find.text('Listening…'), findsOneWidget);
-
-      // The first timer must not fire again and clobber this new session.
-      await tester.pump(const Duration(seconds: 16));
-      expect(find.text('Listening…'), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'the microphone permission dialog uses FilledButton for Open Settings '
-    'and OutlinedButton for Cancel',
-    (tester) async {
-      await tester.pumpWidget(_wrap(_PermanentlyDeniedSpeechService()));
-      await tester.pump();
-
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Microphone access needed'), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Cancel'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
+      final missed = tester.widget<Text>(diffToken('delete', 'loved'));
+      expect(missed.style?.decoration, TextDecoration.lineThrough);
+      // A legend spells the cue out in words, so the meaning survives even
+      // if the strikethrough itself is missed.
       expect(
-        find.widgetWithText(FilledButton, 'Open Settings'),
+        find.byKey(const Key('type-answer-diff-legend')),
         findsOneWidget,
       );
-      expect(find.widgetWithText(TextButton, 'Open Settings'), findsNothing);
-    },
-  );
+      expect(find.textContaining('1 missed (struck through)'), findsOneWidget);
+    });
 
-  testWidgets(
-    'a transient permission denial shows the announcement without opening '
-    'the settings dialog',
-    (tester) async {
-      await tester.pumpWidget(_wrap(_TransientlyDeniedSpeechService()));
+    testWidgets('an extra typed word renders underlined, not by colour alone',
+        (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
       await tester.pump();
 
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pumpAndSettle();
+      await checkAnswer(tester, 'For God truly so loved the world');
 
+      final extra = tester.widget<Text>(diffToken('insert', 'truly'));
+      expect(extra.style?.decoration, TextDecoration.underline);
+    });
+
+    testWidgets(
+        'a mixed answer renders matches, a deletion and an insertion '
+        'together', (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
+      await tester.pump();
+
+      await checkAnswer(tester, 'For God so hated the world');
+
+      expect(diffToken('match', 'For'), findsOneWidget);
+      expect(diffToken('delete', 'loved'), findsOneWidget);
+      expect(diffToken('insert', 'hated'), findsOneWidget);
+    });
+
+    testWidgets(
+        'missed and extra words are announced to screen readers, so '
+        'the distinction is not carried by colour', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(wrapType(_verse()));
+      await tester.pump();
+
+      await checkAnswer(tester, 'For God so hated the world');
+
+      expect(find.bySemanticsLabel('Missing word: loved'), findsOneWidget);
+      expect(find.bySemanticsLabel('Extra word: hated'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('the diff uses theme tokens rather than hard-coded colours',
+        (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
+      await tester.pump();
+
+      await checkAnswer(tester, 'For God so hated the world');
+
+      final context = tester.element(find.byKey(const Key('type-answer-diff')));
+      final cs = Theme.of(context).colorScheme;
       expect(
-        find.text(
-            'Microphone permission denied. You can still self-rate below.'),
-        findsOneWidget,
+        tester.widget<Text>(diffToken('delete', 'loved')).style?.color,
+        cs.error,
       );
-      expect(find.text('Microphone access needed'), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'listen() returning false shows the unavailable announcement and '
-    'resets the listening state',
-    (tester) async {
-      await tester
-          .pumpWidget(_wrap(_FakeSpeechService()..listenReturnsFalse = true));
-      await tester.pump();
-
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pump();
-
-      expect(find.text('Recite aloud'), findsOneWidget);
-      expect(find.text('Listening…'), findsNothing);
       expect(
-        find.text('On-device speech recognition is unavailable'),
-        findsOneWidget,
+        tester.widget<Text>(diffToken('match', 'For')).style?.color,
+        cs.onSurface,
       );
-    },
-  );
+    });
+  });
 
+  // Real verses repeat words constantly ("the", "is", "and"). Keying diff
+  // tokens by word alone throws "Duplicate keys found" and replaces the
+  // whole answer area with a red error box — found by running the app.
   testWidgets(
-    'manually stopping listening still scores the recognized transcript',
-    (tester) async {
-      final fake = _ControllableFakeSpeechService();
-      await tester.pumpWidget(_wrap(fake));
-      await tester.pump();
+      'a verse repeating a word renders the diff without a '
+      'duplicate-key crash', (tester) async {
+    final repeats = Verse(
+      id: '2cor_5_17',
+      reference: '2 Corinthians 5:17',
+      text: 'Therefore, if anyone is in Christ, he is a new creation. The '
+          'old has passed away; behold, the new has come.',
+      translation: 'ESV',
+      packId: 'pack_1',
+      addedAt: DateTime(2024, 1, 1),
+    );
 
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pump();
+    await tester.pumpWidget(wrapType(repeats));
+    await tester.pump();
 
-      await tester.tap(find.byIcon(Symbols.mic_rounded));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+    await checkAnswer(
+      tester,
+      'Therefore if anyone is in Christ he is a brand new creation',
+    );
 
-      expect(find.textContaining('%'), findsOneWidget);
-    },
-  );
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('type-answer-diff')), findsOneWidget);
+    // "is" appears twice in the source and twice in the answer: both must
+    // render, rather than one clobbering the other.
+    expect(diffToken('match', 'is'), findsNWidgets(2));
+  });
 
+  // The default 800px test surface hides overflow that real ~360dp phones
+  // hit; this iteration has already shipped two such defects.
   testWidgets(
-    'tapping stop while the plugin is unresponsive resolves the listening '
-    'state within the shorter post-stop timeout, not the 15s start timeout',
-    (tester) async {
-      final fake = _FakeSpeechService();
-      await tester.pumpWidget(_wrap(fake));
-      await tester.pump();
+      'the diff of a long verse lays out at a 375px viewport without '
+      'overflowing', (tester) async {
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pump();
-      expect(find.text('Listening…'), findsOneWidget);
+    final long = Verse(
+      id: 'rom_8_28',
+      reference: 'Romans 8:28',
+      text: 'And we know that all things work together for good to them that '
+          'love God to them who are the called according to his purpose',
+      translation: 'ESV',
+      packId: 'pack_1',
+      addedAt: DateTime(2024, 1, 1),
+    );
 
-      // Explicit stop; the fake's stopListening() never calls onStopped,
-      // simulating an unresponsive plugin.
-      await tester.tap(find.byIcon(Symbols.mic_rounded));
-      await tester.pump();
-      expect(find.text('Listening…'), findsOneWidget);
+    await tester.pumpWidget(wrapType(long));
+    await tester.pump();
 
+    // Every word wrong: maximal token count, legend present, worst case.
+    await checkAnswer(tester, 'completely different words entirely here now');
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('type-answer-diff')), findsOneWidget);
+    expect(find.byKey(const Key('type-answer-diff-legend')), findsOneWidget);
+  });
+
+  // The score canonicalizes a recognized book-name variant before comparing
+  // (#30); the diff must use that same comparable text, or a 100% answer
+  // renders with words marked missed and extra.
+  testWidgets(
+      'a recognized book abbreviation scores 100% and shows a diff '
+      'that agrees with it', (tester) async {
+    final verse = Verse(
+      id: '1thess_5_19',
+      reference: '1 Thessalonians 5:19',
+      text: 'Do not quench the Spirit',
+      translation: 'ESV',
+      packId: 'pack_1',
+      addedAt: DateTime(2024, 1, 1),
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: TestSessionScreen(
+        verses: [verse],
+        testMode: TestMode.review,
+        selectedFormats: const {TestFormat.type},
+        selectedDirections: const {PromptDirection.textToRef},
+      ),
+    ));
+    await tester.pump();
+
+    // "1 Thess" resolves to the same book as "1 Thessalonians", so the
+    // score forgives it — the diff must not contradict that.
+    await checkAnswer(tester, '1 Thess 5:19');
+
+    expect(find.text('100%'), findsOneWidget);
+    expect(diffToken('delete', 'Thessalonians'), findsNothing);
+    expect(diffToken('insert', 'Thess'), findsNothing);
+    expect(find.byKey(const Key('type-answer-diff-legend')), findsNothing);
+  });
+
+  group('Type-mode advance (#166)', () {
+    Verse second() => Verse(
+          id: 'rom_8_28',
+          reference: 'Romans 8:28',
+          text: 'And we know that all things work together for good',
+          translation: 'ESV',
+          packId: 'pack_1',
+          addedAt: DateTime(2024, 1, 1),
+        );
+
+    Widget wrapTwo() => MaterialApp(
+          home: TestSessionScreen(
+            verses: [_verse(), second()],
+            testMode: TestMode.review,
+            selectedFormats: const {TestFormat.type},
+            selectedDirections: const {PromptDirection.refToText},
+          ),
+        );
+
+    testWidgets(
+        'checking reveals the score and stays put — no timer '
+        'advances the session', (tester) async {
+      await tester.pumpWidget(wrapTwo());
+      await tester.pump();
+      expect(find.text('Verse 1 of 2'), findsOneWidget);
+
+      await checkAnswer(tester, 'For God so loved the world');
+      expect(find.text('100%'), findsOneWidget);
+
+      // The old behavior advanced ~1s after scoring. Wait well past that:
+      // the session must not move on its own.
       await tester.pump(const Duration(seconds: 5));
 
-      expect(find.text('Listening…'), findsNothing);
-    },
-  );
+      expect(find.text('Verse 1 of 2'), findsOneWidget);
+      expect(find.text('100%'), findsOneWidget);
+      expect(find.byKey(const Key('type-next-button')), findsOneWidget);
+    });
 
-  testWidgets(
-    'after a recite score is shown, Try Again and Continue are both '
-    'visible and the self-rate buttons are hidden',
-    (tester) async {
-      final fake = _ControllableFakeSpeechService();
-      await tester.pumpWidget(_wrap(fake));
+    testWidgets('Next advances to the following verse', (tester) async {
+      await tester.pumpWidget(wrapTwo());
       await tester.pump();
 
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pump();
-      await tester.tap(find.byIcon(Symbols.mic_rounded));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-
-      expect(find.text('Try Again'), findsOneWidget);
-      expect(find.text('Continue'), findsOneWidget);
-      expect(find.text('I knew it'), findsNothing);
-      expect(find.text("Didn't know"), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'tapping Try Again after a recite score resets state without '
-    'recording an attempt',
-    (tester) async {
-      final fake = _ControllableFakeSpeechService();
-      await tester.pumpWidget(_wrap(fake));
+      await checkAnswer(tester, 'For God so loved the world');
+      await tester.tap(find.byKey(const Key('type-next-button')));
       await tester.pump();
 
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pump();
-      await tester.tap(find.byIcon(Symbols.mic_rounded));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('Verse 2 of 2'), findsOneWidget);
+      expect(find.text('Romans 8:28'), findsOneWidget);
+      // The next verse starts clean: no stale score or diff.
+      expect(find.text('100%'), findsNothing);
+      expect(find.byKey(const Key('type-answer-diff')), findsNothing);
+      expect(find.byKey(const Key('type-check-button')), findsOneWidget);
+    });
 
-      await tester.tap(find.text('Try Again'));
-      await tester.pump();
-
-      expect(find.text('Recite aloud'), findsOneWidget);
-      expect(find.text('Verse 1 of 1'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'the recognized transcript is shown alongside the score, and clears '
-    'on retry',
-    (tester) async {
-      final fake = _ControllableFakeSpeechService(
-        finalTranscript: 'for god so loved the world',
-      );
-      await tester.pumpWidget(_wrap(fake));
+    testWidgets('Next is absent until an answer has been checked',
+        (tester) async {
+      await tester.pumpWidget(wrapTwo());
       await tester.pump();
 
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pump();
-      await tester.tap(find.byIcon(Symbols.mic_rounded));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byKey(const Key('type-next-button')), findsNothing);
+      expect(find.byKey(const Key('type-check-button')), findsOneWidget);
+    });
 
-      expect(find.textContaining('for god so loved the world'), findsOneWidget);
-
-      await tester.tap(find.text('Try Again'));
+    testWidgets('a double-tapped Next records the verse only once',
+        (tester) async {
+      await tester.pumpWidget(wrapTwo());
       await tester.pump();
 
-      expect(find.textContaining('for god so loved the world'), findsNothing);
-    },
-  );
+      await checkAnswer(tester, 'For God so loved the world');
 
-  testWidgets(
-    'the recognized transcript caption uses the bodySmall typography role',
-    (tester) async {
-      final fake = _ControllableFakeSpeechService(
-        finalTranscript: 'for god so loved the world',
-      );
-      await tester.pumpWidget(_wrap(fake));
+      // Two taps in the same frame — the second must be a no-op, or the
+      // session would record verse 1 twice and skip verse 2.
+      final next = find.byKey(const Key('type-next-button'));
+      await tester.tap(next, warnIfMissed: false);
+      await tester.tap(next, warnIfMissed: false);
       await tester.pump();
 
-      await tester.tap(find.byIcon(Symbols.mic_none_rounded));
-      await tester.pump();
-      await tester.tap(find.byIcon(Symbols.mic_rounded));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('Verse 2 of 2'), findsOneWidget);
+    });
 
-      final textWidget = tester.widget<Text>(
-        find.textContaining('for god so loved the world'),
-      );
-      final context = tester.element(
-        find.textContaining('for god so loved the world'),
-      );
+    testWidgets('Next is a ≥48dp FilledButton and takes focus on reveal',
+        (tester) async {
+      await tester.pumpWidget(wrapTwo());
+      await tester.pump();
+
+      await checkAnswer(tester, 'For God so loved the world');
+      await tester.pump();
+
+      final next = find.byKey(const Key('type-next-button'));
       expect(
-        textWidget.style?.fontSize,
-        Theme.of(context).textTheme.bodySmall?.fontSize,
+        tester.widget(next),
+        isA<FilledButton>(),
+        reason: 'a forward action is a FilledButton per the Action Pairs rule',
       );
-    },
-  );
+      expect(tester.getSize(next).height, greaterThanOrEqualTo(48));
+      expect(
+        tester.widget<FilledButton>(next).focusNode?.hasFocus,
+        isTrue,
+        reason: 'focus must land on the only forward action after reveal',
+      );
+    });
+  });
 
   Widget wrapFillBlank(Verse verse) => MaterialApp(
         home: TestSessionScreen(

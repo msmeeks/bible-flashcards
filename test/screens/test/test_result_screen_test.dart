@@ -78,4 +78,37 @@ void main() {
       expect(find.text('esv_gone_1_1 (verse deleted)'), findsOneWidget);
     },
   );
+
+  // Recite was removed in #165, but rows written before that still say
+  // "recite". They must render rather than crash on the unknown format.
+  testWidgets(
+    'renders a legacy "recite" result without error, falling back to the '
+    'stored string as its label',
+    (tester) async {
+      final dbHelper = DatabaseHelper();
+      await tester.runAsync(() => dbHelper.insertVerse(
+            makeVerse('esv_romans_2_2', reference: 'Romans 2:2'),
+          ));
+
+      final sessionResult = TestSessionResult(
+        sessionAt: DateTime(2024, 1, 1),
+        verseResults: [
+          VerseTestResult(
+            verseId: 'esv_romans_2_2',
+            accuracy: 1.0,
+            testMode: 'review',
+            testFormat: 'recite',
+            testedAt: DateTime(2024, 1, 1),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_wrap(sessionResult));
+      await pumpUntilAsyncSettled(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Romans 2:2'), findsOneWidget);
+      expect(find.textContaining('recite'), findsOneWidget);
+    },
+  );
 }

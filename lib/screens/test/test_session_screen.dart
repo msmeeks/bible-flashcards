@@ -1,14 +1,11 @@
-import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../../database/database_helper.dart';
 import '../../models/test_result.dart';
 import '../../models/verse.dart';
-import '../../services/speech_recognition_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/scoring.dart';
 import '../../widgets/esv_copyright_footer.dart';
@@ -24,7 +21,6 @@ class TestSessionScreen extends StatefulWidget {
     required this.selectedFormats,
     required this.selectedDirections,
     this.blankDensity = BlankDensity.twenty,
-    this.speechService,
     this.debugBlankIndices,
   });
 
@@ -33,10 +29,6 @@ class TestSessionScreen extends StatefulWidget {
   final Set<TestFormat> selectedFormats;
   final Set<PromptDirection> selectedDirections;
   final BlankDensity blankDensity;
-
-  // Lets tests inject a fake recognizer; production code omits this and
-  // gets a real SpeechRecognitionService (see initState).
-  final SpeechRecognitionService? speechService;
 
   // Lets tests force which fill-blank word indices get blanked instead of
   // the random selection; production code omits this (see _initBlankState).
@@ -56,8 +48,14 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   // Type mode state
   final TextEditingController _typeController = TextEditingController();
   final FocusNode _checkFocusNode = FocusNode();
+  final FocusNode _nextFocusNode = FocusNode();
   bool _showingTypeResult = false;
   double? _lastTypeScore;
+
+  // Word-level alignment of the last checked answer (#162). Derived at check
+  // time and held in memory only — it dies with this state, exactly like the
+  // typed text it came from, and is never persisted or logged.
+  List<DiffToken>? _lastTypeDiff;
 
   // Fill-blank mode state
   List<TextEditingController> _blankControllers = [];
@@ -68,30 +66,6 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   List<String> _currentBlankWords = [];
   List<int> _currentBlankIndices = [];
   List<bool> _blankCorrectness = [];
-
-  // Recite mode voice state
-  late final SpeechRecognitionService _speechService;
-  bool _isListening = false;
-  bool _micBusy = false;
-  int? _listeningVerseIndex;
-  bool _showingReciteScore = false;
-  double? _lastReciteScore;
-  String? _lastReciteTranscript;
-  String _micAnnouncement = '';
-  Timer? _micTimeoutTimer;
-  final FocusNode _reciteRetryFocusNode = FocusNode();
-
-  // Safety net for a wedged speech_to_text plugin: on-device recognition
-  // can report "started" and then never call onResult/onStatus/onError
-  // (observed on the dev emulator). Without this, _isListening would never
-  // clear and the mic button would stay stuck on "Listening" forever.
-  static const _micTimeoutDuration = Duration(seconds: 15);
-
-  // Shorter safety net specifically for an explicit stop: the user has
-  // already signaled they're done, so an unresponsive plugin shouldn't
-  // leave the UI reading "Listening…" for as long as the start-side wedge
-  // timeout above allows.
-  static const _postStopTimeoutDuration = Duration(seconds: 4);
 
   // Custom book-name variants for lenient reference-answer scoring (#30).
   Map<String, String> _customVariantLookup = const {};
@@ -114,7 +88,6 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   @override
   void initState() {
     super.initState();
-    _speechService = widget.speechService ?? SpeechRecognitionService();
     final formats = widget.selectedFormats.toList();
     final directions = widget.selectedDirections.toList();
     _verseFormats = List.generate(
@@ -134,18 +107,18 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     if (mounted) setState(() => _customVariantLookup = lookup);
   }
 
-  /// Scores [given] against [_answerText], using lenient book-name matching
-  /// when the answer is a reference (textToRef direction).
-  double _scoreAnswer(String given) {
-    if (_promptIsReference) {
-      return computeScore(given, _answerText);
-    }
-    return computeReferenceScore(
-      given,
-      _answerText,
-      customVariants: _customVariantLookup,
-    );
-  }
+  /// The text [given] should actually be compared against [_answerText].
+  /// When the answer is a reference (textToRef), a recognized book-name
+  /// variant is rewritten to the correct wording first (#30). Both the score
+  /// and the diff are derived from this, so they can never disagree — a
+  /// forgiven "1 Thess" must not render as an extra word beside 100%.
+  String _comparableAnswer(String given) => _promptIsReference
+      ? given
+      : canonicalizeReferenceAnswer(
+          given,
+          _answerText,
+          customVariants: _customVariantLookup,
+        );
 
   void _initBlankState() {
     _currentBlankWords = splitAnswerTokens(_answerText);
@@ -181,48 +154,13 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   void dispose() {
     _typeController.dispose();
     _checkFocusNode.dispose();
+    _nextFocusNode.dispose();
     _retryFocusNode.dispose();
-    _reciteRetryFocusNode.dispose();
     _disposeBlankControllers();
-    _cancelMicTimeout();
-    _speechService.dispose();
     super.dispose();
   }
 
-  void _cancelMicTimeout() {
-    _micTimeoutTimer?.cancel();
-    _micTimeoutTimer = null;
-  }
-
-  void _startMicTimeout(int verseIndex, {Duration? duration}) {
-    _cancelMicTimeout();
-    _micTimeoutTimer = Timer(duration ?? _micTimeoutDuration, () {
-      _micTimeoutTimer = null;
-      if (!mounted || _listeningVerseIndex != verseIndex) return;
-      setState(() {
-        _isListening = false;
-        _listeningVerseIndex = null;
-        _micAnnouncement = "Didn't catch that — try again or self-rate below.";
-      });
-      // Best-effort stop; a hung native stop() must not re-wedge the UI.
-      unawaited(
-        _speechService.stopListening().timeout(
-              const Duration(seconds: 3),
-              onTimeout: () {},
-            ),
-      );
-    });
-  }
-
   Future<void> _recordAndAdvance(double accuracy) async {
-    if (_isListening) {
-      _isListening = false;
-      _listeningVerseIndex = null;
-      _cancelMicTimeout();
-      await _speechService.cancel();
-      if (!mounted) return;
-    }
-
     final result = VerseTestResult(
       verseId: _currentVerse.id,
       accuracy: accuracy,
@@ -239,17 +177,12 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
         _currentIndex++;
         _showingTypeResult = false;
         _lastTypeScore = null;
+        _lastTypeDiff = null;
         _showingBlankResult = false;
         _lastBlankScore = null;
         _typeController.clear();
         _disposeBlankControllers();
         _initBlankState();
-        _isListening = false;
-        _listeningVerseIndex = null;
-        _showingReciteScore = false;
-        _lastReciteScore = null;
-        _lastReciteTranscript = null;
-        _micAnnouncement = '';
       });
     }
   }
@@ -271,160 +204,33 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
     }
   }
 
-  void _onReciteKnew() => _recordAndAdvance(1.0);
-  void _onReciteDidntKnow() => _recordAndAdvance(0.0);
-
-  Future<void> _onMicPressed() async {
-    if (_isListening) {
-      // Don't clear _listeningVerseIndex here: the plugin's final
-      // transcript for this stop arrives asynchronously via onTranscript
-      // after stopListening() resolves, and onTranscript's own guard
-      // (`_listeningVerseIndex != verseIndex`) would silently discard it
-      // if we'd already nulled the index. Let _onReciteTranscriptFinal (or
-      // onStopped, if no speech was recognized) reset listening state.
-      final verseIndex = _listeningVerseIndex;
-      await _speechService.stopListening();
-      if (verseIndex != null) {
-        _startMicTimeout(verseIndex, duration: _postStopTimeoutDuration);
-      }
-      return;
-    }
-
-    if (_micBusy) return;
-    _micBusy = true;
-
-    final permission = await _speechService.requestPermission();
-    if (!mounted) {
-      _micBusy = false;
-      return;
-    }
-    if (permission == MicPermissionResult.permanentlyDenied) {
-      setState(() => _micAnnouncement =
-          'Microphone permission denied. You can still self-rate below.');
-      await _showMicSettingsDialog();
-      _micBusy = false;
-      return;
-    }
-    if (permission != MicPermissionResult.granted) {
-      setState(() => _micAnnouncement =
-          'Microphone permission denied. You can still self-rate below.');
-      _micBusy = false;
-      return;
-    }
-
-    final verseIndex = _currentIndex;
-    setState(() {
-      _isListening = true;
-      _listeningVerseIndex = verseIndex;
-      _showingReciteScore = false;
-      _lastReciteScore = null;
-      _micAnnouncement = 'Listening';
-    });
-    _startMicTimeout(verseIndex);
-
-    final started = await _speechService.listen(
-      onTranscript: (transcript, isFinal) {
-        if (!mounted || _listeningVerseIndex != verseIndex) return;
-        _startMicTimeout(verseIndex);
-        if (!isFinal) return;
-        _onReciteTranscriptFinal(transcript, verseIndex);
-      },
-      onStopped: () {
-        if (!mounted || _listeningVerseIndex != verseIndex) return;
-        _cancelMicTimeout();
-        setState(() {
-          _isListening = false;
-          _listeningVerseIndex = null;
-          if (!_showingReciteScore) {
-            _micAnnouncement =
-                'No speech recognized. Try again, or self-rate below.';
-          }
-        });
-      },
-    );
-
-    _micBusy = false;
-    if (!started && mounted) {
-      _cancelMicTimeout();
-      setState(() {
-        _isListening = false;
-        _listeningVerseIndex = null;
-        _micAnnouncement = 'On-device speech recognition is unavailable';
-      });
-    }
-  }
-
-  Future<void> _showMicSettingsDialog() async {
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Microphone access needed'),
-        content: const Text(
-          'To recite aloud, allow microphone access in system settings. '
-          'You can still self-rate with "I knew it" / "Didn\'t know" instead.',
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              openAppSettings();
-            },
-            child: const Text('Open Settings'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _onReciteTranscriptFinal(String transcript, int verseIndex) {
-    // _answerText reflects the verse at verseIndex since the caller already
-    // confirmed _listeningVerseIndex == verseIndex == _currentIndex.
-    _cancelMicTimeout();
-    final score = _scoreAnswer(transcript);
-    // Transcript is discarded immediately after scoring; never persisted.
-    setState(() {
-      _isListening = false;
-      _listeningVerseIndex = null;
-      _showingReciteScore = true;
-      _lastReciteScore = score;
-      _lastReciteTranscript = transcript;
-      // No separate "Done listening" announcement here — _ScoreReveal's own
-      // liveRegion announces the result, avoiding a double SR announcement.
-      _micAnnouncement = '';
-    });
-  }
-
-  void _onReciteRetry() {
-    setState(() {
-      _showingReciteScore = false;
-      _lastReciteScore = null;
-      _lastReciteTranscript = null;
-      _micAnnouncement = '';
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _reciteRetryFocusNode.requestFocus();
-    });
-  }
-
-  Future<void> _onTypeCheck() async {
-    final score = _scoreAnswer(_typeController.text);
+  void _onTypeCheck() {
+    final comparable = _comparableAnswer(_typeController.text);
+    final score = computeScore(comparable, _answerText);
+    final diff = diffWords(comparable, _answerText);
     _typeController.clear(); // discard typed input immediately
 
     setState(() {
       _showingTypeResult = true;
       _lastTypeScore = score;
+      _lastTypeDiff = diff;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 1000));
-    if (mounted) {
-      _checkFocusNode.requestFocus();
-      _recordAndAdvance(score);
-    }
+    // The score stays on screen until the user asks to move on (#166) —
+    // there is no timer here. Focus the Next control so a keyboard/screen
+    // reader user lands on the only forward action rather than the diff.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _nextFocusNode.requestFocus();
+    });
+  }
+
+  void _onTypeNext() {
+    // Guard against a double-tap recording the same verse twice: the first
+    // tap flips this false, and the control only renders while it's true.
+    if (!_showingTypeResult || _lastTypeScore == null) return;
+    final score = _lastTypeScore!;
+    setState(() => _showingTypeResult = false);
+    _recordAndAdvance(score);
   }
 
   void _onBlankCheck() {
@@ -448,14 +254,11 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       if (bookNameCorrectness.containsKey(wordIndex)) {
         isCorrect = bookNameCorrectness[wordIndex]!;
       } else {
-        final correct = _currentBlankWords[wordIndex]
-            .toLowerCase()
-            .replaceAll(RegExp(r"[^\w\s']"), '');
-        final given = _blankControllers[i]
-            .text
-            .toLowerCase()
-            .replaceAll(RegExp(r"[^\w\s']"), '');
-        isCorrect = given.trim() == correct.trim();
+        // Same normalization as Type-mode scoring, so an omitted or curly
+        // apostrophe is forgiven identically in both modes (#161).
+        final correct = normalizeWords(_currentBlankWords[wordIndex]).join(' ');
+        final given = normalizeWords(_blankControllers[i].text).join(' ');
+        isCorrect = given == correct;
       }
       correctness.add(isCorrect);
       if (isCorrect) correctCount++;
@@ -582,128 +385,9 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
   Widget _buildAnswerArea(ColorScheme cs, TextTheme tt) {
     return switch (_currentFormat) {
-      TestFormat.recite => _buildReciteArea(cs),
       TestFormat.type => _buildTypeArea(cs, tt),
       TestFormat.fillBlank => _buildFillBlankArea(cs, tt),
     };
-  }
-
-  Widget _buildReciteArea(ColorScheme cs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_showingReciteScore && _lastReciteScore != null) ...[
-          _ScoreReveal(score: _lastReciteScore!, cs: cs),
-          if (_lastReciteTranscript != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Heard: "$_lastReciteTranscript"',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
-            ),
-          ],
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: OutlinedButton(
-                    focusNode: _reciteRetryFocusNode,
-                    onPressed: _onReciteRetry,
-                    child: const Text('Try Again'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: FilledButton(
-                    onPressed: () => _recordAndAdvance(_lastReciteScore!),
-                    child: const Text('Continue'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-        ] else ...[
-          SizedBox(
-            height: 48,
-            child: Tooltip(
-              message: _isListening
-                  ? 'Tap to stop listening'
-                  : 'Tap to recite aloud',
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor:
-                      _isListening ? cs.primary : cs.primaryContainer,
-                  foregroundColor:
-                      _isListening ? cs.onPrimary : cs.onPrimaryContainer,
-                ),
-                icon: Icon(
-                  _isListening ? Symbols.mic_rounded : Symbols.mic_none_rounded,
-                ),
-                label: Text(_isListening ? 'Listening…' : 'Recite aloud'),
-                onPressed: _onMicPressed,
-              ),
-            ),
-          ),
-          if (_micAnnouncement.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Semantics(
-                liveRegion: true,
-                child: Text(
-                  _micAnnouncement,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
-                ),
-              ),
-            ),
-          const SizedBox(height: 16),
-        ],
-        if (!_showingReciteScore)
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: cs.success,
-                      foregroundColor: cs.onPrimary,
-                    ),
-                    icon: const Icon(Symbols.check_rounded),
-                    label: const Text('I knew it'),
-                    onPressed: _onReciteKnew,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: cs.error,
-                      foregroundColor: cs.onError,
-                    ),
-                    icon: const Icon(Symbols.close_rounded),
-                    label: const Text("Didn't know"),
-                    onPressed: _onReciteDidntKnow,
-                  ),
-                ),
-              ),
-            ],
-          ),
-      ],
-    );
   }
 
   Widget _buildTypeArea(ColorScheme cs, TextTheme tt) {
@@ -725,8 +409,22 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
           enabled: !_showingTypeResult,
         ),
         const SizedBox(height: 16),
-        if (_showingTypeResult && _lastTypeScore != null)
+        if (_showingTypeResult && _lastTypeScore != null) ...[
           _ScoreReveal(score: _lastTypeScore!, cs: cs),
+          if (_lastTypeDiff != null) ...[
+            _AnswerDiff(tokens: _lastTypeDiff!),
+            const SizedBox(height: 16),
+          ],
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              key: const Key('type-next-button'),
+              focusNode: _nextFocusNode,
+              onPressed: _onTypeNext,
+              child: const Text('Next'),
+            ),
+          ),
+        ],
         if (!_showingTypeResult)
           SizedBox(
             height: 48,
@@ -900,6 +598,88 @@ class _PromptCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Renders a [diffWords] alignment of the user's answer against the source
+/// (#162). Every state carries a non-colour cue as well as a colour —
+/// strikethrough for a missed word, underline for an extra one — and a
+/// `Semantics` label, so nothing here is conveyed by colour alone.
+class _AnswerDiff extends StatelessWidget {
+  const _AnswerDiff({required this.tokens});
+
+  final List<DiffToken> tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final missed = tokens.where((t) => t.op == DiffOp.delete).length;
+    final extra = tokens.where((t) => t.op == DiffOp.insert).length;
+
+    return Column(
+      key: const Key('type-answer-diff'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 4,
+          runSpacing: 2,
+          children: [
+            // Keys carry the token's position: verses repeat words constantly
+            // ("the", "is"), and a word-only key throws "Duplicate keys found"
+            // and blanks the whole answer area.
+            for (final (i, token) in tokens.indexed)
+              switch (token.op) {
+                DiffOp.match => Text(
+                    token.word,
+                    key: Key('diff-$i-match-${token.word}'),
+                    style: tt.bodyLarge?.copyWith(color: cs.onSurface),
+                  ),
+                DiffOp.delete => Semantics(
+                    label: 'Missing word: ${token.word}',
+                    excludeSemantics: true,
+                    child: Text(
+                      token.word,
+                      key: Key('diff-$i-delete-${token.word}'),
+                      style: tt.bodyLarge?.copyWith(
+                        color: cs.error,
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: cs.error,
+                      ),
+                    ),
+                  ),
+                DiffOp.insert => Semantics(
+                    label: 'Extra word: ${token.word}',
+                    excludeSemantics: true,
+                    child: Text(
+                      token.word,
+                      key: Key('diff-$i-insert-${token.word}'),
+                      style: tt.bodyLarge?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        decoration: TextDecoration.underline,
+                        decorationColor: cs.onSurfaceVariant,
+                        decorationStyle: TextDecorationStyle.wavy,
+                      ),
+                    ),
+                  ),
+              },
+          ],
+        ),
+        // Only worth the vertical space once there's actually something to
+        // decode; a perfect answer is self-explanatory.
+        if (missed > 0 || extra > 0) ...[
+          const SizedBox(height: 8),
+          Text(
+            key: const Key('type-answer-diff-legend'),
+            [
+              if (missed > 0) '$missed missed (struck through)',
+              if (extra > 0) '$extra extra (underlined)',
+            ].join(' · '),
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ],
     );
   }
 }

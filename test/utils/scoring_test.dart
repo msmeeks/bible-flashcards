@@ -4,6 +4,88 @@ import 'package:bible_flashcards/utils/scoring.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('diffWords', () {
+    // Renders the alignment compactly so a failure reads as the diff itself
+    // rather than a wall of object identities.
+    String render(List<DiffToken> tokens) => tokens
+        .map((t) => switch (t.op) {
+              DiffOp.match => t.word,
+              DiffOp.delete => '-${t.word}',
+              DiffOp.insert => '+${t.word}',
+            })
+        .join(' ');
+
+    test('an exact answer is all matches', () {
+      expect(
+        render(diffWords('for God so loved', 'for God so loved')),
+        'for God so loved',
+      );
+    });
+
+    test('preserves the source casing and punctuation of matched words', () {
+      final tokens = diffWords('for god so loved', 'For God so loved,');
+      expect(tokens.every((t) => t.op == DiffOp.match), isTrue);
+      expect(render(tokens), 'For God so loved,');
+    });
+
+    test('a word missing from the answer is a deletion', () {
+      expect(
+        render(diffWords('for so loved', 'for God so loved')),
+        'for -God so loved',
+      );
+    });
+
+    test('a word not in the source is an insertion', () {
+      expect(
+        render(diffWords('for God truly so loved', 'for God so loved')),
+        'for God +truly so loved',
+      );
+    });
+
+    test('a substituted word is a deletion plus an insertion', () {
+      final tokens = diffWords('for God so hated', 'for God so loved');
+      expect(tokens.where((t) => t.op == DiffOp.delete).single.word, 'loved');
+      expect(tokens.where((t) => t.op == DiffOp.insert).single.word, 'hated');
+    });
+
+    test('an empty answer makes every source word a deletion', () {
+      final tokens = diffWords('', 'for God so loved');
+      expect(tokens.every((t) => t.op == DiffOp.delete), isTrue);
+      expect(render(tokens), '-for -God -so -loved');
+    });
+
+    test('two empty inputs produce no tokens', () {
+      expect(diffWords('', ''), isEmpty);
+    });
+
+    // #161's normalization must drive the alignment, or a contraction the
+    // score already forgave would still render as a mismatch.
+    test('an apostrophe difference aligns as a match', () {
+      final tokens = diffWords('the Lords servant', "the Lord's servant");
+      expect(tokens.every((t) => t.op == DiffOp.match), isTrue);
+      expect(render(tokens), "the Lord's servant");
+    });
+
+    // The helper is shared with computeScore (#162), so the two can never
+    // disagree about what matched.
+    test('match count is consistent with computeScore', () {
+      const typed = 'for God so truly hated the world';
+      const correct = 'for God so loved the world';
+      final tokens = diffWords(typed, correct);
+      final matches = tokens.where((t) => t.op == DiffOp.match).length;
+      final typedLen = tokens
+          .where((t) => t.op == DiffOp.match || t.op == DiffOp.insert)
+          .length;
+      final correctLen = tokens
+          .where((t) => t.op == DiffOp.match || t.op == DiffOp.delete)
+          .length;
+      expect(
+        computeScore(typed, correct),
+        matches / max(typedLen, correctLen),
+      );
+    });
+  });
+
   group('computeScore', () {
     test('both empty → 1.0', () {
       expect(computeScore('', ''), 1.0);
@@ -38,8 +120,31 @@ void main() {
           1.0);
     });
 
-    test('apostrophes preserved — "don\'t" stays one token', () {
+    // #161: apostrophes are stripped like all other punctuation, so a
+    // contraction scores the same however the user's keyboard typed it.
+    test('identical contractions still score a full match', () {
       expect(computeScore("don't", "don't"), 1.0);
+    });
+
+    test('an omitted apostrophe scores a full match', () {
+      expect(computeScore('dont', "don't"), 1.0);
+    });
+
+    test('a curly apostrophe scores a full match against a straight one', () {
+      expect(computeScore('don’t', "don't"), 1.0);
+    });
+
+    test('apostrophe insensitivity holds across a full phrase', () {
+      expect(
+        computeScore('I am the Lords servant', "I am the Lord's servant"),
+        1.0,
+      );
+    });
+
+    // Stripping the apostrophe must not silently weld neighbouring words
+    // together — "dont" and "do nt" are different answers.
+    test('stripping an apostrophe does not merge distinct words', () {
+      expect(computeScore('do nt', "don't"), lessThan(1.0));
     });
 
     test('completely different inputs → 0.0', () {

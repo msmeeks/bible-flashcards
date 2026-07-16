@@ -13,8 +13,8 @@
         166
       ],
       "size": "M",
-      "status": "stalled",
-      "attempts": 6,
+      "status": "done",
+      "attempts": 2,
       "blocked_by": []
     },
     {

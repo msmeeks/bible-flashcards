@@ -94,7 +94,6 @@ void main() {
       await tester.tap(find.byKey(const Key('home-start-test-button')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('format-chip-recite')));
       await tester.tap(find.byKey(const Key('format-chip-fillBlank')));
       await tester.tap(find.byKey(const Key('direction-chip-textToRef')));
       await tester.pumpAndSettle();

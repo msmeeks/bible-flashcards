@@ -2,7 +2,9 @@ class VerseTestResult {
   final String verseId;
   final double accuracy; // 0.0 – 1.0
   final String testMode; // "verseOfWeek" | "review"
-  final String testFormat; // "type" | "recite" | "fillBlank"
+  // Free-form so rows written by a since-removed format (the retired
+  // "recite", #165) still load; readers fall back to the raw string.
+  final String testFormat; // "type" | "fillBlank"
   final DateTime testedAt;
   // NOTE: typed input is intentionally NOT stored here — discard after scoring.
 

@@ -134,18 +134,6 @@ class _TestScreenState extends State<TestScreen> {
                     spacing: 8,
                     children: [
                       _FormatChip(
-                        key: const Key('format-chip-recite'),
-                        format: TestFormat.recite,
-                        icon: Icons.record_voice_over_outlined,
-                        selected: _selectedFormats.contains(TestFormat.recite),
-                        onSelected: (on) => setState(() {
-                          on
-                              ? _selectedFormats.add(TestFormat.recite)
-                              : _selectedFormats.remove(TestFormat.recite);
-                          _prerequisiteError = null;
-                        }),
-                      ),
-                      _FormatChip(
                         key: const Key('format-chip-type'),
                         format: TestFormat.type,
                         icon: Icons.keyboard_outlined,

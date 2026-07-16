@@ -18,13 +18,12 @@ A test session is a sequence of verse cards. The user first configures mode, for
 | File | Purpose |
 |---|---|
 | `lib/screens/test/test_screen.dart` | Mode, format, and direction pickers |
-| `lib/screens/test/test_session_screen.dart` | Active card display, recite/type/fill-blank input |
+| `lib/screens/test/test_session_screen.dart` | Active card display, type/fill-blank input, `_AnswerDiff` render widget |
 | `lib/screens/test/test_result_screen.dart` | Per-card scores, session total |
 | `lib/screens/test/test_enums.dart` | `TestMode`, `TestFormat`, `PromptDirection` enums |
 | `lib/models/test_result.dart` | `VerseTestResult` and `TestSessionResult` models |
-| `lib/utils/scoring.dart` | `computeScore` (LCS), `computeReferenceScore` (lenient book-name matching), `blankCountForPercentage`, `blankIndices` |
+| `lib/utils/scoring.dart` | `computeScore` (LCS), `diffWords` (word-level diff), `normalizeWords`, `computeReferenceScore` (lenient book-name matching), `blankCountForPercentage`, `blankIndices` |
 | `lib/utils/book_name_variants.dart` | Shared book-name-variant table (`builtInBookNameVariants`, `bookDisplayNames`, `normalizeBookNameKey`, `bookNameToUsfm`); single source of truth, also used by `BibleLookupService` |
-| `lib/services/speech_recognition_service.dart` | On-device speech-to-text wrapper for recite mode (mic permission, listen/stop/cancel) |
 | `lib/utils/verse_reference_format.dart` | `formatVerseReference` — slug ("esv_phil_4_13") to display string ("Phil 4:13 (ESV)") |
 | `lib/screens/settings/book_variants_screen.dart` | Settings UI to add/remove custom book-name variants |
 | `lib/database/database_helper.dart` | `book_name_variants` table + CRUD (`getBookNameVariants`, `addBookNameVariant`, `removeBookNameVariant`, `getCustomVariantLookup`) |
@@ -35,13 +34,15 @@ A test session is a sequence of verse cards. The user first configures mode, for
 
 ```dart
 enum TestMode { verseOfWeek, review }
-enum TestFormat { recite, type, fillBlank }
+enum TestFormat { type, fillBlank }
 enum PromptDirection { refToText, textToRef }
 ```
 
 `fillBlank` ignores `PromptDirection` (always reference context → masked text).
 
-`TestFormat.label` extension getter is single source of truth for display labels ("Recite"/"Type"/"Fill Blanks"), used by `test_screen.dart` and `test_result_screen.dart`. `TestFormatLabel.tryFromName` does safe string-to-enum lookup for stored values. Fixes prior bug where `test_result_screen.dart` checked for `'fill_blank'` when stored value was actually `'fillBlank'`.
+`TestFormat.label` extension getter is single source of truth for display labels ("Type"/"Fill Blanks"), used by `test_screen.dart` and `test_result_screen.dart`. `TestFormatLabel.tryFromName` does safe string-to-enum lookup for stored values, returning `null` for any name that doesn't match a current enum member.
+
+**Recite mode was removed entirely (#165).** On-device speech recognition proved unreliable in practice; Type mode plus the device keyboard's own dictation covers the same need. Removed: `lib/services/speech_recognition_service.dart` and its test, the `speech_to_text` and `permission_handler` pubspec dependencies, and the `RECORD_AUDIO` manifest permission. `TestResult.testFormat` is still stored as a free-form string rather than a validated enum name, and `TestFormatLabel.tryFromName` deliberately returns `null` for `"recite"` (and any other unrecognized value) rather than throwing — this is a read-tolerance decision so pre-#165 history rows keep rendering. `test_result_screen.dart` and `test_history_screen.dart` both fall back to displaying the raw stored string as the label when `tryFromName` returns `null`.
 
 ### Modes
 
@@ -57,37 +58,29 @@ When Review mode is selected, a count `Slider` (1 → memorized-verse count) plu
 
 | Format | Prompt | User Action |
 |---|---|---|
-| `recite` (referenceToText) | Reference shown | User recites the text aloud |
-| `recite` (textToReference) | Verse text shown | User recites the reference aloud |
 | `type` (referenceToText) | Reference shown | User types the verse text |
 | `type` (textToReference) | Verse text shown | User types the reference |
 | `fillBlank` | Verse text with words masked | User types or selects missing words |
 
 ### Scoring Algorithm
-**Typed and fill-in-blank responses** use word-level Longest Common Subsequence (LCS):
+**Typed and fill-in-blank responses** use word-level Longest Common Subsequence (LCS), implemented in `scoring.dart` on top of the same word-level diff that renders the answer feedback (#162):
 
 ```
 score = lcs_length(typed_words, correct_words) / max(len(typed_words), len(correct_words))
 ```
 
-- Comparison is case-insensitive and strips punctuation before tokenising.
+- `normalizeWords(String) -> List<String>` (public, top-level) lowercases, strips all punctuation via `RegExp(r'[^\w\s]')`, collapses whitespace, and tokenizes. Punctuation is removed rather than replaced with a space, so a contraction stays one token: apostrophes are stripped, so "don't", "dont", and curly "don't" all compare equal (#161). Fill-blank's inline blank comparison in `test_session_screen.dart` calls this same shared function, so both modes forgive apostrophes identically.
+- `diffWords(String typed, String correct) -> List<DiffToken>` aligns the two on normalized text (via the LCS table) but backtracks and emits `DiffToken`s **in source order**, each carrying the *original* word (source casing/punctuation for `match`/`delete`, the user's own for `insert`) and a `DiffOp` (`match`/`delete`/`insert`). `delete` = a source word the answer missed; `insert` = a word the answer added but the source doesn't contain.
+- `computeScore` is implemented on top of `diffWords` (match count / `max(typedLen, correctLen)`), so the rendered diff can never contradict the percentage shown beside it.
 - Denominator is `max(typed length, correct length)` — penalises both omissions and extra words equally.
 - Result is clamped to 0–100%.
 
-**Recite responses**: default path is self-rating — user sees the correct answer and rates "I knew it" (1.0) or "Didn't know" (0.0). An opt-in mic button (`_buildReciteArea`/`_onMicPressed` in `test_session_screen.dart`) lets the user instead speak the verse; `SpeechRecognitionService` runs on-device speech-to-text (package `speech_to_text`, `onDevice: true`, no cloud fallback — listen fails outright if on-device recognition isn't available), passing `pauseFor: const Duration(seconds: 15)` in `SpeechListenOptions` so up to 15s of silence is tolerated before auto-stopping (mid-verse pauses no longer cut recognition short). The final transcript is scored with the same `computeScore` LCS function used for typed input via `_onReciteTranscriptFinal`, which also stores the raw transcript in `_lastReciteTranscript` (in-memory only, same discard-after-use privacy contract as typed input). RECORD_AUDIO permission is requested at point-of-use (when the mic button is pressed), not pre-granted at app launch.
-
-Tapping the mic again while listening stops recognition manually; a `Tooltip` on the mic button ("Tap to stop listening" / "Tap to recite aloud") makes this discoverable. Manual stop no longer clears listening state itself — it only calls `stopListening()` and restarts the mic-timeout safety net, letting the normal finalization path (`_onReciteTranscriptFinal` or `onStopped`) reset state once the plugin's async final transcript arrives. (A prior bug cleared `_listeningVerseIndex` synchronously in the stop handler, so the transcript that arrived afterward was silently discarded by `onTranscript`'s stale-index guard and no score ever appeared — #134.)
-
-`_startMicTimeout(verseIndex, {Duration? duration})` backs two distinct safety nets, both using the same "Listening…" wedge-detection mechanism but with different durations: the session-start path uses the default `_micTimeoutDuration` (15s, unchanged, guards against the plugin never starting) while the explicit-stop path in `_onMicPressed` passes `duration: _postStopTimeoutDuration` (4s) — since the user has already signaled intent to stop, an unresponsive plugin only needs a short grace period before the UI force-resets rather than waiting out the full 15s start-side window (#152).
-
-Mic-permission handling distinguishes two `MicPermissionResult` states: `denied` (transient/re-askable) shows an inline unavailable announcement only, while `permanentlyDenied` additionally shows the "open Settings" dialog — tapping the mic again after a transient denial simply re-prompts. If `listen()` itself returns `false` (e.g. on-device recognition unavailable), the same unavailable announcement is shown and listening state is reset without ever entering the listening UI (#143, #144, #157).
-
-Once a recite score is shown, the UI presents "Heard: \"<transcript>\"" (plain text, never persisted) above a "Try Again"/"Continue" button pair (`OutlinedButton`/`FilledButton`, mirroring fill-blank's layout) — `_onReciteRetry()` resets score/transcript state without recording an attempt. The "I knew it"/"Didn't know" self-rate row is now gated behind `if (!_showingReciteScore)` so it no longer renders simultaneously with the Try Again/Continue buttons (#135, #136).
+**Type-mode answer diff (#162)**: after `_onTypeCheck` scores the answer, `_lastTypeDiff` holds the `diffWords` result and is rendered by the private `_AnswerDiff` widget below the score. Match words render in `onSurface`; deleted (missed) words render in `cs.error` with a strikethrough; inserted (extra) words render in `cs.onSurfaceVariant` with a wavy underline. Every non-match token also carries a `Semantics` label ("Missing word: X" / "Extra word: X", `excludeSemantics: true`) so nothing is conveyed by colour alone, and a text legend ("N missed (struck through) · N extra (underlined)") renders only when there's something to decode — a perfect answer shows no legend. Theme tokens only, no raw hex.
 
 **Session total** = arithmetic mean of all card scores.
 
 ### Lenient Book-Name Matching (textToRef answers)
-When the prompt direction is `textToReference` (user types or recites the reference), `test_session_screen.dart`'s `_scoreAnswer()` calls `computeReferenceScore` instead of plain `computeScore`. It splits both the typed/spoken answer and the correct reference into book-name span + chapter:verse span (regex `^(.+?)\s+(\d+:\d+(?:-\d+)?)\s*$`), resolves each book name to a USFM code via `bookNameToUsfm` (built-in table plus any custom variants), and — if both resolve to the **same** book — rewrites the typed book name to match the correct wording before running the usual word-level LCS. So "1 Pt 5:7", "First Peter 5:7", and "The First Letter of Peter 5:7" (if added as a custom variant) all score identically to whatever wording the stored verse reference uses. If either book name is unrecognized, or the two resolve to different books, it falls straight through to plain `computeScore` (no silent pass for wrong-book answers). `fillBlank` and `refToText` directions are untouched — book names there aren't a "type the reference" target, so the issue (#30) scoped lenient matching to `textToRef` only.
+When the prompt direction is `textToReference` (user types the reference), `test_session_screen.dart`'s `_scoreAnswer()` calls `computeReferenceScore` instead of plain `computeScore`. It splits both the typed/spoken answer and the correct reference into book-name span + chapter:verse span (regex `^(.+?)\s+(\d+:\d+(?:-\d+)?)\s*$`), resolves each book name to a USFM code via `bookNameToUsfm` (built-in table plus any custom variants), and — if both resolve to the **same** book — rewrites the typed book name to match the correct wording before running the usual word-level LCS. So "1 Pt 5:7", "First Peter 5:7", and "The First Letter of Peter 5:7" (if added as a custom variant) all score identically to whatever wording the stored verse reference uses. If either book name is unrecognized, or the two resolve to different books, it falls straight through to plain `computeScore` (no silent pass for wrong-book answers). `fillBlank` and `refToText` directions are untouched — book names there aren't a "type the reference" target, so the issue (#30) scoped lenient matching to `textToRef` only.
 
 Custom variants are loaded once per session in `initState` via `_loadCustomVariants()` → `DatabaseHelper.getCustomVariantLookup()`, which merges all stored rows into a normalized-key → USFM-code map layered on top of the built-in table (built-in never mutated).
 
@@ -106,8 +99,11 @@ Blank count and positions are now percentage-driven and randomized, replacing th
 
 For each verse, `blankCountForPercentage(candidateWordCount, percentage)` in `lib/utils/scoring.dart` computes `round(percentage / 100 * candidateWordCount)`, floored at 1 (for 20%) or 2 (for 30/50/75%) so at least one blank always appears. `blankIndices(words, count, {Random? random})` then randomly selects `count` distinct non-`':'` candidate positions (falls back to all candidates if `count` exceeds availability), sorted ascending to preserve word order. `random` is injectable for deterministic tests; `TestSessionScreen` keeps one instance-level `Random` for its whole session and re-rolls the percentage (not the RNG) per verse when density is `random`.
 
+### Type Mode: Explicit Advance (#166)
+Checking a Type-mode answer no longer auto-advances to the next card after a delay. `_onTypeCheck` scores the answer, clears the input, and shows the score + diff — the session stays on that card indefinitely. A **Next** `FilledButton` (key `type-next-button`, 48dp) appears once the result is showing and receives focus automatically (`_nextFocusNode`) so a keyboard/screen-reader user lands on the forward action. Tapping it calls `_onTypeNext`, which is guarded by `if (!_showingTypeResult || _lastTypeScore == null) return;` so a double-tap can only record the card once.
+
 ### Privacy
-Typed test input is held only in ephemeral widget state. It is discarded immediately after the scoring function runs and is never written to the database or logs. Voice transcripts from the recite-mode mic option follow the same rule — held in memory only, discarded immediately after `computeScore` runs, never persisted or logged. See `meta/PRIVACY.md` ("Voice Recitation (Recite Mode)" section) for the full data-handling statement.
+Typed test input is held only in ephemeral widget state (`_typeController`/blank controllers). It is cleared immediately (`_typeController.clear()`) once the scoring function runs, and the resulting `diffWords` alignment (`_lastTypeDiff`) is held in memory only for on-screen rendering — none of it is written to the database or logs. See `meta/PRIVACY.md` for the full data-handling statement.
 
 ### History
 Each completed session is stored with: timestamp, mode, list of (reference, score) pairs, and total score. The Settings screen exposes a "Clear History" action. The home screen shows recent memorized verses as chips. Results screen (`test_result_screen.dart`) and Test History screen (`lib/screens/settings/test_history_screen.dart`) both display the verse's stored `reference` field (via `DatabaseHelper.getVerseById`, resolved for all rows up front with a single `Future.wait` rather than per-row `FutureBuilder`s) instead of deriving it from the id via `formatVerseReference` — `formatVerseReference`'s slug parser only recognizes bundled-pack book abbreviations, so it silently fell back to the raw id for custom-added verses (whose ids embed the full book name, e.g. `esv_romans_2_2`). If a result's verse has since been deleted, both screens show the raw id suffixed with "(verse deleted)" in italics rather than a bare, ambiguous-looking slug.
@@ -124,6 +120,7 @@ Fill-blank feedback in `test_session_screen.dart` uses `TextField` `errorText`/`
 ## Changelog
 | Date | Change |
 |---|---|
+| 2026-07-15 | Recite mode removed entirely (#165) — unreliable on-device recognition in practice, Type mode plus keyboard dictation covers the need; deleted `speech_recognition_service.dart`, its test, the `speech_to_text`/`permission_handler` deps, and `RECORD_AUDIO`; `TestFormatLabel.tryFromName` intentionally returns `null` for `"recite"` so old history rows still display via raw-string fallback. Apostrophes now stripped in scoring normalization (#161): `[^\w\s']` → `[^\w\s]`, extracted to public `normalizeWords`, so "don't"/"dont"/"don't" compare equal in both Type and Fill Blank. Word-level diff now surfaced instead of discarded (#162): new `DiffOp`/`DiffToken`/`diffWords` in `scoring.dart`, rendered by `_AnswerDiff` (strikethrough+error for missed words, wavy-underline+onSurfaceVariant for extra words, `Semantics` labels, text legend); `computeScore` is now implemented on top of `diffWords` so score and diff can never disagree. Type mode no longer auto-advances (#166): checking reveals score+diff and waits for a new focused **Next** button (`type-next-button`), double-tap-safe. |
 | 2026-07-07 | Hardened recite-aloud speech handling (#143, #144, #152, #154, #157): added widget-test coverage for transient mic-permission `denied` (announcement only, no Settings dialog — that's `permanentlyDenied`-only) and `listen()` returning `false` (unavailable announcement, listening state reset), via new test fakes `_TransientlyDeniedSpeechService` and `_FakeSpeechService.listenReturnsFalse`; added a shorter `_postStopTimeoutDuration` (4s) for the explicit-stop path so tapping stop while the plugin is unresponsive resolves the "Listening…" UI within ~4s instead of the full 15s start-side `_micTimeoutDuration` wedge-detection window; documented the `pauseFor: 15s` rationale in `speech_recognition_service.dart`; swapped remaining default `Icons.*` usages in `test_session_screen.dart` for Material Symbols Rounded equivalents (no behavior change) |
 | 2026-07-06 | Fixed inconsistent verse-reference display on Test Summary and Test History (#137): both screens now resolve each result's verse via `DatabaseHelper.getVerseById` (batched with `Future.wait`, not per-row `FutureBuilder`s) and show its stored `reference` instead of re-deriving one from the id via `formatVerseReference`, which only recognized bundled-pack abbreviations and silently returned the raw id for custom-added verses; deleted verses show "id (verse deleted)" in italics; also fixed Test History's format label to use the shared `TestFormatLabel.tryFromName` helper (was checking snake_case `fill_blank` against the camelCase `fillBlank` stored value, so it never matched) |
 | 2026-07-06 | Fixed recite-aloud speech issues (#134/#135/#136): `pauseFor: 15s` tolerates mid-verse silence before auto-stopping; manual mic-stop no longer clears listening state early (was discarding the async final transcript, showing no score) and gained a discoverability `Tooltip`; recite score reveal now shows "Try Again"/"Continue" (mirroring fill-blank) with `_onReciteRetry()`, and self-rate buttons are hidden once a score is shown; recognized transcript displayed as "Heard: ..." above the buttons, in-memory only, never persisted |

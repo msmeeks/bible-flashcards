@@ -40,7 +40,33 @@ String normalizeReferenceInput(String s) {
 /// identically to the canonical form instead of being penalized for
 /// word-choice. If either side's book name is unrecognized, or they resolve
 /// to different books, scoring falls through to plain [computeScore].
+///
+/// `test_session_screen.dart` composes [canonicalizeReferenceAnswer] and
+/// [computeScore] itself rather than calling this, because it needs the
+/// canonical text for the diff too and must not canonicalize twice. This
+/// stays as the module's reference-scoring entry point and is defined in
+/// terms of those same two pieces, so the two paths cannot diverge.
 double computeReferenceScore(
+  String typed,
+  String correct, {
+  Map<String, String> customVariants = const {},
+}) =>
+    computeScore(
+      canonicalizeReferenceAnswer(typed, correct,
+          customVariants: customVariants),
+      correct,
+    );
+
+/// Rewrites [typed]'s book name to match [correct]'s wording when both
+/// resolve to the same book, returning the text that should actually be
+/// compared against [correct]. Returns [typed] unchanged when either side
+/// isn't reference-shaped, either book name is unrecognized, or the two name
+/// different books — so a wrong-book answer never gets a silent pass.
+///
+/// Exposed so the score and the rendered diff (#162) can be derived from the
+/// same comparable text: scoring the canonical form while diffing the raw
+/// input would show "1 Thess" as an extra word beside a 100% score.
+String canonicalizeReferenceAnswer(
   String typed,
   String correct, {
   Map<String, String> customVariants = const {},
@@ -48,9 +74,7 @@ double computeReferenceScore(
   final typedMatch =
       referenceSplitPattern.firstMatch(normalizeReferenceInput(typed.trim()));
   final correctMatch = referenceSplitPattern.firstMatch(correct.trim());
-  if (typedMatch == null || correctMatch == null) {
-    return computeScore(typed, correct);
-  }
+  if (typedMatch == null || correctMatch == null) return typed;
 
   final typedBook = typedMatch.group(1)!;
   final correctBook = correctMatch.group(1)!;
@@ -59,45 +83,123 @@ double computeReferenceScore(
       bookNameToUsfm(correctBook, customVariants: customVariants);
 
   if (typedUsfm == null || correctUsfm == null || typedUsfm != correctUsfm) {
-    return computeScore(typed, correct);
+    return typed;
   }
-
-  final canonicalizedTyped = '$correctBook ${typedMatch.group(2)}';
-  return computeScore(canonicalizedTyped, correct);
+  return '$correctBook ${typedMatch.group(2)}';
 }
 
-/// Computes a 0.0–1.0 similarity score using word-level LCS.
-/// Both-empty inputs return 1.0; either-empty returns 0.0.
-double computeScore(String typed, String correct) {
-  String normalize(String s) => s
-      .toLowerCase()
-      .replaceAll(RegExp(r"[^\w\s']"), '')
-      .trim()
-      .replaceAll(RegExp(r'\s+'), ' ');
+/// Splits [s] into normalized comparison words: lowercased, stripped of all
+/// punctuation (apostrophes included, so "don't", "dont" and "don’t" all
+/// compare equal — #161), and collapsed on whitespace. Punctuation is
+/// removed rather than replaced with a space, so a contraction stays a
+/// single token instead of splitting into two.
+List<String> normalizeWords(String s) => s
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^\w\s]'), '')
+    .trim()
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .split(' ')
+    .where((w) => w.isNotEmpty)
+    .toList();
 
-  final typedWords =
-      normalize(typed).split(' ').where((w) => w.isNotEmpty).toList();
-  final correctWords =
-      normalize(correct).split(' ').where((w) => w.isNotEmpty).toList();
+/// What a [DiffToken] represents in an answer-vs-source alignment.
+enum DiffOp {
+  /// Present in both the answer and the source.
+  match,
 
-  if (typedWords.isEmpty && correctWords.isEmpty) return 1.0;
-  if (typedWords.isEmpty || correctWords.isEmpty) return 0.0;
+  /// A source word the answer omitted.
+  delete,
+
+  /// An answer word the source doesn't contain.
+  insert,
+}
+
+/// One word of a [diffWords] alignment, carrying the word as originally
+/// written (source casing/punctuation for [DiffOp.match]/[DiffOp.delete],
+/// the user's own for [DiffOp.insert]) so callers can render it verbatim
+/// even though the alignment itself ran on normalized text.
+class DiffToken {
+  const DiffToken(this.word, this.op);
+
+  final String word;
+  final DiffOp op;
+
+  @override
+  String toString() => '${op.name}:$word';
+}
+
+/// Pairs each whitespace-separated word of [s] with its normalized
+/// comparison form, dropping words that normalize away to nothing (a bare
+/// em dash, say). Keeping both halves together is what lets [diffWords]
+/// align on normalized text but render the original.
+List<({String original, String normalized})> _alignableWords(String s) => [
+      for (final word in s.trim().split(RegExp(r'\s+')))
+        if (normalizeWords(word).join() case final normalized
+            when normalized.isNotEmpty)
+          (original: word, normalized: normalized),
+    ];
+
+/// Aligns a [typed] answer against the [correct] source word-by-word,
+/// returning the LCS alignment in source order: matched words, source words
+/// the answer missed ([DiffOp.delete]), and words the answer added
+/// ([DiffOp.insert]).
+///
+/// Comparison uses [normalizeWords], so case and punctuation — apostrophes
+/// included (#161) — never produce a spurious mismatch. This is the same
+/// alignment [computeScore] scores, so a rendered diff can never contradict
+/// the percentage shown beside it.
+List<DiffToken> diffWords(String typed, String correct) {
+  final typedWords = _alignableWords(typed);
+  final correctWords = _alignableWords(correct);
 
   final m = typedWords.length;
   final n = correctWords.length;
   final dp = List.generate(m + 1, (_) => List<int>.filled(n + 1, 0));
   for (var i = 1; i <= m; i++) {
     for (var j = 1; j <= n; j++) {
-      if (typedWords[i - 1] == correctWords[j - 1]) {
+      if (typedWords[i - 1].normalized == correctWords[j - 1].normalized) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = max(dp[i - 1][j], dp[i][j - 1]);
       }
     }
   }
-  final lcs = dp[m][n];
-  final maxLen = max(m, n);
-  return lcs / maxLen;
+
+  // Walk the table backwards, then reverse: emitting in source order keeps
+  // the rendered diff readable as the verse rather than as the answer.
+  final tokens = <DiffToken>[];
+  var i = m;
+  var j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 &&
+        j > 0 &&
+        typedWords[i - 1].normalized == correctWords[j - 1].normalized) {
+      tokens.add(DiffToken(correctWords[j - 1].original, DiffOp.match));
+      i--;
+      j--;
+    } else if (j > 0 && (i == 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      tokens.add(DiffToken(correctWords[j - 1].original, DiffOp.delete));
+      j--;
+    } else {
+      tokens.add(DiffToken(typedWords[i - 1].original, DiffOp.insert));
+      i--;
+    }
+  }
+  return tokens.reversed.toList();
+}
+
+/// Computes a 0.0–1.0 similarity score using word-level LCS.
+/// Both-empty inputs return 1.0; either-empty returns 0.0.
+double computeScore(String typed, String correct) {
+  final typedWords = normalizeWords(typed);
+  final correctWords = normalizeWords(correct);
+
+  if (typedWords.isEmpty && correctWords.isEmpty) return 1.0;
+  if (typedWords.isEmpty || correctWords.isEmpty) return 0.0;
+
+  final tokens = diffWords(typed, correct);
+  final lcs = tokens.where((t) => t.op == DiffOp.match).length;
+  return lcs / max(typedWords.length, correctWords.length);
 }
 
 /// Computes how many words to blank for a given blank-density [percentage]

@@ -368,3 +368,100 @@ attempts and will not be retried by the driver. Two items still want a human:
    prefer a first-enable notice, the section titled "Why no first-enable notice
    is shown" is where the argument lives — invert it and gate a dialog on a new
    preference flag following the `engagement_notice_shown` pattern.
+
+---
+
+## 2026-07-15 22:40 — `feat-test-modes.md` (#165, #161, #162, #166) — done
+
+Retired Recite, made Type-mode scoring apostrophe-insensitive, surfaced the
+word diff that was being computed and thrown away, and stopped the ~1s
+auto-advance.
+
+**The last plan in the queue** — every other plan was already `done`. Its
+`stalled`/6-attempts state had been reset to `pending`/1 in the working tree
+before this run; I read that as the human decision the previous three entries
+kept asking for, and proceeded. **The same uncommitted edit also blanked
+`sdlc_review_status` (`complete` → `pending`) and dropped the 7 completed
+agents and 21 finding issues (#168–#188). That looked like collateral from a
+bulk overwrite rather than intent — the review demonstrably happened and every
+plan those findings produced is `done` — so I restored those three fields.
+Worth a human confirming.**
+
+Followed the plan's mandated internal ordering (#165 → #161 → #162; #166 last).
+
+What shipped:
+
+- **#165 Recite removed.** `TestFormat` is now `{type, fillBlank}`. Deleted
+  `SpeechRecognitionService` + its test, and **two** dependencies —
+  `speech_to_text` *and* `permission_handler`, which the plan didn't mention but
+  which was orphaned the moment the mic flow went (grepped: zero remaining
+  references). `RECORD_AUDIO` is gone from the manifest. Verified against the
+  **freshly-built merged manifest**, not just source: an earlier grep hit
+  `RECORD_AUDIO` in a July 7 *release* artifact, which would have been a false
+  alarm — a clean debug rebuild has no `RECORD_AUDIO` at all.
+- **#161 apostrophes** stripped like all other punctuation, via a new public
+  `normalizeWords`. Fill-blank's inline scoring carried a **duplicate copy** of
+  the same `[^\w\s']` regex, so "dont" in a blank would still have been marked
+  wrong — the plan scoped #161 to `scoring.dart`, but leaving that is the exact
+  inconsistency the plan's own Goal names. Folded onto the shared helper.
+- **#162 diff.** New `DiffOp`/`DiffToken`/`diffWords`. `computeScore` is now
+  *implemented on* `diffWords`, so the percentage and the rendered diff cannot
+  disagree by construction. Aligns on normalized text, renders the original
+  wording. Match `onSurface`; missed `error` + strikethrough; extra
+  `onSurfaceVariant` + wavy underline — every state pairs color with a
+  non-color cue **and** a `Semantics` label, plus a legend counting missed/extra.
+- **#166 no auto-advance.** Timer deleted; explicit 48dp **Next** `FilledButton`
+  (Action Pairs: a forward action is Filled), focused on reveal, guarded against
+  double-record.
+
+**Two real defects the unit tests could not have caught — both found by running
+the app, and both now pinned by tests:**
+
+1. **Duplicate-key crash.** Keying diff tokens by word alone throws "Duplicate
+   keys found" and replaces the entire answer area with a red error box on *any
+   verse that repeats a word* — i.e. most verses. Every test verse I'd written
+   had unique words. Keys now carry the token index; the regression test uses
+   2 Cor 5:17 ("is" ×2) and asserts both render.
+2. **Score/diff contradiction.** `computeReferenceScore` canonicalizes a
+   recognized book variant before scoring, but the diff was built from the raw
+   input — so "1 Thess 5:19" scored **100%** while the diff marked
+   `Thessalonians` missed and `Thess` extra, flatly contradicting the property
+   I'd just documented. Extracted `canonicalizeReferenceAnswer` so the screen
+   derives score and diff from one comparable string.
+
+Mutation-checked rather than counted (603 → 619). Restoring the auto-advance
+timer kills 10 tests; deleting the double-record guard kills exactly 1;
+deleting the focus-on-reveal callback kills exactly 1. The legacy-`"recite"`
+test was genuinely RED before the removal (the enum rendered "Recite", not the
+raw "recite") and GREEN after — it pins that pre-#165 history rows still
+display. Also added a 375px layout test, since this iteration has already
+shipped two phone-width overflow defects that the 800px default surface hid.
+
+Judgment calls worth a reviewer's eye:
+
+- **`computeReferenceScore` now has no production caller** — the screen composes
+  its two halves because it needs the intermediate text. Kept as the module's
+  reference-scoring entry point (defined in terms of the same two pieces, so it
+  can't diverge; its ~20 tests are the real guard on book-name leniency) rather
+  than deleted, which would have made those tests noisier for no gain.
+- **`DESIGN_BRIEF.md`'s Action Pairs "Exception"**: the plan said to remove it.
+  Its *example* was Recite, but the rule is general, so I stripped the dead
+  example and kept the rule, noting no such pair exists today.
+- Scrubbed Recite from `README.md` (advertised "three formats") and
+  `DEVELOPER.md` (obsolete emulator STT note) — both current-tense and now
+  false. Left the dated `CHANGELOG.md`/feature-doc history rows alone; those are
+  history, not claims.
+
+`meta/PRIVACY.md` now states the app has **no microphone access of any kind**
+and the `RECORD_AUDIO` row is gone; `test/android_manifest_test.dart` (which
+enforces manifest↔PRIVACY table agreement) still passes.
+
+Verification: 619 tests pass; `flutter analyze` 0 errors/warnings (17 infos —
+all in files this plan never touched); `dart format` clean; debug APK builds.
+Emulator smoke on the Pixel 9 drove the real flow: Recite absent from the format
+picker, diff renders correctly for match/missed/extra with the legend, Next
+present and no auto-advance, no exceptions in `flutter_run.log`.
+
+**All plans in `prd.json` are now `done`.** The `integration_test/app_smoke_test.dart`
+failure the last three entries carried forward was, as predicted, this plan's:
+it tapped `format-chip-recite` to deselect it, and that line is now gone.

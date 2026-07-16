@@ -9,8 +9,6 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Scheduled alarms are cleared on reboot; the boot receiver below re-registers them -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Requested at point-of-use (recite-mode mic button), never pre-granted -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:label="Bible Flashcards"

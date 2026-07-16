@@ -3,10 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('TestFormat.label', () {
-    test('recite', () {
-      expect(TestFormat.recite.label, 'Recite');
-    });
-
     test('type', () {
       expect(TestFormat.type.label, 'Type');
     });
@@ -23,6 +19,12 @@ void main() {
 
     test('returns null for an unrecognized name', () {
       expect(TestFormatLabel.tryFromName('fill_blank'), isNull);
+    });
+
+    // Rows written before #165 removed the format still carry "recite";
+    // callers render the raw string rather than crashing on the null.
+    test('returns null for the retired "recite" format', () {
+      expect(TestFormatLabel.tryFromName('recite'), isNull);
     });
   });
 
