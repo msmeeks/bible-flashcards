@@ -93,8 +93,7 @@ class _TestResultScreenState extends State<TestResultScreen> {
                 itemCount: widget.sessionResult.verseResults.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
-                  final result =
-                      widget.sessionResult.verseResults[index];
+                  final result = widget.sessionResult.verseResults[index];
                   return _VerseResultCard(
                     result: result,
                     verse: _versesById[result.verseId],
@@ -103,8 +102,7 @@ class _TestResultScreenState extends State<TestResultScreen> {
               ),
             ),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -120,8 +118,7 @@ class _TestResultScreenState extends State<TestResultScreen> {
                   TextButton(
                     onPressed: () {
                       // Pop back to root (main scaffold)
-                      Navigator.of(context)
-                          .popUntil((route) => route.isFirst);
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                     child: const Text('Go Home'),
                   ),
@@ -171,9 +168,8 @@ class _VerseResultCard extends StatelessWidget {
       badgeIcon = Icons.cancel_outlined;
     }
 
-    final formatLabel =
-        TestFormatLabel.tryFromName(result.testFormat)?.label ??
-            result.testFormat;
+    final formatLabel = TestFormatLabel.tryFromName(result.testFormat)?.label ??
+        result.testFormat;
 
     return Card(
       child: Padding(

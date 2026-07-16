@@ -109,8 +109,7 @@ class _VerseCardState extends State<VerseCard> {
               child: IconButton(
                 icon: const Icon(Symbols.expand_more_rounded),
                 padding: const EdgeInsets.all(12),
-                onPressed: () =>
-                    setState(() => _state = FlashcardState.both),
+                onPressed: () => setState(() => _state = FlashcardState.both),
               ),
             ),
           ),
@@ -147,8 +146,8 @@ class _VerseCardState extends State<VerseCard> {
         : _buildStatusChip(cs);
 
     final label = _semanticLabel();
-    final content = _buildContent(
-        verse, cs, tt, showReference, showText, chipWidget);
+    final content =
+        _buildContent(verse, cs, tt, showReference, showText, chipWidget);
 
     return Semantics(
       button: true,

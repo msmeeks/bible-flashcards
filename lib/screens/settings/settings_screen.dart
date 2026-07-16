@@ -13,6 +13,7 @@ import '../../services/audio_service.dart';
 import '../../services/esv_lookup_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/announce_on_change.dart';
+import '../../widgets/inline_status_banner.dart';
 import '../history/history_screen.dart';
 import 'book_variants_screen.dart';
 import 'data_management_screen.dart';
@@ -28,6 +29,9 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   AudioInterruptService? _interruptService;
   final FocusNode _reminderFocusNode = FocusNode();
+
+  /// Why the daily reminder could not be scheduled, or null when it is fine.
+  String? _reminderError;
 
   @override
   void dispose() {
@@ -45,11 +49,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Saved default may be 'ESV' from a build that had a key configured;
     // fall back to BSB for display when this build has none, mirroring
     // AddVerseScreen's fallback for the same situation.
-    final effectiveDefaultTranslation =
-        settings.defaultTranslation == 'ESV' &&
-                !EsvLookupService.isApiKeyConfigured
-            ? 'BSB'
-            : settings.defaultTranslation;
+    final effectiveDefaultTranslation = settings.defaultTranslation == 'ESV' &&
+            !EsvLookupService.isApiKeyConfigured
+        ? 'BSB'
+        : settings.defaultTranslation;
     final esvSelected = effectiveDefaultTranslation == 'ESV';
 
     return Scaffold(
@@ -61,9 +64,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ----------------------------------------------------------------
           _SectionHeader(label: 'Audio', textTheme: tt),
           SwitchListTile(
-            title: const Text('Interrupt audio for verse reminders'),
-            subtitle: const Text(
-              'After 1 hour of audio, play a memorized verse',
+            title: const Text('Play verses periodically'),
+            subtitle: Text(
+              settings.audioInterruptTriggerMode ==
+                      AudioTriggerMode.whileOtherAudioPlaying
+                  ? 'Every ${settings.audioInterruptIntervalMinutes} minutes, '
+                      'while other audio is playing'
+                  : 'Every ${settings.audioInterruptIntervalMinutes} minutes',
             ),
             value: settings.audioInterruptEnabled,
             onChanged: (value) => _onAudioInterruptChanged(
@@ -72,63 +79,160 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value,
             ),
           ),
-          ListTile(
-            title: const Text('Verse-of-week probability'),
-            subtitle: const Text(
-                'How often the verse of the week is chosen vs. a random memorized verse'),
-            trailing: MergeSemantics(
-              child: Text(
-                '${(settings.audioInterruptProbability * 100).round()}%',
-                style: tt.bodyMedium,
+          // One merged node, as the "Notification type" and "Theme" rows do, so
+          // the value is announced as part of the control that changes it.
+          MergeSemantics(
+            key: const Key('interval-row'),
+            child: Semantics(
+              button: true,
+              child: ListTile(
+                enabled: settings.audioInterruptEnabled,
+                title: const Text('Play a verse every'),
+                subtitle: Text(
+                  settings.audioInterruptEnabled
+                      ? 'How often a memorized verse is played'
+                      : 'Turn on "Play verses periodically" to choose an '
+                          'interval',
+                ),
+                trailing: Text(
+                  '${settings.audioInterruptIntervalMinutes} min',
+                  style: tt.labelMedium,
+                ),
+                onTap: settings.audioInterruptEnabled
+                    ? () => _showIntervalDialog(context, settingsProvider)
+                    : null,
               ),
             ),
-            onTap: () => _showProbabilityDialog(context, settingsProvider),
+          ),
+          // The choices are laid out under the title rather than in the
+          // trailing slot: their labels are too wide for a ListTile trailing
+          // widget at a 375px viewport.
+          ListTile(
+            enabled: settings.audioInterruptEnabled,
+            title: const Text('When to play'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!settings.audioInterruptEnabled)
+                  const Text(
+                      'Turn on "Play verses periodically" to choose when'),
+                // Stands in for a first-enable consent notice; see
+                // meta/PRIVACY.md. Shown only in the mode that actually
+                // queries system audio state.
+                if (settings.audioInterruptEnabled &&
+                    settings.audioInterruptTriggerMode ==
+                        AudioTriggerMode.whileOtherAudioPlaying)
+                  const Text('Checks whether another app is playing audio, '
+                      'not what it is'),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Semantics(
+                    key: const Key('trigger-mode-group'),
+                    label: 'When to play a verse',
+                    enabled: settings.audioInterruptEnabled,
+                    explicitChildNodes: true,
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final mode in AudioTriggerMode.values)
+                          ChoiceChip(
+                            label: Text(_triggerModeLabel(mode)),
+                            selected:
+                                settings.audioInterruptTriggerMode == mode,
+                            onSelected: settings.audioInterruptEnabled
+                                ? (_) => _onTriggerModeChanged(
+                                    settingsProvider, mode)
+                                : null,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          MergeSemantics(
+            key: const Key('probability-row'),
+            child: Semantics(
+              button: true,
+              child: ListTile(
+                title: const Text('Verse-of-week probability'),
+                subtitle: const Text('How often the verse of the week is '
+                    'chosen vs. a random memorized verse'),
+                trailing: Text(
+                  '${(settings.audioInterruptProbability * 100).round()}%',
+                  style: tt.labelMedium,
+                ),
+                onTap: () => _showProbabilityDialog(context, settingsProvider),
+              ),
+            ),
           ),
           // ----------------------------------------------------------------
           // Notifications
           // ----------------------------------------------------------------
           _SectionHeader(label: 'Notifications', textTheme: tt),
-          ListTile(
-            focusNode: _reminderFocusNode,
-            title: const Text('Daily reminder'),
-            subtitle: Text(
-              settings.dailyNotificationTime?.format(context) ?? 'Off',
-            ),
-            trailing: settings.dailyNotificationTime != null
-                ? IconButton(
-                    icon: const Icon(
-                      Symbols.cancel_rounded,
-                      semanticLabel: 'Clear daily reminder',
+          Semantics(
+            key: const Key('daily-reminder'),
+            // Carries the failure reason on the control itself; the banner's
+            // live region only announces it once, as it arrives.
+            label: _reminderError,
+            child: ListTile(
+              focusNode: _reminderFocusNode,
+              title: const Text('Daily reminder'),
+              subtitle: Text(
+                settings.dailyNotificationTime?.format(context) ?? 'Off',
+              ),
+              trailing: settings.dailyNotificationTime != null
+                  ? IconButton(
+                      icon: const Icon(
+                        Symbols.cancel_rounded,
+                        semanticLabel: 'Clear daily reminder',
+                      ),
+                      onPressed: () =>
+                          _clearDailyNotification(context, settingsProvider),
+                    )
+                  : const Icon(
+                      Symbols.chevron_right_rounded,
+                      semanticLabel: 'Set daily reminder',
                     ),
-                    onPressed: () =>
-                        _clearDailyNotification(context, settingsProvider),
-                  )
-                : const Icon(
-                    Symbols.chevron_right_rounded,
-                    semanticLabel: 'Set daily reminder',
-                  ),
-            onTap: () => _showTimePicker(context, settingsProvider),
+              onTap: () => _showTimePicker(context, settingsProvider),
+            ),
+          ),
+          // Always mounted so the live region is in the tree before the message
+          // arrives; it collapses to zero height while _reminderError is null.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: InlineStatusBanner(
+              severity: BannerSeverity.error,
+              message: _reminderError,
+            ),
           ),
           Semantics(
             label: 'Notification type',
             child: MergeSemantics(
               child: ListTile(
                 title: const Text('Notification type'),
-                trailing: SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                        value: 'verseOfWeek', label: Text('Verse of week')),
-                    ButtonSegment(
-                        value: 'reviewVerse', label: Text('Review verse')),
-                  ],
-                  selected: {settings.notificationType},
-                  onSelectionChanged: (selected) {
-                    settingsProvider.update(
-                      settings.copyWith(notificationType: selected.first),
-                      announcement:
-                          'Notification type set to ${selected.first == 'verseOfWeek' ? 'verse of week' : 'review verse'}',
-                    );
-                  },
+                // Under the title, not trailing: these labels overflow a
+                // ListTile trailing slot on a ~360dp phone.
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                          value: 'verseOfWeek', label: Text('Verse of week')),
+                      ButtonSegment(
+                          value: 'reviewVerse', label: Text('Review verse')),
+                    ],
+                    selected: {settings.notificationType},
+                    onSelectionChanged: (selected) {
+                      settingsProvider.update(
+                        settings.copyWith(notificationType: selected.first),
+                        announcement:
+                            'Notification type set to ${selected.first == 'verseOfWeek' ? 'verse of week' : 'review verse'}',
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -149,11 +253,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
               if (context.mounted && updated.dailyNotificationTime != null) {
                 final notifService = context.read<NotificationService>();
-                await _applyNotificationSettings(
-                  context,
-                  notifService,
-                  updated,
-                );
+                await _applyNotificationSettings(notifService, updated);
               }
             },
           ),
@@ -182,8 +282,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 builder: (context, liveRegion) => esvSelected
                     ? Semantics(
                         liveRegion: liveRegion,
-                        label:
-                            'ESV is for personal, non-commercial use only.',
+                        label: 'ESV is for personal, non-commercial use only.',
                         child: Text(
                           'ESV is for personal, non-commercial use only.',
                           style: tt.bodySmall?.copyWith(
@@ -223,19 +322,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           MergeSemantics(
             child: ListTile(
               title: const Text('Theme'),
-              trailing: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'system', label: Text('System')),
-                  ButtonSegment(value: 'light', label: Text('Light')),
-                  ButtonSegment(value: 'dark', label: Text('Dark')),
-                ],
-                selected: {settings.themeMode},
-                onSelectionChanged: (selected) {
-                  settingsProvider.update(
-                    settings.copyWith(themeMode: selected.first),
-                    announcement: 'Theme set to ${selected.first}',
-                  );
-                },
+              // Under the title, not trailing: these labels overflow a
+              // ListTile trailing slot on a ~360dp phone.
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'system', label: Text('System')),
+                    ButtonSegment(value: 'light', label: Text('Light')),
+                    ButtonSegment(value: 'dark', label: Text('Dark')),
+                  ],
+                  selected: {settings.themeMode},
+                  onSelectionChanged: (selected) {
+                    settingsProvider.update(
+                      settings.copyWith(themeMode: selected.first),
+                      announcement: 'Theme set to ${selected.first}',
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -332,7 +436,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final uri = Uri.parse('https://www.esv.org');
               bool launched = false;
               try {
-                launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+                launched =
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
               } catch (_) {
                 launched = false;
               }
@@ -353,17 +458,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ---------------------------------------------------------------------------
 
   Future<void> _onAudioInterruptChanged(
-    BuildContext context,
+    BuildContext launchContext,
     SettingsProvider settingsProvider,
     bool enabled,
   ) async {
     if (enabled) {
-      final verseProvider = context.read<VerseProvider>();
+      final verseProvider = launchContext.read<VerseProvider>();
       final verseOfWeek = verseProvider.verseOfWeek;
       if (verseOfWeek == null) {
-        if (context.mounted) {
+        if (launchContext.mounted) {
           await showDialog<void>(
-            context: context,
+            context: launchContext,
             builder: (ctx) => AlertDialog(
               title: const Text('Cannot enable'),
               content: const Text('Set a verse of the week first'),
@@ -379,24 +484,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      final memorized = verseProvider.memorizedVerses;
-      final settings = settingsProvider.settings;
-      final notifService = context.read<NotificationService>();
-
-      _interruptService ??= AudioInterruptService(
-        audioService: AudioService(),
-        notificationService: notifService,
-      );
-
-      _interruptService!.startTracking(
-        threshold: Duration(minutes: settings.audioInterruptAfterMinutes),
-        interruptProbability: settings.audioInterruptProbability,
-        memorizedVerses: memorized,
-        verseOfWeek: verseOfWeek,
-      );
+      _startTracking(launchContext, settingsProvider.settings);
 
       await settingsProvider.update(
-        settings.copyWith(audioInterruptEnabled: true),
+        settingsProvider.settings.copyWith(audioInterruptEnabled: true),
       );
     } else {
       _interruptService?.stopTracking();
@@ -406,18 +497,117 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  static String _triggerModeLabel(AudioTriggerMode mode) => switch (mode) {
+        AudioTriggerMode.whileOtherAudioPlaying => 'While other audio plays',
+        AudioTriggerMode.always => 'Anytime',
+      };
+
+  /// (Re)starts tracking against [settings]. Also called when the interval or
+  /// trigger mode changes, since the running timer captured the old values.
+  void _startTracking(BuildContext lookupContext, AppSettings settings) {
+    final verseProvider = lookupContext.read<VerseProvider>();
+    final verseOfWeek = verseProvider.verseOfWeek;
+    if (verseOfWeek == null) return;
+
+    _interruptService ??= AudioInterruptService(
+      audioService: AudioService(),
+      notificationService: lookupContext.read<NotificationService>(),
+    );
+
+    _interruptService!.startTracking(
+      interval: Duration(minutes: settings.audioInterruptIntervalMinutes),
+      triggerMode: settings.audioInterruptTriggerMode,
+      interruptProbability: settings.audioInterruptProbability,
+      memorizedVerses: verseProvider.memorizedVerses,
+      verseOfWeek: verseOfWeek,
+    );
+  }
+
+  Future<void> _onTriggerModeChanged(
+    SettingsProvider settingsProvider,
+    AudioTriggerMode mode,
+  ) async {
+    final updated =
+        settingsProvider.settings.copyWith(audioInterruptTriggerMode: mode);
+    await settingsProvider.update(
+      updated,
+      announcement: mode == AudioTriggerMode.whileOtherAudioPlaying
+          ? 'Verses play only while other audio is playing'
+          : 'Verses play at any time',
+    );
+    if (updated.audioInterruptEnabled && mounted) {
+      _startTracking(context, updated);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Interval dialog
+  // ---------------------------------------------------------------------------
+
+  static const _intervalPresets = <int>[15, 30, 45, 60, 90];
+
+  Future<void> _showIntervalDialog(
+    BuildContext launchContext,
+    SettingsProvider settingsProvider,
+  ) async {
+    final selected = await showDialog<int>(
+      context: launchContext,
+      builder: (dialogContext) {
+        final current = settingsProvider.settings.audioInterruptIntervalMinutes;
+        return AlertDialog(
+          title: const Text('Play a verse every'),
+          content: Semantics(
+            label: 'Playback interval presets',
+            explicitChildNodes: true,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final minutes in _intervalPresets)
+                  ChoiceChip(
+                    label: Text('$minutes min'),
+                    selected: minutes == current,
+                    onSelected: (_) => Navigator.of(dialogContext).pop(minutes),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selected == null) return;
+    final updated = settingsProvider.settings
+        .copyWith(audioInterruptIntervalMinutes: selected);
+    await settingsProvider.update(
+      updated,
+      announcement: 'Playing a verse every $selected minutes',
+    );
+    // The State's context, not launchContext: the tile that opened the dialog
+    // may be gone by the time it resolves.
+    if (updated.audioInterruptEnabled && mounted) {
+      _startTracking(context, updated);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Probability dialog
   // ---------------------------------------------------------------------------
 
   Future<void> _showProbabilityDialog(
-    BuildContext context,
+    BuildContext launchContext,
     SettingsProvider settingsProvider,
   ) async {
     var current = settingsProvider.settings.audioInterruptProbability;
 
     await showDialog<void>(
-      context: context,
+      context: launchContext,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
@@ -472,13 +662,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ---------------------------------------------------------------------------
 
   Future<void> _showTimePicker(
-    BuildContext context,
+    BuildContext launchContext,
     SettingsProvider settingsProvider,
   ) async {
-    final notifService = context.read<NotificationService>();
+    final notifService = launchContext.read<NotificationService>();
     final current = settingsProvider.settings.dailyNotificationTime;
     final picked = await showTimePicker(
-      context: context,
+      context: launchContext,
       initialTime: current ?? TimeOfDay.now(),
       helpText: 'Set daily notification time',
       hourLabelText: 'Hour',
@@ -486,8 +676,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     // Return focus to the trigger tile regardless of whether user picked a time.
-    if (context.mounted) _reminderFocusNode.requestFocus();
-    if (!context.mounted || picked == null) return;
+    if (mounted) _reminderFocusNode.requestFocus();
+    if (!mounted || picked == null) return;
 
     final updated = settingsProvider.settings.copyWith(
       dailyNotificationTime: picked,
@@ -497,8 +687,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       announcement: 'Daily reminder set to ${picked.format(context)}',
     );
 
-    if (!context.mounted) return;
-    await _applyNotificationSettings(context, notifService, updated);
+    if (!mounted) return;
+    await _applyNotificationSettings(notifService, updated);
   }
 
   // ---------------------------------------------------------------------------
@@ -506,13 +696,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ---------------------------------------------------------------------------
 
   Future<void> _clearDailyNotification(
-    BuildContext context,
+    BuildContext lookupContext,
     SettingsProvider settingsProvider,
   ) async {
-    final notifService = context.read<NotificationService>();
+    final notifService = lookupContext.read<NotificationService>();
     final updated = settingsProvider.settings.copyWith(
       dailyNotificationTime: null,
     );
+    // Cleared before the platform call: the error describes a reminder that no
+    // longer exists, so a failing cancel must not strand the banner.
+    setState(() => _reminderError = null);
     await settingsProvider.update(updated,
         announcement: 'Daily reminder turned off');
     await notifService.cancelDailyNotification();
@@ -524,37 +717,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ---------------------------------------------------------------------------
 
   Future<void> _applyNotificationSettings(
-    BuildContext context,
     NotificationService notifService,
     AppSettings settings,
   ) async {
     if (settings.dailyNotificationTime == null) {
+      // No reminder left for an earlier failure to describe.
+      setState(() => _reminderError = null);
       await notifService.cancelDailyNotification();
       return;
     }
-    final granted = await notifService.scheduleDailyNotification(
+    final result = await notifService.scheduleDailyNotification(
       settings.dailyNotificationTime!,
       showOnLockScreen: settings.showOnLockScreen,
       notificationType: settings.notificationType,
     );
-    if (!granted && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+    if (!mounted) return;
+    setState(() => _reminderError = switch (result) {
+          DailyReminderResult.scheduled => null,
+          DailyReminderResult.notificationsDenied =>
+            'Allow notifications in system settings to enable the daily reminder',
+          DailyReminderResult.exactAlarmsDenied =>
             'Allow exact alarms in system settings to enable the daily reminder',
-          ),
-        ),
-      );
-    }
+        });
   }
 
   // ---------------------------------------------------------------------------
   // Clear history
   // ---------------------------------------------------------------------------
 
-  Future<void> _confirmClearHistory(BuildContext context) async {
+  Future<void> _confirmClearHistory(BuildContext launchContext) async {
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: launchContext,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Clear test history'),
         content: const Text(
@@ -577,14 +770,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
+    if (confirmed == true && mounted) {
       await DatabaseHelper().clearTestHistory();
     }
   }
 
-  Future<void> _confirmClearActivityHistory(BuildContext context) async {
+  Future<void> _confirmClearActivityHistory(BuildContext launchContext) async {
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: launchContext,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Clear Activity History'),
         content: const Text(
@@ -607,9 +800,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
+    if (confirmed == true && mounted) {
       await DatabaseHelper().clearEngagementLog();
-      if (!context.mounted) return;
+      if (!mounted) return;
       // ignore: unawaited_futures — load() notifies listeners; no need to await UI rebuild
       context.read<TrackingProvider>().load();
       ScaffoldMessenger.of(context).showSnackBar(

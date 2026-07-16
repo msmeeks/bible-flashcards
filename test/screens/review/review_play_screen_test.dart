@@ -54,8 +54,7 @@ void main() {
     expect(provider.isPlaying, isTrue);
   });
 
-  testWidgets('stop button stops playback and pops the screen',
-      (tester) async {
+  testWidgets('stop button stops playback and pops the screen', (tester) async {
     final provider = AudioProvider(
       notificationService: FakeNotificationService(),
       audioService: FakeAudioService(),
@@ -123,7 +122,8 @@ void main() {
     await tester.pumpWidget(_wrap(provider));
     await tester.pump();
 
-    final stopData = tester.getSemantics(find.byTooltip('Stop')).getSemanticsData();
+    final stopData =
+        tester.getSemantics(find.byTooltip('Stop')).getSemanticsData();
     expect(stopData.label, 'Stop playback');
     expect(stopData.hasAction(SemanticsAction.tap), isTrue);
 

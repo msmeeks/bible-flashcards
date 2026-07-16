@@ -25,9 +25,8 @@ class ExportService {
     required bool includeSettings,
   }) async {
     final verses = await _db.getVerses();
-    final results = includeHistory
-        ? await _db.getTestResults()
-        : const <VerseTestResult>[];
+    final results =
+        includeHistory ? await _db.getTestResults() : const <VerseTestResult>[];
     final settings = _settingsProvider.settings;
 
     final payload = <String, dynamic>{
@@ -35,7 +34,8 @@ class ExportService {
       'source_app': 'bible_flashcards',
       'exported_at': DateTime.now().toUtc().toIso8601String(),
       'verses': verses.map((v) => v.toMap()).toList(),
-      if (includeHistory) 'test_results': results.map((r) => r.toMap()).toList(),
+      if (includeHistory)
+        'test_results': results.map((r) => r.toMap()).toList(),
       if (includeSettings) 'settings': settings.toMap(),
     };
     return jsonEncode(payload);

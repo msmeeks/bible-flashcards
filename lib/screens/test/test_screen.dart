@@ -16,7 +16,8 @@ class TestScreen extends StatefulWidget {
 class _TestScreenState extends State<TestScreen> {
   TestMode _mode = TestMode.verseOfWeek;
   final Set<TestFormat> _selectedFormats = TestFormat.values.toSet();
-  final Set<PromptDirection> _selectedDirections = PromptDirection.values.toSet();
+  final Set<PromptDirection> _selectedDirections =
+      PromptDirection.values.toSet();
   String? _prerequisiteError;
   int _reviewCount = 5;
   bool _includeVerseOfWeek = true;
@@ -132,18 +133,6 @@ class _TestScreenState extends State<TestScreen> {
                   child: Wrap(
                     spacing: 8,
                     children: [
-                      _FormatChip(
-                        key: const Key('format-chip-recite'),
-                        format: TestFormat.recite,
-                        icon: Icons.record_voice_over_outlined,
-                        selected: _selectedFormats.contains(TestFormat.recite),
-                        onSelected: (on) => setState(() {
-                          on
-                              ? _selectedFormats.add(TestFormat.recite)
-                              : _selectedFormats.remove(TestFormat.recite);
-                          _prerequisiteError = null;
-                        }),
-                      ),
                       _FormatChip(
                         key: const Key('format-chip-type'),
                         format: TestFormat.type,

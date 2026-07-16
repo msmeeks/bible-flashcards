@@ -278,8 +278,7 @@ void main() {
       expect(provider.pickVerseForAutoAdvance(settings, sunday), isNull);
     });
 
-    test('treats Dec-28 (prior ISO week) advance as stale on next Sunday',
-        () {
+    test('treats Dec-28 (prior ISO week) advance as stale on next Sunday', () {
       final provider = VerseProvider(DatabaseHelper());
       provider.debugSetVerses([_verse('a'), _verse('b')]);
       // last advance was the Sunday before New Year's Eve week (ISO 2025-W52);

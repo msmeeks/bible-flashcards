@@ -45,9 +45,9 @@ class BibleLookupService {
   // Translation label → API translation ID.
   // IDs verified against https://bible.helloao.org/api/available_translations.json
   static const _translationIds = <String, String>{
-    'BSB': 'BSB',       // Berean Standard Bible (modern, freely available)
-    'KJV': 'eng_kjv',  // King James Version
-    'WEB': 'ENGWEBP',  // World English Bible (modern, freely available)
+    'BSB': 'BSB', // Berean Standard Bible (modern, freely available)
+    'KJV': 'eng_kjv', // King James Version
+    'WEB': 'ENGWEBP', // World English Bible (modern, freely available)
   };
 
   // LRU-bounded per-session cache. Bounded by screen lifetime (disposed with screen).
@@ -57,7 +57,8 @@ class BibleLookupService {
   final http.Client _client;
 
   static final _referencePattern = RegExp(r'^[A-Za-z0-9 :,\-]{1,100}$');
-  static final _refParsePattern = RegExp(r'^(.+?)\s+(\d+):(\d+)(?:-(\d+))?\s*$');
+  static final _refParsePattern =
+      RegExp(r'^(.+?)\s+(\d+):(\d+)(?:-(\d+))?\s*$');
 
   Future<VerseLookupResult> lookup(String reference, String translation) async {
     if (!_referencePattern.hasMatch(reference)) {
@@ -73,14 +74,15 @@ class BibleLookupService {
     if (cached != null) return cached;
 
     final ref = _parseRef(reference);
-    final uri = Uri.parse('$_baseUrl/$translationId/${ref.usfm}/${ref.chapter}.json');
+    final uri =
+        Uri.parse('$_baseUrl/$translationId/${ref.usfm}/${ref.chapter}.json');
     assertAllowedHttpsHost(uri, {_allowedHost});
 
     late final http.Response response;
     try {
-      response = await _client
-          .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 10));
+      response = await _client.get(uri, headers: {
+        'Accept': 'application/json'
+      }).timeout(const Duration(seconds: 10));
     } on TimeoutException {
       throw const LookupException('Request timed out. Check your connection.');
     } catch (_) {
@@ -88,7 +90,8 @@ class BibleLookupService {
     }
 
     if (response.statusCode == 404) {
-      throw const LookupException('Verse not found. Check the reference and try again.');
+      throw const LookupException(
+          'Verse not found. Check the reference and try again.');
     }
     if (response.statusCode != 200) {
       throw LookupException('Lookup failed (${response.statusCode}).');
@@ -105,7 +108,8 @@ class BibleLookupService {
   _VerseRef _parseRef(String reference) {
     final m = _refParsePattern.firstMatch(reference.trim());
     if (m == null) {
-      throw const LookupException('Use format "Book Chapter:Verse" e.g. "Romans 8:28".');
+      throw const LookupException(
+          'Use format "Book Chapter:Verse" e.g. "Romans 8:28".');
     }
     final bookName = m.group(1)!.trim();
     final chapter = int.parse(m.group(2)!);
@@ -113,9 +117,14 @@ class BibleLookupService {
     final endVerse = m.group(4) != null ? int.parse(m.group(4)!) : startVerse;
     final usfm = _bookToUsfm(bookName);
     if (usfm == null) {
-      throw const LookupException('Unknown book name. Check spelling and try again.');
+      throw const LookupException(
+          'Unknown book name. Check spelling and try again.');
     }
-    return _VerseRef(usfm: usfm, chapter: chapter, startVerse: startVerse, endVerse: endVerse);
+    return _VerseRef(
+        usfm: usfm,
+        chapter: chapter,
+        startVerse: startVerse,
+        endVerse: endVerse);
   }
 
   VerseLookupResult _parse(
@@ -145,7 +154,8 @@ class BibleLookupService {
       if (text.isEmpty) {
         throw const LookupException('No verse text found for that reference.');
       }
-      return VerseLookupResult(reference: reference, text: text, translation: translation);
+      return VerseLookupResult(
+          reference: reference, text: text, translation: translation);
     } on LookupException {
       rethrow;
     } catch (_) {

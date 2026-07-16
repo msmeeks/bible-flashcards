@@ -34,9 +34,6 @@ dependencies:
   flutter_timezone: ^3.0.0
   timezone: ^0.11.0
 
-  # Permissions (requested at point-of-use only)
-  permission_handler: ^12.0.1
-
   # Animation
   flutter_animate: ^4.5.2
 
@@ -63,10 +60,6 @@ dependencies:
 
   # HTTP client for verse lookup and pack import
   http: ^1.2.0
-
-  # On-device speech-to-text for recite-mode scoring (forced onDevice: true,
-  # never falls back to cloud recognition)
-  speech_to_text: ^7.4.0
 
   # Opens www.esv.org from the ESV copyright notice (explicit dep — was only
   # pulled in transitively by share_plus before)

@@ -6,7 +6,7 @@ A personal Android app for memorizing and reviewing Bible verses. Built around t
 
 **Verse management** — Browse pre-loaded Navigator TMS packs (Series 1 & 2) across ESV, CSB, and NLT. Set one verse as your verse-of-the-week, mark verses memorized as you go, and add custom verses outside the packs.
 
-**Testing** — Actively test recall in three formats: recite (self-rated), type (scored by word-level LCS), or fill-in-the-blank. Two modes: verse-of-week (current verse only) or review (5 random memorized verses). Results are stored per-session with per-card scores.
+**Testing** — Actively test recall in two formats: type (scored by word-level LCS, with a word diff showing exactly what you missed or added) or fill-in-the-blank. Two modes: verse-of-week (current verse only) or review (5 random memorized verses). Results are stored per-session with per-card scores.
 
 **Audio review** — Text-to-speech playback sequences reference → timed pause → verse text. A continuous shuffle mode plays through all memorized verses in the background. An optional interruption feature fires a random verse at a configurable probability and threshold to reinforce spaced repetition during other activities.
 

@@ -66,9 +66,11 @@ class EsvAudioCacheService {
     final cdnUri = await _resolveCdnUri(reference);
     _assertAllowedAudioHost(cdnUri);
 
-    final audioResponse = await _client.get(cdnUri).timeout(const Duration(seconds: 30));
+    final audioResponse =
+        await _client.get(cdnUri).timeout(const Duration(seconds: 30));
     if (audioResponse.statusCode != 200) {
-      throw EsvAudioException('Audio fetch failed (${audioResponse.statusCode}).');
+      throw EsvAudioException(
+          'Audio fetch failed (${audioResponse.statusCode}).');
     }
 
     await _evictIfNeeded(audioDir);
@@ -77,7 +79,8 @@ class EsvAudioCacheService {
   }
 
   Future<Uri> _resolveCdnUri(String reference) async {
-    final resolveUri = Uri.parse(_audioBaseUrl).replace(queryParameters: {'q': reference});
+    final resolveUri =
+        Uri.parse(_audioBaseUrl).replace(queryParameters: {'q': reference});
     try {
       assertAllowedHttpsHost(resolveUri, {'api.esv.org'});
     } on StateError catch (e) {
@@ -96,11 +99,14 @@ class EsvAudioCacheService {
       throw EsvAudioException('Network error resolving audio redirect: $e');
     }
 
-    if (resolveResponse.statusCode != 301 && resolveResponse.statusCode != 302) {
-      throw EsvAudioException('Unexpected status: ${resolveResponse.statusCode}');
+    if (resolveResponse.statusCode != 301 &&
+        resolveResponse.statusCode != 302) {
+      throw EsvAudioException(
+          'Unexpected status: ${resolveResponse.statusCode}');
     }
     final location = resolveResponse.headers['location'];
-    if (location == null) throw const EsvAudioException('No redirect location.');
+    if (location == null)
+      throw const EsvAudioException('No redirect location.');
     return Uri.parse(location);
   }
 
@@ -123,7 +129,8 @@ class EsvAudioCacheService {
     final entries = await dir.list().toList();
     final files = entries.whereType<File>().toList();
     if (files.length < _maxCachedFiles) return;
-    files.sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
+    files
+        .sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
     for (final f in files.take(files.length - _maxCachedFiles + 1)) {
       await f.delete();
     }

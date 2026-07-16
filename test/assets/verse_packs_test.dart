@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('bundled verse pack assets', () {
-    test('navigators_pack.json references use ASCII hyphens for verse ranges, not Unicode dashes', () {
+    test(
+        'navigators_pack.json references use ASCII hyphens for verse ranges, not Unicode dashes',
+        () {
       final raw = File('assets/packs/navigators_pack.json').readAsStringSync();
       final json = jsonDecode(raw) as Map<String, dynamic>;
       final packs = json['packs'] as List<dynamic>;
@@ -16,8 +18,8 @@ void main() {
 
       final badReferences = [
         for (final v in verses)
-          if ((v as Map<String, dynamic>)['reference'] as String
-              case final ref when ref.contains('–') || ref.contains('—'))
+          if ((v as Map<String, dynamic>)['reference'] as String case final ref
+              when ref.contains('–') || ref.contains('—'))
             ref,
       ];
 

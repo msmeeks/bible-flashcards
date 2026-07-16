@@ -7,7 +7,9 @@ import 'package:http/testing.dart';
 import 'package:bible_flashcards/services/bible_lookup_service.dart';
 
 // Chapter response with specific verse numbers.
-Map<String, dynamic> _chapterResponse({required List<Map<String, dynamic>> verses}) => {
+Map<String, dynamic> _chapterResponse(
+        {required List<Map<String, dynamic>> verses}) =>
+    {
       'verses': verses,
     };
 
@@ -23,8 +25,7 @@ http.Client _rawClient(int status, String body) =>
 http.Client _errorClient() =>
     MockClient((_) async => throw Exception('network error'));
 
-http.Client _timeoutClient() =>
-    MockClient((_) async {
+http.Client _timeoutClient() => MockClient((_) async {
       await Future<void>.delayed(const Duration(seconds: 15));
       return http.Response('{}', 200);
     });
@@ -33,7 +34,8 @@ http.Client _countingClient(int Function() onCall, {int verseNum = 1}) =>
     MockClient((_) async {
       onCall();
       return http.Response(
-        jsonEncode(_chapterResponse(verses: [_singleVerse(verseNum, 'Verse text.')])),
+        jsonEncode(
+            _chapterResponse(verses: [_singleVerse(verseNum, 'Verse text.')])),
         200,
       );
     });
@@ -42,7 +44,8 @@ void main() {
   group('BibleLookupService.lookup', () {
     test('returns result on 200 for valid reference', () async {
       final service = BibleLookupService(
-        client: _mockClient(200, _chapterResponse(verses: [_singleVerse(16, 'For God so loved.')])),
+        client: _mockClient(200,
+            _chapterResponse(verses: [_singleVerse(16, 'For God so loved.')])),
       );
       final r = await service.lookup('John 3:16', 'BSB');
       expect(r.text, 'For God so loved.');
@@ -51,7 +54,8 @@ void main() {
       service.dispose();
     });
 
-    test('caches repeated calls (same ref + translation = 1 HTTP call)', () async {
+    test('caches repeated calls (same ref + translation = 1 HTTP call)',
+        () async {
       var callCount = 0;
       final service = BibleLookupService(
         client: _countingClient(() => callCount++, verseNum: 1),
@@ -105,7 +109,8 @@ void main() {
       await expectLater(
         service.lookup('John 1:1', 'BSB'),
         throwsA(
-          isA<LookupException>().having((e) => e.message, 'message', contains('timed out')),
+          isA<LookupException>()
+              .having((e) => e.message, 'message', contains('timed out')),
         ),
       );
       service.dispose();
@@ -134,7 +139,8 @@ void main() {
       // "John 3:16" + spaces to reach 100 (regex allows spaces)
       final ref = 'John 3:16${' ' * 91}'; // 100 chars
       final service = BibleLookupService(
-        client: _mockClient(200, _chapterResponse(verses: [_singleVerse(16, 'Text.')])),
+        client: _mockClient(
+            200, _chapterResponse(verses: [_singleVerse(16, 'Text.')])),
       );
       // Regex allows it; parse will succeed (trim handles trailing spaces)
       final r = await service.lookup(ref, 'BSB');
@@ -180,11 +186,14 @@ void main() {
       service.dispose();
     });
 
-    test('throws LookupException when all verse texts are whitespace', () async {
+    test('throws LookupException when all verse texts are whitespace',
+        () async {
       final service = BibleLookupService(
-        client: _mockClient(200, _chapterResponse(verses: [
-          {'verse': 1, 'text': '   '},
-        ])),
+        client: _mockClient(
+            200,
+            _chapterResponse(verses: [
+              {'verse': 1, 'text': '   '},
+            ])),
       );
       await expectLater(
         service.lookup('John 1:1', 'BSB'),
@@ -194,7 +203,8 @@ void main() {
     });
 
     test('throws LookupException on malformed JSON', () async {
-      final service = BibleLookupService(client: _rawClient(200, 'not valid json {'));
+      final service =
+          BibleLookupService(client: _rawClient(200, 'not valid json {'));
       await expectLater(
         service.lookup('John 1:1', 'BSB'),
         throwsA(isA<LookupException>()),
@@ -202,7 +212,8 @@ void main() {
       service.dispose();
     });
 
-    test('throws LookupException when body is a JSON array (not object)', () async {
+    test('throws LookupException when body is a JSON array (not object)',
+        () async {
       final service = BibleLookupService(client: _rawClient(200, '[]'));
       await expectLater(
         service.lookup('John 1:1', 'BSB'),
@@ -213,11 +224,13 @@ void main() {
 
     test('concatenates multiple verses for a range', () async {
       final service = BibleLookupService(
-        client: _mockClient(200, _chapterResponse(verses: [
-          _singleVerse(1, 'Part one.'),
-          _singleVerse(2, 'Part two.'),
-          _singleVerse(3, 'Part three.'),
-        ])),
+        client: _mockClient(
+            200,
+            _chapterResponse(verses: [
+              _singleVerse(1, 'Part one.'),
+              _singleVerse(2, 'Part two.'),
+              _singleVerse(3, 'Part three.'),
+            ])),
       );
       final r = await service.lookup('Psalm 23:1-2', 'BSB');
       expect(r.text, 'Part one. Part two.');
@@ -226,7 +239,8 @@ void main() {
 
     test('parses book abbreviation (Rom → Romans)', () async {
       final service = BibleLookupService(
-        client: _mockClient(200, _chapterResponse(verses: [_singleVerse(28, 'All things.')])),
+        client: _mockClient(
+            200, _chapterResponse(verses: [_singleVerse(28, 'All things.')])),
       );
       final r = await service.lookup('Rom 8:28', 'BSB');
       expect(r.reference, 'Rom 8:28');

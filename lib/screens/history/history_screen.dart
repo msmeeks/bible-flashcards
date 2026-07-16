@@ -127,7 +127,8 @@ class _WeeklyChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = counts.fold(0, (s, e) => s + e.value);
     final perDay = counts.map((e) => '${e.key}: ${e.value}').join(', ');
-    final summaryLabel = 'Verses reviewed this week by day — $perDay. Total: $total';
+    final summaryLabel =
+        'Verses reviewed this week by day — $perDay. Total: $total';
 
     return Card(
       child: Padding(
@@ -172,9 +173,9 @@ class _WeeklyChart extends StatelessWidget {
     final maxY = counts.isEmpty
         ? 1.0
         : counts
-              .map((e) => e.value.toDouble())
-              .reduce((a, b) => a > b ? a : b)
-              .clamp(1.0, double.infinity);
+            .map((e) => e.value.toDouble())
+            .reduce((a, b) => a > b ? a : b)
+            .clamp(1.0, double.infinity);
 
     return BarChart(
       BarChartData(
@@ -343,8 +344,7 @@ class _TestScoreChart extends StatelessWidget {
                   excludeSemantics: true,
                   child: TextButton(
                     onPressed: onToggleTable,
-                    child:
-                        Text(showAsTable ? 'Show chart' : 'Show as table'),
+                    child: Text(showAsTable ? 'Show chart' : 'Show as table'),
                   ),
                 ),
               ],
@@ -390,11 +390,11 @@ class _TestScoreChart extends StatelessWidget {
             dotData: FlDotData(
               getDotPainter: (spot, percent, barData, index) =>
                   FlDotCirclePainter(
-                    radius: 3,
-                    color: cs.primary,
-                    strokeColor: cs.surface,
-                    strokeWidth: 1,
-                  ),
+                radius: 3,
+                color: cs.primary,
+                strokeColor: cs.surface,
+                strokeWidth: 1,
+              ),
             ),
             belowBarData: BarAreaData(
               show: true,

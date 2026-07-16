@@ -139,13 +139,17 @@ Any UI presenting exactly one forward-moving action and one backward/cancelling 
 - **Horizontal layout**: primary on the **right**, secondary on the **left**.
 - **Vertical layout**: primary on **top**, secondary **below**.
 - Prefer a real `AlertDialog`/`showDialog` for confirm-before-proceeding interactions over ad hoc inline `Card` + `Row` widgets — it gets the modal barrier, focus trap, and consistent action-button styling for free.
-- Exception: equal-weight either/or choices (e.g. Recite mode's "I know it" / "Show me") are not action pairs — both sides are `FilledButton` since neither is a cancel/negative action.
+- Exception: equal-weight either/or choices are not action pairs — both sides are `FilledButton` since neither is a cancel/negative action. (The app has no such pair today; Recite mode's "I know it" / "Show me" was the example until #165 retired it.)
+- Carve-out: a dialog whose content is a discrete preset chip list has **no primary action** — it commits on chip tap and leaves Cancel as the only button. This is not a violation of the rule above; there is simply no forward action to style, because the chip *is* the forward action. See "Dialog commit semantics" under Chips.
 - **Destructive primary action**: `FilledButton` styled with `cs.error`/`cs.onError` (e.g. "Remove", "Delete") instead of the default primary color, so an irreversible affirmative action is visually distinct from a routine one.
 
 ### Chips
 - `ChoiceChip` — mutually-exclusive single-select (e.g. Show/Play format picker)
 - `FilterChip` — multi-select or independent toggle presets (e.g. test format, direction, count pickers)
 - Wrap a `Wrap` of preset chips in `Semantics(label: ..., explicitChildNodes: true)` so screen readers announce a group label before the individual chips.
+- When the chip row depends on a master switch, pass `enabled:` to that same `Semantics` node and state the dependency in text (e.g. `Turn on "Play verses periodically" to choose when`). A dimmed `ListTile` carries the state by contrast alone, which neither a screen reader nor a low-vision user can rely on.
+
+**Dialog commit semantics.** A dialog whose content is a discrete preset chip list **commits on tap and pops**, with Cancel as the sole escape — a chip tap is an unambiguous, complete decision, so a second Save step would be redundant. A dialog built on a continuous input (slider, text field) is exploratory and follows Action Pairs with an explicit Save. Compare the interval dialog (chips, commit-on-tap) with the verse-of-week probability dialog (slider, explicit Save) in `settings_screen.dart`.
 
 ### Input Fields
 - MD3 `TextField` with `filled` decoration. Fill: `surfaceVariant`.
@@ -155,8 +159,8 @@ Any UI presenting exactly one forward-moving action and one backward/cancelling 
 ### Test Screen
 - Prompt card: `tertiaryContainer`, `headlineMedium` Lora, 180dp min height, centered.
 - Progress: `LinearProgressIndicator`, 6dp height, `primary`/`primaryContainer` colors.
-- Recite mode: "I know it" / "Show me" `FilledButton` side by side.
 - Fill-in-blank: inline `TextField` gaps via `Wrap` + `InlineSpan`.
+- Type mode: after Check Answer, the score stays on screen with a word diff until the user taps **Next** (`FilledButton`) — never auto-advance on a timer. Diff words use `onSurface` (match), `error` + strikethrough (missed), `onSurfaceVariant` + wavy underline (extra); each state pairs its color with a non-color cue and a `Semantics` label, and a text legend counts the missed/extra words.
 - Score results: per-verse accuracy badges (success ≥90%, warning ≥70%, error <70%).
 
 ### Audio Player Bar

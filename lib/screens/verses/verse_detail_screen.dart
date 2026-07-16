@@ -76,9 +76,7 @@ class _VerseDetailScreenState extends State<VerseDetailScreen> {
               // Primary action
               FilledButton(
                 onPressed: () async {
-                  await context
-                      .read<VerseProvider>()
-                      .setVerseOfWeek(verse!.id);
+                  await context.read<VerseProvider>().setVerseOfWeek(verse!.id);
                 },
                 child: const Text('Set as Verse of Week'),
               ),

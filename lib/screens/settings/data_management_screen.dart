@@ -67,8 +67,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             subtitle: const Text('Save a backup file to share or transfer'),
             onTap: _exportLoading ? null : _showExportDialog,
           ),
-          if (_exportLoading)
-            const LinearProgressIndicator(minHeight: 6),
+          if (_exportLoading) const LinearProgressIndicator(minHeight: 6),
           // Always-mounted live region keeps screen reader updated without remounting
           Semantics(
             liveRegion: true,
@@ -87,8 +86,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             subtitle: const Text('Save a backup file to a location you choose'),
             onTap: _saveLocallyLoading ? null : _showSaveLocallyDialog,
           ),
-          if (_saveLocallyLoading)
-            const LinearProgressIndicator(minHeight: 6),
+          if (_saveLocallyLoading) const LinearProgressIndicator(minHeight: 6),
           Semantics(
             liveRegion: true,
             child: _saveLocallyStatus.isNotEmpty
@@ -119,8 +117,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             subtitle: const Text('Restore from a backup file'),
             onTap: _importLoading ? null : _showImportDialog,
           ),
-          if (_importLoading)
-            const LinearProgressIndicator(minHeight: 6),
+          if (_importLoading) const LinearProgressIndicator(minHeight: 6),
           Semantics(
             liveRegion: true,
             child: _importStatus.isNotEmpty
@@ -168,7 +165,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               ),
               CheckboxListTile(
                 title: const Text('Include app settings'),
-                subtitle: const Text('Audio, notification, and theme preferences'),
+                subtitle:
+                    const Text('Audio, notification, and theme preferences'),
                 value: includeSettings,
                 onChanged: (v) => setS(() => includeSettings = v ?? true),
                 contentPadding: EdgeInsets.zero,
@@ -248,7 +246,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               ),
               CheckboxListTile(
                 title: const Text('Include app settings'),
-                subtitle: const Text('Audio, notification, and theme preferences'),
+                subtitle:
+                    const Text('Audio, notification, and theme preferences'),
                 value: includeSettings,
                 onChanged: (v) => setS(() => includeSettings = v ?? true),
                 contentPadding: EdgeInsets.zero,
@@ -289,8 +288,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       );
       _saveLocallyTileFocusNode.requestFocus();
       if (mounted) {
-        setState(() => _saveLocallyStatus =
-            saved ? 'Backup saved' : 'Save cancelled');
+        setState(() =>
+            _saveLocallyStatus = saved ? 'Backup saved' : 'Save cancelled');
       }
     } catch (_) {
       if (mounted) {
@@ -338,8 +337,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                       ),
                       RadioListTile<_ImportMode>(
                         title: Text('Replace'),
-                        subtitle:
-                            Text('Delete all existing data and replace'),
+                        subtitle: Text('Delete all existing data and replace'),
                         value: _ImportMode.replace,
                         contentPadding: EdgeInsets.zero,
                       ),
@@ -416,9 +414,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       );
 
       if (mounted) {
-        setState(() => _importStatus =
-            'Imported ${summary.versesImported} verses, '
-            '${summary.resultsImported} test results');
+        setState(
+            () => _importStatus = 'Imported ${summary.versesImported} verses, '
+                '${summary.resultsImported} test results');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

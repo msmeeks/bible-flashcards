@@ -227,8 +227,7 @@ void main() {
       expect(provider.playbackStateLabel, 'Speaking text…');
     });
 
-    test('error state clears isPlaying and cancels the notification',
-        () async {
+    test('error state clears isPlaying and cancels the notification', () async {
       final audio = FakeAudioService();
       final notifications = FakeNotificationService();
       final provider = AudioProvider(

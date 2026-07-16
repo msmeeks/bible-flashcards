@@ -16,7 +16,8 @@ void main() {
       expect(ratio, greaterThanOrEqualTo(4.5));
     });
 
-    testWidgets('titleMedium and headlineSmall text meet 4.5:1 against surface', (
+    testWidgets('titleMedium and headlineSmall text meet 4.5:1 against surface',
+        (
       tester,
     ) async {
       final theme = AppTheme.dark();
@@ -103,7 +104,8 @@ void main() {
     }
   });
 
-  group('dark theme container vs surface contrast (WCAG 1.4.11 UI boundary)', () {
+  group('dark theme container vs surface contrast (WCAG 1.4.11 UI boundary)',
+      () {
     testWidgets('successContainer meets 3:1 against surface', (tester) async {
       final s = AppTheme.dark().colorScheme;
       final ratio = contrastRatio(s.successContainer, s.surface);

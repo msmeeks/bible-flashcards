@@ -95,8 +95,7 @@ class _BookVariantsScreenState extends State<BookVariantsScreen> {
             ),
             actions: [
               OutlinedButton(
-                onPressed:
-                    isSubmitting ? null : () => Navigator.of(ctx).pop(),
+                onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
                 child: const Text('Cancel'),
               ),
               FilledButton(

@@ -24,7 +24,8 @@ void main() {
     });
 
     test('memorized verse encodes is_memorized as 1', () {
-      final map = baseVerse(memorized: true, memorizedAt: memorizedDate).toMap();
+      final map =
+          baseVerse(memorized: true, memorizedAt: memorizedDate).toMap();
       expect(map['is_memorized'], 1);
     });
 
@@ -34,7 +35,8 @@ void main() {
     });
 
     test('non-null memorizedAt is stored as ISO 8601 string', () {
-      final map = baseVerse(memorized: true, memorizedAt: memorizedDate).toMap();
+      final map =
+          baseVerse(memorized: true, memorizedAt: memorizedDate).toMap();
       expect(map['memorized_at'], memorizedDate.toIso8601String());
     });
 
@@ -45,7 +47,14 @@ void main() {
 
     test('all required fields present', () {
       final map = baseVerse().toMap();
-      for (final key in ['id', 'reference', 'text', 'translation', 'pack_id', 'added_at']) {
+      for (final key in [
+        'id',
+        'reference',
+        'text',
+        'translation',
+        'pack_id',
+        'added_at'
+      ]) {
         expect(map.containsKey(key), isTrue, reason: 'missing key: $key');
       }
     });

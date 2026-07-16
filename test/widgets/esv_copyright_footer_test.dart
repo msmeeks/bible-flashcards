@@ -83,7 +83,8 @@ void main() {
       expect(prefs.getBool('esv_footer_collapsed_v1'), true);
     });
 
-    testWidgets('tapping "Full terms in Settings" invokes the callback '
+    testWidgets(
+        'tapping "Full terms in Settings" invokes the callback '
         'instead of navigating', (tester) async {
       var calls = 0;
       await tester.pumpWidget(_wrap(EsvCopyrightFooter(
@@ -125,7 +126,8 @@ void main() {
       await tester.tap(find.byTooltip('Collapse copyright notice'));
       await tester.pump();
 
-      final liveNodes = tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
+      final liveNodes =
+          tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
       var liveRegionCount = 0;
       void visit(SemanticsNode node) {
         if (node.hasFlag(SemanticsFlag.isLiveRegion)) liveRegionCount++;
@@ -134,6 +136,7 @@ void main() {
           return true;
         });
       }
+
       visit(liveNodes);
       expect(liveRegionCount, 1);
 

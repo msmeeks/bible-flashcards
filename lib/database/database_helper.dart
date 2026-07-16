@@ -14,7 +14,11 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../models/test_result.dart';
 import '../models/verse.dart';
 import '../utils/book_name_variants.dart'
-    show bookDisplayNames, maxCustomVariants, maxVariantLength, normalizeBookNameKey;
+    show
+        bookDisplayNames,
+        maxCustomVariants,
+        maxVariantLength,
+        normalizeBookNameKey;
 
 class DatabaseHelper {
   static const _dbName = 'bible_flashcards.db';
@@ -308,7 +312,8 @@ class DatabaseHelper {
       );
       final count = rows.first['c'] as int;
       if (count >= cap) {
-        throw const EsvVerseCapExceededException('ESV verse limit reached (500).');
+        throw const EsvVerseCapExceededException(
+            'ESV verse limit reached (500).');
       }
       await txn.insert(
         'verses',
@@ -354,12 +359,16 @@ class DatabaseHelper {
         final translation = v['translation'] as String?;
         final packId = v['pack_id'] as String?;
 
-        if (id == null || reference == null || text == null ||
-            translation == null || packId == null) {
+        if (id == null ||
+            reference == null ||
+            text == null ||
+            translation == null ||
+            packId == null) {
           continue;
         }
         if (reference.length > 100 || text.length > 2000) continue;
-        if (id.length > 100 || translation.length > 20 || packId.length > 100) continue;
+        if (id.length > 100 || translation.length > 20 || packId.length > 100)
+          continue;
         if (id.isEmpty || translation.isEmpty || packId.isEmpty) continue;
 
         final rows = await txn.insert(
@@ -412,7 +421,8 @@ class DatabaseHelper {
     if (!_validEventTypes.contains(eventType)) return;
     // Cache the preference; reset via invalidateTrackingCache() on consent change.
     _trackingEnabled ??= (await SharedPreferences.getInstance())
-        .getBool('engagement_tracking_enabled') ?? true;
+            .getBool('engagement_tracking_enabled') ??
+        true;
     if (!_trackingEnabled!) return;
 
     final db = await database;
@@ -445,7 +455,8 @@ class DatabaseHelper {
   /// Returns all stored custom variants as `{id, book_code, variant_text}` rows.
   Future<List<Map<String, Object?>>> getBookNameVariants() async {
     final db = await database;
-    return db.query('book_name_variants', orderBy: 'book_code ASC, variant_text ASC');
+    return db.query('book_name_variants',
+        orderBy: 'book_code ASC, variant_text ASC');
   }
 
   /// Adds a custom (book code, variant text) pair. Throws [ArgumentError] if
@@ -458,7 +469,8 @@ class DatabaseHelper {
     }
     final trimmed = variantText.trim();
     if (trimmed.isEmpty || trimmed.length > maxVariantLength) {
-      throw ArgumentError('Variant text must be 1-$maxVariantLength characters.');
+      throw ArgumentError(
+          'Variant text must be 1-$maxVariantLength characters.');
     }
     final db = await database;
     await db.transaction((txn) async {
@@ -466,7 +478,8 @@ class DatabaseHelper {
           await txn.rawQuery('SELECT COUNT(*) AS c FROM book_name_variants');
       final count = countResult.first['c'] as int;
       if (count >= maxCustomVariants) {
-        throw ArgumentError('Maximum of $maxCustomVariants custom variants reached.');
+        throw ArgumentError(
+            'Maximum of $maxCustomVariants custom variants reached.');
       }
       final rowId = await txn.insert(
         'book_name_variants',
@@ -474,7 +487,8 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
       if (rowId == 0) {
-        throw ArgumentError('That variant has already been added for this book.');
+        throw ArgumentError(
+            'That variant has already been added for this book.');
       }
     });
   }
@@ -511,7 +525,9 @@ class DatabaseHelper {
       limit: 5,
     );
     if (rows.isEmpty) return null;
-    final avg = rows.map((r) => r['accuracy'] as double).reduce((a, b) => a + b) / rows.length;
+    final avg =
+        rows.map((r) => r['accuracy'] as double).reduce((a, b) => a + b) /
+            rows.length;
     return avg;
   }
 

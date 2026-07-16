@@ -1,10 +1,27 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+
+/// Outcome of a daily-reminder scheduling attempt.
+///
+/// Distinguishes the two permissions the reminder depends on so the caller can
+/// tell the user which one to grant — they live in different system screens.
+enum DailyReminderResult {
+  /// The reminder is scheduled and will fire.
+  scheduled,
+
+  /// Android 13+ POST_NOTIFICATIONS was refused; the OS would drop every
+  /// notification, so nothing was scheduled.
+  notificationsDenied,
+
+  /// Android 12+ exact-alarm permission was refused; nothing was scheduled.
+  exactAlarmsDenied,
+}
 
 /// Manages local notifications for audio playback state and verse interrupts.
 ///
@@ -12,6 +29,14 @@ import 'package:timezone/timezone.dart' as tz;
 /// All notifications use [NotificationVisibility.private] unless the user
 /// explicitly opts into lock-screen visibility.
 class NotificationService {
+  /// [now] must yield a zone-aware value — the scheduling math is done in the
+  /// returned location, so a naive [DateTime] would give wrong results at DST
+  /// boundaries. Defaults to the real clock in [tz.local].
+  NotificationService({tz.TZDateTime Function()? now})
+      : _now = now ?? (() => tz.TZDateTime.now(tz.local));
+
+  final tz.TZDateTime Function() _now;
+
   static const _channelId = 'bible_flashcards_audio';
   static const _channelName = 'Audio Playback';
   static const _dailyChannelId = 'bible_flashcards_daily';
@@ -28,6 +53,13 @@ class NotificationService {
   void Function(String actionId)? onAction;
 
   static const _validActions = {'pause', 'stop', 'play', 'dismiss'};
+
+  /// Runs the same dispatch the plugin callback runs, without a platform round
+  /// trip. Delegates rather than duplicating, so the valid-action filter under
+  /// test is the production one.
+  @visibleForTesting
+  void debugHandleResponse(NotificationResponse response) =>
+      _handleResponse(response);
 
   AndroidFlutterLocalNotificationsPlugin? get _androidImpl =>
       _plugin.resolvePlatformSpecificImplementation<
@@ -87,22 +119,30 @@ class NotificationService {
   /// [showOnLockScreen] defaults to false per privacy policy. Verse content is
   /// never included in the notification body — body is always generic.
   ///
-  /// Returns false if the exact alarm permission is denied; caller should
-  /// surface a message to the user.
-  Future<bool> scheduleDailyNotification(
+  /// Returns a non-[DailyReminderResult.scheduled] result if a required
+  /// permission is denied; caller should surface a message to the user.
+  Future<DailyReminderResult> scheduleDailyNotification(
     TimeOfDay time, {
     bool showOnLockScreen = false,
     String notificationType = 'verseOfWeek',
   }) async {
+    // POST_NOTIFICATIONS (API 33+). Without it the OS silently drops the
+    // notification even though the alarm fires, so this gates everything else.
+    // The plugin handles the version check natively: below API 33 it reports
+    // whether notifications are enabled rather than prompting.
+    if (!await _requestNotificationsPermission()) {
+      return DailyReminderResult.notificationsDenied;
+    }
+
     // Request exact alarm permission (required on API 31+). On API < 31 the
     // plugin returns true automatically — no user action needed.
     final hasPermission =
         await _androidImpl?.requestExactAlarmsPermission() ?? false;
-    if (!hasPermission) return false;
+    if (!hasPermission) return DailyReminderResult.exactAlarmsDenied;
 
-    final now = tz.TZDateTime.now(tz.local);
+    final now = _now();
     var scheduledDate = tz.TZDateTime(
-      tz.local,
+      now.location,
       now.year,
       now.month,
       now.day,
@@ -135,7 +175,17 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
     );
-    return true;
+    return DailyReminderResult.scheduled;
+  }
+
+  /// Fails closed: a platform error (e.g. a permission request already in
+  /// flight) counts as denied rather than crashing the settings flow.
+  Future<bool> _requestNotificationsPermission() async {
+    try {
+      return await _androidImpl?.requestNotificationsPermission() ?? false;
+    } on PlatformException {
+      return false;
+    }
   }
 
   /// Cancels the scheduled daily notification.
@@ -215,7 +265,8 @@ class NotificationService {
 
   void _handleResponse(NotificationResponse response) {
     final action = response.actionId;
-    if (action != null && _validActions.contains(action)) onAction?.call(action);
+    if (action != null && _validActions.contains(action))
+      onAction?.call(action);
   }
 }
 

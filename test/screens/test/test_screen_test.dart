@@ -36,6 +36,27 @@ Future<void> _selectReviewMode(WidgetTester tester) async {
 
 void main() {
   testWidgets(
+    'the format picker offers exactly Type and Fill Blanks — Recite was '
+    'retired (#165) and must not be selectable',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([_verse('vow', isVerseOfWeek: true)]);
+
+      await tester.pumpWidget(_wrap(provider));
+
+      final formatChips = find.descendant(
+        of: find.bySemanticsLabel('Format — select one or more'),
+        matching: find.byType(FilterChip),
+      );
+      expect(formatChips, findsNWidgets(2));
+      expect(find.widgetWithText(FilterChip, 'Type'), findsOneWidget);
+      expect(find.widgetWithText(FilterChip, 'Fill Blanks'), findsOneWidget);
+      expect(find.widgetWithText(FilterChip, 'Recite'), findsNothing);
+      expect(find.byKey(const Key('format-chip-recite')), findsNothing);
+    },
+  );
+
+  testWidgets(
     'Review mode shows a count slider and verse-of-week toggle',
     (tester) async {
       final provider = VerseProvider(DatabaseHelper());
@@ -139,7 +160,7 @@ void main() {
 
       await tester.pumpWidget(_wrap(provider));
 
-      for (final label in ['Recite', 'Type', 'Fill Blanks']) {
+      for (final label in ['Type', 'Fill Blanks']) {
         final finder = find.widgetWithText(FilterChip, label);
         if (finder.evaluate().isNotEmpty) {
           await tester.tap(finder);

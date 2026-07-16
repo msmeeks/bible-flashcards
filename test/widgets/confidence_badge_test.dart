@@ -42,8 +42,8 @@ void main() {
 
   group('ConfidenceBadge dark theme', () {
     testWidgets('renders with no fill and a colored outline', (tester) async {
-      await tester.pumpWidget(
-          _wrapDark(const ConfidenceBadge(accuracy: 0.5, verseRef: 'John 3:16')));
+      await tester.pumpWidget(_wrapDark(
+          const ConfidenceBadge(accuracy: 0.5, verseRef: 'John 3:16')));
 
       final chip = tester.widget<Chip>(find.byType(Chip));
       expect(chip.backgroundColor, Colors.transparent);
@@ -52,9 +52,10 @@ void main() {
       expect(shape.side.color, const Color(0xFFDF6961));
     });
 
-    testWidgets('Weak tier text and icon use the outline color', (tester) async {
-      await tester.pumpWidget(
-          _wrapDark(const ConfidenceBadge(accuracy: 0.5, verseRef: 'John 3:16')));
+    testWidgets('Weak tier text and icon use the outline color',
+        (tester) async {
+      await tester.pumpWidget(_wrapDark(
+          const ConfidenceBadge(accuracy: 0.5, verseRef: 'John 3:16')));
 
       final label = tester.widget<Text>(find.text('Weak'));
       expect(label.style?.color, const Color(0xFFDF6961));

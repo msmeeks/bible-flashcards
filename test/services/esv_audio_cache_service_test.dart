@@ -39,7 +39,8 @@ void main() {
       expect(called, isFalse);
     });
 
-    test('cache miss: resolves redirect, fetches MP3 without auth, writes file', () async {
+    test('cache miss: resolves redirect, fetches MP3 without auth, writes file',
+        () async {
       SharedPreferences.setMockInitialValues({'esv_lookup_consent_v1': true});
       String? authHeaderOnCdnRequest = 'unset';
       var resolveCalls = 0;
@@ -97,7 +98,8 @@ void main() {
       expect(networkCalls, 2);
     });
 
-    test('network failure resolving redirect throws EsvAudioException', () async {
+    test('network failure resolving redirect throws EsvAudioException',
+        () async {
       SharedPreferences.setMockInitialValues({'esv_lookup_consent_v1': true});
       final service = EsvAudioCacheService(
         client: MockClient((_) async => throw Exception('network down')),
@@ -111,7 +113,8 @@ void main() {
       );
     });
 
-    test('non-redirect status from api.esv.org throws EsvAudioException', () async {
+    test('non-redirect status from api.esv.org throws EsvAudioException',
+        () async {
       SharedPreferences.setMockInitialValues({'esv_lookup_consent_v1': true});
       final service = EsvAudioCacheService(
         client: MockClient((_) async => http.Response('', 500)),
@@ -125,7 +128,8 @@ void main() {
       );
     });
 
-    test('disallowed redirect host throws EsvAudioException (SSRF guard)', () async {
+    test('disallowed redirect host throws EsvAudioException (SSRF guard)',
+        () async {
       SharedPreferences.setMockInitialValues({'esv_lookup_consent_v1': true});
       final service = EsvAudioCacheService(
         client: MockClient((request) async {
@@ -146,7 +150,9 @@ void main() {
       );
     });
 
-    test('cache filename is a safe hash even for path-traversal-like references', () async {
+    test(
+        'cache filename is a safe hash even for path-traversal-like references',
+        () async {
       SharedPreferences.setMockInitialValues({'esv_lookup_consent_v1': true});
       final service = EsvAudioCacheService(
         client: MockClient((request) async {
@@ -164,10 +170,13 @@ void main() {
       final filePath = await service.getAudioPath('../../../etc/passwd');
       expect(path.isWithin(tempDir.path, filePath), isTrue);
       expect(filePath.contains('..'), isFalse);
-      expect(RegExp(r'^[0-9a-f]{64}\.mp3$').hasMatch(path.basename(filePath)), isTrue);
+      expect(RegExp(r'^[0-9a-f]{64}\.mp3$').hasMatch(path.basename(filePath)),
+          isTrue);
     });
 
-    test('in-flight deduplication: concurrent calls for same reference share one fetch', () async {
+    test(
+        'in-flight deduplication: concurrent calls for same reference share one fetch',
+        () async {
       SharedPreferences.setMockInitialValues({'esv_lookup_consent_v1': true});
       var resolveCalls = 0;
 
