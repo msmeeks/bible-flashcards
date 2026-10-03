@@ -44,6 +44,121 @@ void main() {
     await tester.pump();
   }
 
+  Future<void> tapHint(WidgetTester tester) async {
+    await tester.tap(find.byKey(const Key('type-hint-button')));
+    await tester.pump();
+  }
+
+  String fieldText(WidgetTester tester) => tester
+      .widget<TextField>(find.byKey(const Key('type-answer-field')))
+      .controller!
+      .text;
+
+  group('Type-mode hint button', () {
+    testWidgets('hint inserts the next word into the answer field',
+        (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
+      await tester.pump();
+
+      await tapHint(tester);
+      expect(fieldText(tester), 'For ');
+
+      await tapHint(tester);
+      expect(fieldText(tester), 'For God ');
+    });
+
+    testWidgets('hint continues from what the user has already typed',
+        (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
+      await tester.pump();
+
+      await tester.enterText(
+          find.byKey(const Key('type-answer-field')), 'For God so ');
+      await tapHint(tester);
+
+      expect(fieldText(tester), 'For God so loved ');
+    });
+
+    testWidgets('hint can be used any number of times', (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
+      await tester.pump();
+
+      for (var i = 0; i < 6; i++) {
+        await tapHint(tester);
+      }
+      expect(fieldText(tester), 'For God so loved the world ');
+      expect(find.byKey(const Key('type-hint-button')), findsOneWidget);
+    });
+
+    testWidgets('a fully hinted answer scores zero despite matching',
+        (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
+      await tester.pump();
+
+      for (var i = 0; i < 6; i++) {
+        await tapHint(tester);
+      }
+      await tester.tap(find.byKey(const Key('type-check-button')));
+      await tester.pump();
+
+      expect(find.text('0%'), findsOneWidget);
+    });
+
+    testWidgets('hinted words are deducted from an otherwise perfect answer',
+        (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
+      await tester.pump();
+
+      // Three words hinted, three recalled: 3 of 6.
+      await tapHint(tester);
+      await tapHint(tester);
+      await tapHint(tester);
+      await tester.enterText(find.byKey(const Key('type-answer-field')),
+          'For God so loved the world');
+      await tester.tap(find.byKey(const Key('type-check-button')));
+      await tester.pump();
+
+      expect(find.text('50%'), findsOneWidget);
+    });
+
+    testWidgets('announces the revealed word and the running tally',
+        (tester) async {
+      await tester.pumpWidget(wrapType(_verse()));
+      await tester.pump();
+
+      await tapHint(tester);
+
+      final tally = tester.getSemantics(find.byKey(const Key('type-hint-tally')));
+      expect(tally.label, contains('For'));
+      expect(tally.label, contains('1 hint used'));
+    });
+
+    testWidgets('the hint tally resets for the next verse', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: TestSessionScreen(
+          verses: [_verse(), _verse()],
+          testMode: TestMode.review,
+          selectedFormats: const {TestFormat.type},
+          selectedDirections: const {PromptDirection.refToText},
+        ),
+      ));
+      await tester.pump();
+
+      await tapHint(tester);
+      await tester.tap(find.byKey(const Key('type-check-button')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('type-next-button')));
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const Key('type-answer-field')),
+          'For God so loved the world');
+      await tester.tap(find.byKey(const Key('type-check-button')));
+      await tester.pump();
+
+      expect(find.text('100%'), findsOneWidget);
+    });
+  });
+
   group('Type-mode word diff (#162)', () {
     testWidgets('a perfect answer renders every source word plainly',
         (tester) async {

@@ -190,7 +190,58 @@ List<DiffToken> diffWords(String typed, String correct) {
 
 /// Computes a 0.0–1.0 similarity score using word-level LCS.
 /// Both-empty inputs return 1.0; either-empty returns 0.0.
-double computeScore(String typed, String correct) {
+/// Reveals the next word of [correct] into a Type-mode answer, returning the
+/// new full field contents — or null when the whole verse has been revealed
+/// and there is nothing left to hint.
+///
+/// The word is copied from [correct] verbatim, punctuation and casing
+/// included, so the finished answer reads like the verse. Position comes from
+/// how many words the user has finished typing, not from whether those words
+/// were right: a user who is lost mid-verse still gets the word that belongs
+/// at their cursor. A trailing word that does not already match its source
+/// word is treated as in progress and replaced, so hinting after "lov" — or
+/// after a typo — yields "loved" rather than skipping past it.
+String? applyHint(String typed, String correct) {
+  final sourceWords = _splitWords(correct);
+  if (sourceWords.isEmpty) return null;
+
+  final typedWords = _splitWords(typed);
+  final lastIndex = typedWords.length - 1;
+  final lastWordIsFinished = typedWords.isEmpty ||
+      RegExp(r'\s$').hasMatch(typed) ||
+      (lastIndex < sourceWords.length &&
+          _sameWord(typedWords[lastIndex], sourceWords[lastIndex]));
+  final finishedCount =
+      lastWordIsFinished ? typedWords.length : typedWords.length - 1;
+
+  if (finishedCount >= sourceWords.length) return null;
+
+  final kept = typedWords.take(finishedCount);
+  return '${[...kept, sourceWords[finishedCount]].join(' ')} ';
+}
+
+List<String> _splitWords(String s) {
+  final trimmed = s.trim();
+  return trimmed.isEmpty ? const [] : trimmed.split(RegExp(r'\s+'));
+}
+
+/// Word equality for hint positioning — same comparison [normalizeWords] uses
+/// for scoring, so "world." and "world" are the same word here too.
+bool _sameWord(String a, String b) {
+  final na = normalizeWords(a);
+  final nb = normalizeWords(b);
+  return na.length == nb.length &&
+      na.isNotEmpty &&
+      na.first == nb.first;
+}
+
+/// [hintedWords] is the number of words the user revealed with the hint
+/// button. A hinted word is inserted into the answer verbatim, so it would
+/// otherwise align as a match and be scored as recall the user never
+/// performed. It is therefore subtracted from the matched count while the
+/// denominator is left alone: a hint costs exactly as much as getting the
+/// word wrong. Hinting every word floors the score at zero.
+double computeScore(String typed, String correct, {int hintedWords = 0}) {
   final typedWords = normalizeWords(typed);
   final correctWords = normalizeWords(correct);
 
@@ -199,7 +250,8 @@ double computeScore(String typed, String correct) {
 
   final tokens = diffWords(typed, correct);
   final lcs = tokens.where((t) => t.op == DiffOp.match).length;
-  return lcs / max(typedWords.length, correctWords.length);
+  final earned = max(0, lcs - hintedWords);
+  return earned / max(typedWords.length, correctWords.length);
 }
 
 /// Computes how many words to blank for a given blank-density [percentage]

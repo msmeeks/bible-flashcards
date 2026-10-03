@@ -86,6 +86,72 @@ void main() {
     });
   });
 
+  group('applyHint', () {
+    const correct = 'For God so loved the world.';
+
+    test('reveals the first word when nothing has been typed', () {
+      expect(applyHint('', correct), 'For ');
+    });
+
+    test('reveals the word after the ones already typed', () {
+      expect(applyHint('For God ', correct), 'For God so ');
+    });
+
+    test('treats a finished word without a trailing space as finished', () {
+      expect(applyHint('For God', correct), 'For God so ');
+    });
+
+    test('completes a partially typed word instead of skipping it', () {
+      expect(applyHint('For God so lov', correct), 'For God so loved ');
+    });
+
+    test('reveals the source word verbatim, punctuation included', () {
+      expect(applyHint('For God so loved the ', correct),
+          'For God so loved the world. ');
+    });
+
+    test('returns null once the whole verse has been revealed', () {
+      expect(applyHint('For God so loved the world. ', correct), isNull);
+    });
+
+    test('keeps revealing in order even when earlier words are wrong', () {
+      expect(applyHint('Because Zeus ', correct), 'Because Zeus so ');
+    });
+  });
+
+  group('computeScore with hints', () {
+    test('a hinted word earns no credit even though it matches', () {
+      // All four words present, but one of them was handed to the user.
+      expect(computeScore('for God so loved', 'for God so loved'), 1.0);
+      expect(
+        computeScore('for God so loved', 'for God so loved', hintedWords: 1),
+        0.75,
+      );
+    });
+
+    test('hinting every word scores zero', () {
+      expect(
+        computeScore('for God so loved', 'for God so loved', hintedWords: 4),
+        0.0,
+      );
+    });
+
+    test('more hints than matched words still floors at zero', () {
+      expect(
+        computeScore('for God', 'for God so loved', hintedWords: 4),
+        0.0,
+      );
+    });
+
+    test('hints do not shrink the denominator — omissions still cost', () {
+      // Two of four words typed, one of them hinted: 1 earned of 4.
+      expect(
+        computeScore('for God', 'for God so loved', hintedWords: 1),
+        0.25,
+      );
+    });
+  });
+
   group('computeScore', () {
     test('both empty → 1.0', () {
       expect(computeScore('', ''), 1.0);
