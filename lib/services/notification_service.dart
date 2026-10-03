@@ -72,8 +72,11 @@ class NotificationService {
   /// Call once at app startup.
   Future<void> initialize() async {
     tz.initializeTimeZones();
-    final zoneName = await FlutterTimezone.getLocalTimezone();
     try {
+      // The lookup is inside the try: it throws on an unexpected platform
+      // reply, and an escaped error would abort startup before any channel
+      // is created.
+      final zoneName = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(zoneName));
     } catch (_) {
       tz.setLocalLocation(tz.UTC);
@@ -140,6 +143,45 @@ class NotificationService {
         await _androidImpl?.requestExactAlarmsPermission() ?? false;
     if (!hasPermission) return DailyReminderResult.exactAlarmsDenied;
 
+    await _schedule(
+      time,
+      showOnLockScreen: showOnLockScreen,
+      notificationType: notificationType,
+    );
+    return DailyReminderResult.scheduled;
+  }
+
+  /// Re-asserts the saved reminder at startup without prompting.
+  ///
+  /// The setting outlives the alarm on a fresh install or "Clear data", which
+  /// the boot receiver doesn't cover. Permissions are only checked, never
+  /// requested — startup must not raise system dialogs. If either is missing
+  /// the reminder stays unscheduled until the user re-saves it in Settings.
+  Future<void> restoreDailyNotification(
+    TimeOfDay time, {
+    bool showOnLockScreen = false,
+    String notificationType = 'verseOfWeek',
+  }) async {
+    try {
+      final android = _androidImpl;
+      if (android == null) return;
+      if (!(await android.areNotificationsEnabled() ?? false)) return;
+      if (!(await android.canScheduleExactNotifications() ?? false)) return;
+      await _schedule(
+        time,
+        showOnLockScreen: showOnLockScreen,
+        notificationType: notificationType,
+      );
+    } on PlatformException {
+      // Best effort: a platform failure must never block app launch.
+    }
+  }
+
+  Future<void> _schedule(
+    TimeOfDay time, {
+    required bool showOnLockScreen,
+    required String notificationType,
+  }) async {
     final now = _now();
     var scheduledDate = tz.TZDateTime(
       now.location,
@@ -175,7 +217,6 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
     );
-    return DailyReminderResult.scheduled;
   }
 
   /// Fails closed: a platform error (e.g. a permission request already in

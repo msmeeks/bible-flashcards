@@ -26,6 +26,17 @@ Future<void> main() async {
   final notificationService = NotificationService();
   await notificationService.initialize();
 
+  // Re-assert the saved reminder: the setting survives a fresh install or
+  // "Clear data" but the alarm doesn't.
+  final reminderTime = settingsProvider.settings.dailyNotificationTime;
+  if (reminderTime != null) {
+    await notificationService.restoreDailyNotification(
+      reminderTime,
+      showOnLockScreen: settingsProvider.settings.showOnLockScreen,
+      notificationType: settingsProvider.settings.notificationType,
+    );
+  }
+
   // No permissions requested at startup — all requested at point-of-use.
 
   runApp(

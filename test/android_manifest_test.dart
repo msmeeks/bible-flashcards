@@ -46,6 +46,26 @@ void main() {
       expect(element, contains('android:exported="false"'));
     });
 
+    // The plugin does not declare these in its own manifest. Without the
+    // scheduled receiver the alarm fires into nothing: no notification, no
+    // log line, no next-day repeat.
+    for (final receiver in [
+      'ScheduledNotificationReceiver',
+      'ActionBroadcastReceiver',
+    ]) {
+      test('registers $receiver, not exported', () {
+        final name = 'com.dexterous.flutterlocalnotifications.$receiver"';
+        final nameIndex = manifest.indexOf(name);
+        expect(nameIndex, isNonNegative, reason: '$receiver is not declared');
+        final start = manifest.lastIndexOf('<receiver', nameIndex);
+        final end = manifest.indexOf('>', nameIndex);
+        expect(
+          manifest.substring(start, end),
+          contains('android:exported="false"'),
+        );
+      });
+    }
+
     test('declares POST_NOTIFICATIONS for the Android 13+ runtime prompt', () {
       expect(manifest, contains('android.permission.POST_NOTIFICATIONS'));
     });

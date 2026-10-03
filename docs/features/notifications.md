@@ -25,7 +25,7 @@ Scheduling is gated on two independent permissions, and `scheduleDailyNotificati
 | `lib/providers/settings_provider.dart` | Persists notification settings to SharedPreferences |
 | `lib/screens/settings/settings_screen.dart` | Notifications section UI: time picker, SegmentedButton, lock-screen toggle |
 | `lib/app.dart` | Registers `NotificationService` as a top-level Provider |
-| `android/app/src/main/AndroidManifest.xml` | `SCHEDULE_EXACT_ALARM` / `POST_NOTIFICATIONS` / `RECEIVE_BOOT_COMPLETED` declarations + `ScheduledNotificationBootReceiver` |
+| `android/app/src/main/AndroidManifest.xml` | `SCHEDULE_EXACT_ALARM` / `POST_NOTIFICATIONS` / `RECEIVE_BOOT_COMPLETED` declarations + `ScheduledNotificationReceiver`, `ActionBroadcastReceiver`, `ScheduledNotificationBootReceiver` |
 | `lib/widgets/inline_status_banner.dart` | Reused to render the permission-denied message inline |
 | `test/android_manifest_test.dart` | Guards the manifest declarations the reminder depends on |
 
@@ -76,7 +76,13 @@ No Dart-side version check exists, and none is needed: the plugin branches nativ
 ### Surviving Reboot
 Android clears scheduled alarms on reboot. `flutter_local_notifications` persists scheduled notifications and re-registers them from `ScheduledNotificationBootReceiver`, but the plugin's own manifest does **not** declare that receiver — the app must. The receiver is declared `android:exported="false"` (it only re-registers this app's local alarms) and additionally listens for `MY_PACKAGE_REPLACED` plus the QUICKBOOT actions used by OEMs that never broadcast `BOOT_COMPLETED`.
 
-`test/android_manifest_test.dart` asserts these declarations: their absence is silent and only observable after a physical reboot.
+### Delivery receivers
+The plugin also leaves `ScheduledNotificationReceiver` (receives the alarm and posts the notification) and `ActionBroadcastReceiver` (Pause/Stop/Play/Dismiss buttons) undeclared. Without the first, the alarm fires into nothing: `dumpsys alarm` shows the wakeup, but no notification is posted, nothing is logged, and the next-day repeat is never re-armed. Both are declared `android:exported="false"`.
+
+### Startup restore
+Settings is the only place that schedules, but `dailyNotificationTime` persists across a fresh install or "Clear data" while the alarm does not. `main.dart` calls `NotificationService.restoreDailyNotification` after `initialize()` when a time is saved. It only *checks* `areNotificationsEnabled` / `canScheduleExactNotifications` — it never prompts at startup — and silently skips if either is missing. `initialize()` also wraps the `FlutterTimezone` lookup in its `try`, so a failed lookup falls back to UTC instead of aborting startup before the channels exist.
+
+`test/android_manifest_test.dart` asserts these declarations: their absence is silent and only observable on a device.
 
 ### Notification Bodies
 | `notificationType` | Body text |
@@ -128,3 +134,4 @@ Three fields on `AppSettings` (all persisted via SharedPreferences, not the SQLi
 | 2026-07-15 | #163: request `POST_NOTIFICATIONS` at runtime before scheduling (the reminder never appeared without it); `DailyReminderResult` replaces the bool return so Settings names the denied permission; denial now renders as an inline banner instead of a `SnackBar` (brief §13); added `RECEIVE_BOOT_COMPLETED` + `ScheduledNotificationBootReceiver` so alarms survive reboot. Corrected this doc's claim that notification settings persist to SQLite — they use SharedPreferences |
 | 2026-07-15 | #168/#178/#181: reminder error now clears on every reminder-off path (was stranding a permission request for a reminder the user had already turned off); banner always mounted with a nullable message per `InlineStatusBanner`'s contract; error folded into the reminder tile's semantic label, with the live region left on the banner alone to avoid a double announcement |
 | 2026-07-15 | #171/#170/#188: added a zone-aware `now` clock seam (midnight rollover was previously covered nondeterministically — which branch ran depended on CI's wall-clock time) and a `debugHandleResponse` dispatch hook that delegates to the production filter. Tests now pin both rollover sides, all four action ids plus unknown/null, the unknown-timezone→UTC fallback, both channel creations, and both notification bodies. No scheduling or dispatch behavior changed |
+| 2026-10-03 | Daily reminder never fired: manifest lacked `ScheduledNotificationReceiver` (alarm fired into nothing). Declared it + `ActionBroadcastReceiver`; added startup `restoreDailyNotification`; moved the timezone lookup inside `initialize()`'s `try` |
