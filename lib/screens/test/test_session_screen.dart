@@ -8,6 +8,7 @@ import '../../models/test_result.dart';
 import '../../models/verse.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/scoring.dart';
+import '../../widgets/announce_on_change.dart';
 import '../../widgets/esv_copyright_footer.dart';
 import '../settings/settings_screen.dart';
 import 'test_enums.dart';
@@ -50,6 +51,8 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
   final FocusNode _checkFocusNode = FocusNode();
   final FocusNode _nextFocusNode = FocusNode();
   bool _showingTypeResult = false;
+  int _hintCount = 0;
+  String? _lastHintWord;
   double? _lastTypeScore;
 
   // Word-level alignment of the last checked answer (#162). Derived at check
@@ -176,6 +179,8 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       setState(() {
         _currentIndex++;
         _showingTypeResult = false;
+        _hintCount = 0;
+        _lastHintWord = null;
         _lastTypeScore = null;
         _lastTypeDiff = null;
         _showingBlankResult = false;
@@ -206,7 +211,8 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
 
   void _onTypeCheck() {
     final comparable = _comparableAnswer(_typeController.text);
-    final score = computeScore(comparable, _answerText);
+    final score =
+        computeScore(comparable, _answerText, hintedWords: _hintCount);
     final diff = diffWords(comparable, _answerText);
     _typeController.clear(); // discard typed input immediately
 
@@ -223,6 +229,25 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
       if (mounted) _nextFocusNode.requestFocus();
     });
   }
+
+  /// Reveals the next word of the answer. Unlimited by design — a hint is
+  /// paid for in score, not rationed, so a stuck user can always walk the
+  /// verse forward rather than abandon the card.
+  void _onHint() {
+    final revealed = applyHint(_typeController.text, _answerText);
+    if (revealed == null) return; // whole answer already revealed
+    setState(() {
+      _hintCount++;
+      _lastHintWord = revealed.trim().split(RegExp(r'\s+')).last;
+      _typeController.value = TextEditingValue(
+        text: revealed,
+        selection: TextSelection.collapsed(offset: revealed.length),
+      );
+    });
+  }
+
+  String _hintTallyText() =>
+      _hintCount == 1 ? '1 hint used' : '$_hintCount hints used';
 
   void _onTypeNext() {
     // Guard against a double-tap recording the same verse twice: the first
@@ -425,16 +450,53 @@ class _TestSessionScreenState extends State<TestSessionScreen> {
             ),
           ),
         ],
-        if (!_showingTypeResult)
-          SizedBox(
-            height: 48,
-            child: FilledButton(
-              key: const Key('type-check-button'),
-              focusNode: _checkFocusNode,
-              onPressed: _onTypeCheck,
-              child: const Text('Check Answer'),
+        if (!_showingTypeResult) ...[
+          if (_hintCount > 0) ...[
+            AnnounceOnChange(
+              value: '$_hintCount:${_lastHintWord ?? ''}',
+              builder: (context, liveRegion) => Semantics(
+                liveRegion: liveRegion,
+                label: 'Hint: ${_lastHintWord ?? ''}. '
+                    '${_hintTallyText()}. Hints are not scored as correct.',
+                child: ExcludeSemantics(
+                  child: Text(
+                    _hintTallyText(),
+                    key: const Key('type-hint-tally'),
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ),
+              ),
             ),
+            const SizedBox(height: 8),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    key: const Key('type-hint-button'),
+                    onPressed: _onHint,
+                    icon: const Icon(Symbols.lightbulb_rounded, size: 20),
+                    label: const Text('Hint'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    key: const Key('type-check-button'),
+                    focusNode: _checkFocusNode,
+                    onPressed: _onTypeCheck,
+                    child: const Text('Check Answer'),
+                  ),
+                ),
+              ),
+            ],
           ),
+        ],
       ],
     );
   }

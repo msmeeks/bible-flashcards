@@ -12,11 +12,16 @@ class VerseCard extends StatefulWidget {
   final FlashcardState initialState;
   final Future<double?>? confidenceFuture;
 
+  /// Caps the rendered verse text. Null (the default) shows the verse in full —
+  /// clamping is opt-in for space-constrained callers only.
+  final int? maxTextLines;
+
   const VerseCard({
     super.key,
     required this.verse,
     this.initialState = FlashcardState.referenceOnly,
     this.confidenceFuture,
+    this.maxTextLines,
   });
 
   @override
@@ -32,13 +37,23 @@ class _VerseCardState extends State<VerseCard> {
     _state = widget.initialState;
   }
 
-  void _cycleState() {
+  /// Tap flips the card like a physical flashcard: reference on one face,
+  /// text on the other. The combined view is deliberate, not part of the flip.
+  void _flip() {
     setState(() {
-      _state = switch (_state) {
-        FlashcardState.referenceOnly => FlashcardState.textOnly,
-        FlashcardState.textOnly => FlashcardState.both,
-        FlashcardState.both => FlashcardState.referenceOnly,
-      };
+      _state = _state == FlashcardState.referenceOnly
+          ? FlashcardState.textOnly
+          : FlashcardState.referenceOnly;
+    });
+  }
+
+  /// Long-press (and the expand button) reveals both faces at once, and
+  /// long-pressing again returns to the reference face.
+  void _toggleBoth() {
+    setState(() {
+      _state = _state == FlashcardState.both
+          ? FlashcardState.referenceOnly
+          : FlashcardState.both;
     });
   }
 
@@ -50,12 +65,13 @@ class _VerseCardState extends State<VerseCard> {
             ? 'Memorized'
             : 'Available';
     return switch (_state) {
-      FlashcardState.referenceOnly =>
-        '$status. Reference: ${verse.reference}. Tap to reveal text.',
-      FlashcardState.textOnly =>
-        '$status. Text: ${verse.text}. Tap to show reference and text.',
+      FlashcardState.referenceOnly => '$status. Reference: ${verse.reference}. '
+          'Tap to reveal text, or long press to show both.',
+      FlashcardState.textOnly => '$status. Text: ${verse.text}. '
+          'Tap to show reference, or long press to show both.',
       FlashcardState.both =>
-        '$status. ${verse.reference}. ${verse.text}. Tap to return to reference only.',
+        '$status. ${verse.reference}. ${verse.text}. Tap or long press to '
+            'return to reference only.',
     };
   }
 
@@ -89,8 +105,7 @@ class _VerseCardState extends State<VerseCard> {
                 Text(
                   verse.text,
                   style: tt.bodyLarge,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: widget.maxTextLines,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -109,7 +124,7 @@ class _VerseCardState extends State<VerseCard> {
               child: IconButton(
                 icon: const Icon(Symbols.expand_more_rounded),
                 padding: const EdgeInsets.all(12),
-                onPressed: () => setState(() => _state = FlashcardState.both),
+                onPressed: _toggleBoth,
               ),
             ),
           ),
@@ -165,7 +180,8 @@ class _VerseCardState extends State<VerseCard> {
               child: const SizedBox.shrink(),
             ),
             InkWell(
-              onTap: _cycleState,
+              onTap: _flip,
+              onLongPress: _toggleBoth,
               borderRadius: const BorderRadius.all(Radius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(16),

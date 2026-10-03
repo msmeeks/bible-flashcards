@@ -17,6 +17,8 @@ class _FakeAndroidPlugin extends AndroidFlutterLocalNotificationsPlugin {
   bool notificationsGranted = true;
   bool exactAlarmsGranted = true;
   bool notificationsThrows = false;
+  bool notificationsEnabled = true;
+  bool canScheduleExact = true;
 
   final List<String> calls = <String>[];
   int scheduleCount = 0;
@@ -54,6 +56,12 @@ class _FakeAndroidPlugin extends AndroidFlutterLocalNotificationsPlugin {
     }
     return notificationsGranted;
   }
+
+  @override
+  Future<bool?> areNotificationsEnabled() async => notificationsEnabled;
+
+  @override
+  Future<bool?> canScheduleExactNotifications() async => canScheduleExact;
 
   @override
   Future<bool?> requestExactAlarmsPermission() async {
@@ -133,6 +141,20 @@ void main() {
       await NotificationService().initialize();
 
       expect(tz.local, tz.UTC);
+    });
+
+    test('a failing timezone lookup falls back to UTC and still creates channels',
+        () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('flutter_timezone'),
+        (call) async => throw PlatformException(code: 'boom'),
+      );
+
+      await NotificationService().initialize();
+
+      expect(tz.local, tz.UTC);
+      expect(fake.channels, isNotEmpty);
     });
 
     test('creates both the audio and daily reminder channels', () async {
@@ -223,11 +245,46 @@ void main() {
       expect(fake.scheduledBody, 'Time to practice a memorized verse');
     });
 
+    test('never prompts and does not schedule when notifications are off',
+        () async {
+      fake.notificationsEnabled = false;
+
+      await NotificationService()
+          .restoreDailyNotification(const TimeOfDay(hour: 9, minute: 0));
+
+      expect(fake.scheduleCount, 0);
+      expect(fake.calls, isNot(contains('requestNotificationsPermission')));
+      expect(fake.calls, isNot(contains('requestExactAlarmsPermission')));
+    });
+
+    test('does not schedule when exact alarms are not permitted', () async {
+      fake.canScheduleExact = false;
+
+      await NotificationService()
+          .restoreDailyNotification(const TimeOfDay(hour: 9, minute: 0));
+
+      expect(fake.scheduleCount, 0);
+      expect(fake.calls, isNot(contains('requestExactAlarmsPermission')));
+    });
+
     test('the default verse-of-week body stays generic too', () async {
       await NotificationService()
           .scheduleDailyNotification(const TimeOfDay(hour: 9, minute: 0));
 
       expect(fake.scheduledBody, 'Time to review your verse of the week');
+    });
+  });
+
+  group('restoreDailyNotification', () {
+    test('re-registers the saved reminder when permissions are already held',
+        () async {
+      await NotificationService().restoreDailyNotification(
+        const TimeOfDay(hour: 9, minute: 0),
+        notificationType: 'reviewVerse',
+      );
+
+      expect(fake.scheduleCount, 1);
+      expect(fake.scheduledBody, 'Time to practice a memorized verse');
     });
   });
 

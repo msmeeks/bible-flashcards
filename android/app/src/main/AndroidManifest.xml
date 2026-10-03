@@ -42,6 +42,16 @@
         <!-- Re-registers scheduled notifications after reboot or app update.
              MY_PACKAGE_REPLACED and the QUICKBOOT actions cover OEM variants
              that never broadcast BOOT_COMPLETED. -->
+        <!-- Receives the scheduled alarm and posts the notification. The plugin
+             does not declare it: without this the daily reminder fires into
+             nothing, silently. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+        <!-- Handles the Pause/Stop/Play/Dismiss notification action buttons. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
+            android:exported="false" />
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
             android:exported="false">

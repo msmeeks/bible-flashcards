@@ -18,21 +18,38 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Ensure verse list is fresh when the screen is first shown.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final verseProvider = context.read<VerseProvider>();
-      await verseProvider.loadVerses();
-      if (!mounted) return;
-      final settingsProvider = context.read<SettingsProvider>();
-      await verseProvider.autoAdvanceVerseOfWeekIfNeeded(
-        settingsProvider.settings,
-        (updated) => settingsProvider.update(updated),
-      );
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// The screen lives inside an `IndexedStack` and is never rebuilt after the
+  /// first frame, so `initState` alone would only ever check auto-advance at
+  /// cold start — an app left resident over Saturday night would never advance.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final verseProvider = context.read<VerseProvider>();
+    await verseProvider.loadVerses();
+    if (!mounted) return;
+    final settingsProvider = context.read<SettingsProvider>();
+    await verseProvider.autoAdvanceVerseOfWeekIfNeeded(
+      settingsProvider.settings,
+      (updated) => settingsProvider.update(updated),
+    );
   }
 
   @override
