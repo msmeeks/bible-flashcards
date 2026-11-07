@@ -316,9 +316,12 @@ class _AvailableTabState extends State<_AvailableTab> {
     }
 
     // Group verses by packId and build a flat list with headers.
+    final provider = context.read<VerseProvider>();
     final groupedPacks = <String, List<Verse>>{};
     for (final verse in widget.verses) {
-      groupedPacks.putIfAbsent(verse.packId, () => []).add(verse);
+      groupedPacks
+          .putIfAbsent(provider.resolvePackId(verse.packId), () => [])
+          .add(verse);
     }
 
     final items = <_ListItem>[];
@@ -384,8 +387,7 @@ class _PackHeaderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final packNames = context.watch<VerseProvider>().packNames;
-    final displayName = packNames[packId] ?? 'Unknown Pack';
+    final displayName = context.watch<VerseProvider>().packNameFor(packId);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Text(

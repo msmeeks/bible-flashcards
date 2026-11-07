@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../database/database_helper.dart';
 import '../models/settings.dart';
 import '../models/verse.dart';
+import '../models/verse_pack.dart';
 
 class VerseProvider extends ChangeNotifier {
   final DatabaseHelper _db;
@@ -27,6 +28,14 @@ class VerseProvider extends ChangeNotifier {
   int get esvVerseCount => _verses.where((v) => v.translation == 'ESV').length;
 
   Map<String, String> get packNames => _packNames;
+
+  /// The pack a verse is shown under: its own pack if that still exists,
+  /// otherwise My Verses (hand-added verses, or a pack that's gone).
+  String resolvePackId(String packId) =>
+      _packNames.containsKey(packId) ? packId : VersePack.myVersesId;
+
+  String packNameFor(String packId) =>
+      _packNames[resolvePackId(packId)] ?? VersePack.myVersesName;
 
   bool get isLoading => _isLoading;
   String? get error => _error;

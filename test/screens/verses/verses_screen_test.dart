@@ -379,6 +379,28 @@ void main() {
   );
 
   testWidgets(
+    'groups manually added verses and verses from an unknown pack under '
+    'one "My Verses" header',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([
+        makeVerse('verse-0', isMemorized: false, packId: 'custom'),
+        makeVerse('verse-1', isMemorized: false, packId: 'gone_pack'),
+      ]);
+
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+      await tester.tap(find.text('Available'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('My Verses'), findsOneWidget);
+      expect(find.text('Unknown Pack'), findsNothing);
+      expect(find.text('Ref verse-0'), findsOneWidget);
+      expect(find.text('Ref verse-1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'tapping a memorized verse tile opens its detail screen',
     (tester) async {
       final provider = VerseProvider(DatabaseHelper());

@@ -195,7 +195,7 @@ class _MetadataCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final packName = provider.packNames[verse.packId] ?? 'Unknown Pack';
+    final packName = provider.packNameFor(verse.packId);
 
     return Card(
       color: cs.surfaceContainerLowest,
