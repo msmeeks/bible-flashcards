@@ -2,7 +2,7 @@ class Verse {
   final String id; // unique, e.g. "esv_john_3_16"
   final String reference; // "John 3:16"
   final String text;
-  final String translation; // "ESV" | "CSB" | "NLT"
+  final String translation; // preset (BSB/KJV/WEB/ESV) or user-typed, max 20
   final String packId;
   final bool isMemorized;
   final bool isVerseOfWeek;

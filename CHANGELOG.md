@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- Add Verse accepts any translation: pick **Other** and type its name (e.g. NIV, up to 20 characters). Online Search stays limited to BSB/KJV/WEB/ESV; a preset typed into Other ("esv") saves under its canonical name so the ESV cap and attribution still apply.
 - Retired Recite test mode (#165): on-device speech recognition proved unreliable in practice, and Type mode plus the keyboard's own dictation covers the same need. The `speech_to_text` and `permission_handler` dependencies and the `RECORD_AUDIO` permission are gone with it — the app no longer requests microphone access at all. Test results recorded before this still display.
 - Type mode now scores apostrophes leniently (#161) — "don't", "dont" and "don’t" are the same answer — shows a word-level diff of what was missed or added (#162), and waits for an explicit **Next** instead of auto-advancing a second after scoring (#166).
 - Added `scripts/setup-mac.sh`: one-command macOS bootstrap for Flutter/Android toolchain (Homebrew, Java 17, cmdline-tools, Pixel 9 Pro AVD); idempotent, embeds troubleshooting guide, supports `--skip-emulator` and `--verify-only` flags

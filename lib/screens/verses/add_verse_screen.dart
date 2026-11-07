@@ -37,6 +37,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _formKey = GlobalKey<FormState>();
   final _referenceController = TextEditingController();
   final _textController = TextEditingController();
+  final _customVersionController = TextEditingController();
   final _referenceFocusNode = FocusNode();
   final _searchFocusNode = FocusNode();
   final _saveFocusNode = FocusNode();
@@ -63,6 +64,12 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   static const _consentPrefKey = 'bible_lookup_consent_v1';
   static const _esvConsentPrefKey = 'esv_lookup_consent_v1';
   static const _esvCap = 500;
+
+  /// Segment value for a user-typed version name. Not a valid version name
+  /// itself — never persisted; see [_effectiveTranslation].
+  static const _otherVersionSegment = '__other__';
+  static const _customVersionMaxLength = 20;
+  static const _presetVersions = ['BSB', 'KJV', 'WEB', 'ESV'];
 
   static const _invalidFormatMessage =
       'Invalid reference format. Try e.g. "Romans 8:28".';
@@ -134,6 +141,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     _referenceController.removeListener(_onReferenceEdited);
     _referenceController.dispose();
     _textController.dispose();
+    _customVersionController.dispose();
     _referenceFocusNode.dispose();
     _searchFocusNode.dispose();
     _saveFocusNode.dispose();
@@ -331,7 +339,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   Future<void> _saveVerse() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    if (_translation == 'ESV') {
+    if (_effectiveTranslation == 'ESV') {
       final count = context.read<VerseProvider>().esvVerseCount;
       if (count >= _esvCap) {
         setState(() => _saveError =
@@ -426,19 +434,45 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
     );
   }
 
+  /// Presets offered as segments — ESV only when an API key is configured.
+  List<String> get _searchableVersions => [
+        for (final preset in _presetVersions)
+          if (preset != 'ESV' || _esvLookupService.isAvailable) preset,
+      ];
+
+  bool get _isCustomVersion => _translation == _otherVersionSegment;
+
+  /// "A, B, and C" — always called with at least the three built-in presets.
+  static String _joinWithAnd(List<String> items) =>
+      '${items.sublist(0, items.length - 1).join(', ')}, and ${items.last}';
+
+  /// The version name that will be persisted: the selected preset, or the
+  /// trimmed text of the "Other" field. A preset typed into "Other" (any
+  /// case) maps to its canonical name so ESV's storage cap and attribution
+  /// still apply and the same version isn't split across spellings.
+  String get _effectiveTranslation {
+    if (!_isCustomVersion) return _translation;
+    final typed = _customVersionController.text.trim();
+    return _presetVersions.firstWhere(
+      (preset) => preset.toLowerCase() == typed.toLowerCase(),
+      orElse: () => typed,
+    );
+  }
+
   Future<void> _commitSave(String reference) async {
     setState(() => _isSaving = true);
 
     final text = _textController.text.trim();
+    final translation = _effectiveTranslation;
 
     final id =
-        '${_translation.toLowerCase()}_${reference.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+        '${translation.toLowerCase()}_${reference.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
 
     final verse = Verse(
       id: id,
       reference: reference,
       text: text,
-      translation: _translation,
+      translation: translation,
       packId: 'custom',
       addedAt: DateTime.now(),
       isMemorized: _saveAsMemorized,
@@ -523,7 +557,10 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                 const SizedBox(width: 8),
                 FilledButton.tonal(
                   focusNode: _searchFocusNode,
-                  onPressed: (_isLookingUp || _isSaving) ? null : _lookupVerse,
+                  // Online lookup only knows the preset versions.
+                  onPressed: (_isLookingUp || _isSaving || _isCustomVersion)
+                      ? null
+                      : _lookupVerse,
                   child: _isLookingUp
                       ? Semantics(
                           liveRegion: true,
@@ -580,11 +617,12 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               container: true,
               child: SegmentedButton<String>(
                 segments: [
-                  const ButtonSegment(value: 'BSB', label: Text('BSB')),
-                  const ButtonSegment(value: 'KJV', label: Text('KJV')),
-                  const ButtonSegment(value: 'WEB', label: Text('WEB')),
-                  if (_esvLookupService.isAvailable)
-                    const ButtonSegment(value: 'ESV', label: Text('ESV')),
+                  for (final version in _searchableVersions)
+                    ButtonSegment(value: version, label: Text(version)),
+                  const ButtonSegment(
+                    value: _otherVersionSegment,
+                    label: Text('Other'),
+                  ),
                 ],
                 selected: {_translation},
                 onSelectionChanged: (values) {
@@ -597,6 +635,34 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                 },
               ),
             ),
+            if (_isCustomVersion) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('add-verse-custom-version-field'),
+                controller: _customVersionController,
+                decoration: InputDecoration(
+                  labelText: 'Translation e.g. NIV',
+                  helperText: 'Search only works for '
+                      '${_joinWithAnd(_searchableVersions)}. '
+                      'Type or paste the verse text above.',
+                  helperMaxLines: 3,
+                ),
+                textCapitalization: TextCapitalization.characters,
+                maxLength: _customVersionMaxLength,
+                // Rebuild so the ESV footer tracks a typed "ESV".
+                onChanged: (_) => setState(() {}),
+                validator: (value) {
+                  final trimmed = value?.trim() ?? '';
+                  if (trimmed.isEmpty) return 'Translation is required';
+                  // maxLength counts visible characters; backup import caps
+                  // the stored string's UTF-16 length, so check that too.
+                  if (trimmed.length > _customVersionMaxLength) {
+                    return 'Translation name is too long';
+                  }
+                  return null;
+                },
+              ),
+            ],
             if (_esvLookupService.isAvailable && _translation == 'ESV') ...[
               const SizedBox(height: 8),
               Text(
@@ -664,7 +730,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
               child: const Text('Cancel'),
             ),
             EsvCopyrightFooter(
-              hasEsvContent: _translation == 'ESV',
+              hasEsvContent: _effectiveTranslation == 'ESV',
               onViewFullTerms: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               ),
