@@ -82,6 +82,15 @@ When `AppSettings.autoAdvanceVerseOfWeek` is enabled (Settings toggle, default o
 ### Adding Custom Verses
 Users can enter a reference and text manually. Custom verses are stored in the same table with no pack membership. Bible version must be specified at entry. `insertVerse` uses `ConflictAlgorithm.ignore` so duplicate inserts are silently dropped (same behaviour as seed inserts). `VerseProvider.addCustomVerse` routes to `DatabaseHelper.insertEsvVerse` when `translation == 'ESV'`, else to `insertVerse` (see "ESV Verse Lookup" below).
 
+### Freeform ("Other") Translation
+The Add Verse translation `SegmentedButton` ends with an **Other** segment (internal sentinel value `_otherVersionSegment`, never persisted). Selecting it reveals a "Translation e.g. NIV" `TextFormField` (key `add-verse-custom-version-field`) whose trimmed value becomes `Verse.translation` — the DB column, model, backup export/import and display surfaces were already free text, so only the Add Verse UI changed.
+
+- **Required, ≤ 20 UTF-16 units.** `maxLength: 20` counts graphemes, so the validator also checks `String.length` — `ImportService` drops rows whose translation exceeds 20 code units, and an emoji-heavy name would otherwise save fine but vanish on backup restore.
+- **Presets canonicalized.** `_effectiveTranslation` maps a case-insensitive preset typed into Other ("esv", "Kjv") to the canonical name, so ESV still hits the 500-verse cap (`insertEsvVerse` + the pre-save count check) and the `EsvCopyrightFooter`, and one translation isn't split across spellings. The field's `onChanged` rebuilds so the footer tracks a typed "ESV".
+- **Search disabled.** `BibleLookupService`/`EsvLookupService` only fetch the presets, so the Search button is disabled while Other is selected; the field's helper text names the searchable presets (`_searchableVersions`, which also builds the segments) and says to type or paste the text.
+- **Save and add more** resets the segment to the default translation but keeps the typed Other name in its controller, so reselecting Other restores it.
+- Verse IDs remain `<translation lowercased>_<sanitized reference>`; the translation part is not sanitized, so distinct names like "New Living" and "New-Living" don't collide under `ConflictAlgorithm.ignore`.
+
 ### ESV Verse Lookup
 Mirrors the `BibleLookupService` pattern (`docs/features/web-lookup.md`) but targets `api.esv.org` (Crossway's ESV API) instead of `bible.helloao.org`, and is gated by an API key plus a hard 500-verse storage cap per Crossway's API terms.
 

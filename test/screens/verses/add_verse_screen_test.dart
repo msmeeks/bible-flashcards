@@ -1079,4 +1079,160 @@ void main() {
       expect(find.textContaining('Unrecognized book name'), findsNothing);
     },
   );
+
+  group('freeform ("Other") version', () {
+    Future<void> fillVerse(WidgetTester tester) async {
+      await tester.enterText(
+        find.byKey(const Key('add-verse-reference-field')),
+        'Phil 4:13',
+      );
+      await tester.enterText(
+        find.byKey(const Key('add-verse-text-field')),
+        'I can do all things through him who strengthens me.',
+      );
+    }
+
+    Future<List<Map<String, Object?>>> savedVerses(WidgetTester tester) async {
+      late List<Map<String, Object?>> rows;
+      await tester.runAsync(() async {
+        final db = await DatabaseHelper().database;
+        rows = await db.query('verses');
+      });
+      return rows;
+    }
+
+    Future<void> saveAndConfirm(WidgetTester tester) async {
+      await tester.scrollUntilVisible(
+        find.text('Save Verse'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await _tapAndSettle(tester, find.text('Save Verse'));
+      final confirm = find.byKey(const Key('add-verse-confirm-save-button'));
+      if (confirm.evaluate().isNotEmpty) await _tapAndSettle(tester, confirm);
+    }
+
+    testWidgets('saves the verse with the typed version name', (tester) async {
+      await tester.pumpWidget(_wrap(SettingsProvider()));
+      await tester.pump();
+
+      await fillVerse(tester);
+      await tester.tap(find.text('Other'));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('add-verse-custom-version-field')),
+        '  NIV  ',
+      );
+      await saveAndConfirm(tester);
+
+      final rows = await savedVerses(tester);
+      expect(rows, hasLength(1));
+      expect(rows.single['translation'], 'NIV');
+    });
+
+    testWidgets('blocks saving when the "Other" version is left blank',
+        (tester) async {
+      await tester.pumpWidget(_wrap(SettingsProvider()));
+      await tester.pump();
+
+      await fillVerse(tester);
+      await tester.tap(find.text('Other'));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('add-verse-custom-version-field')),
+        '   ',
+      );
+      await saveAndConfirm(tester);
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('Translation is required'), findsOneWidget);
+      expect(await savedVerses(tester), isEmpty);
+    });
+
+    testWidgets(
+        'disables online Search and explains why while "Other" is selected',
+        (tester) async {
+      await tester.pumpWidget(_wrap(SettingsProvider()));
+      await tester.pump();
+
+      FilledButton searchButton() => tester.widget<FilledButton>(
+            find.ancestor(
+              of: find.text('Search'),
+              matching: find.byType(FilledButton),
+            ),
+          );
+      expect(searchButton().onPressed, isNotNull);
+
+      await tester.tap(find.text('Other'));
+      await tester.pump();
+      expect(searchButton().onPressed, isNull);
+      expect(
+        find.textContaining('Search only works for BSB, KJV, and WEB.'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('KJV'));
+      await tester.pump();
+      expect(searchButton().onPressed, isNotNull);
+    });
+
+    testWidgets('lists ESV as searchable when an ESV key is configured',
+        (tester) async {
+      final esvService = EsvLookupService(
+        client: MockClient((_) async => http.Response('{}', 200)),
+        apiKey: 'test-key',
+      );
+      await tester.pumpWidget(
+        _wrap(SettingsProvider(), esvLookupService: esvService),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Other'));
+      await tester.pump();
+      expect(
+        find.textContaining('Search only works for BSB, KJV, WEB, and ESV.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'saves a preset version typed into "Other" under its canonical name',
+        (tester) async {
+      await tester.pumpWidget(_wrap(SettingsProvider()));
+      await tester.pump();
+
+      await fillVerse(tester);
+      await tester.tap(find.text('Other'));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('add-verse-custom-version-field')),
+        'kjv',
+      );
+      await saveAndConfirm(tester);
+
+      final rows = await savedVerses(tester);
+      expect(rows.single['translation'], 'KJV');
+    });
+
+    testWidgets(
+        'rejects a version longer than backup import accepts (20 UTF-16 '
+        'units), even when it is under 20 visible characters', (tester) async {
+      await tester.pumpWidget(_wrap(SettingsProvider()));
+      await tester.pump();
+
+      await fillVerse(tester);
+      await tester.tap(find.text('Other'));
+      await tester.pump();
+      // 11 visible characters, 21 UTF-16 code units.
+      await tester.enterText(
+        find.byKey(const Key('add-verse-custom-version-field')),
+        'N\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}'
+        '\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}',
+      );
+      await saveAndConfirm(tester);
+
+      expect(find.text('Translation name is too long'), findsOneWidget);
+      expect(await savedVerses(tester), isEmpty);
+    });
+  });
 }
