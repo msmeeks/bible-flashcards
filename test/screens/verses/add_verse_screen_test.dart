@@ -15,6 +15,7 @@ import 'package:bible_flashcards/screens/verses/add_verse_screen.dart';
 import 'package:bible_flashcards/services/bible_lookup_service.dart';
 import 'package:bible_flashcards/services/esv_lookup_service.dart';
 
+import '../../helpers/async_settle.dart';
 import '../../helpers/fake_database_helper.dart';
 import '../../helpers/verse_factory.dart';
 
@@ -764,6 +765,17 @@ void main() {
           of: find.byType(AlertDialog),
           matching: find.text('Save and add more'),
         ),
+      );
+      // The save (insert + list reload) runs on real async I/O; wait for
+      // its visible outcome rather than a fixed delay.
+      await pumpUntil(
+        tester,
+        () => tester
+            .widget<TextFormField>(find.byType(TextFormField).first)
+            .controller!
+            .text
+            .isEmpty,
+        reason: 'form should reset after "Save and add more"',
       );
 
       // Still on the Add Verse screen, not popped.
