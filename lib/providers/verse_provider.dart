@@ -37,6 +37,79 @@ class VerseProvider extends ChangeNotifier {
   String packNameFor(String packId) =>
       _packNames[resolvePackId(packId)] ?? VersePack.myVersesName;
 
+  /// Packs a verse can belong to: My Verses first, then built-in packs, then
+  /// the user's own packs alphabetically.
+  List<String> get packIds {
+    final builtIn = _packNames.keys
+        .where(
+            (id) => !VersePack.isUserPackId(id) && id != VersePack.myVersesId)
+        .toList();
+    final user = _packNames.keys.where(VersePack.isUserPackId).toList()
+      ..sort((a, b) =>
+          _packNames[a]!.toLowerCase().compareTo(_packNames[b]!.toLowerCase()));
+    return [VersePack.myVersesId, ...builtIn, ...user];
+  }
+
+  static const maxPackNameLength = 40;
+
+  /// Returns an error message for an unusable pack name, or null if it's fine.
+  /// Pass [renaming] with a pack's id to let it keep its current name.
+  String? validatePackName(String name, {String? renaming}) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'Enter a pack name';
+    if (trimmed.length > maxPackNameLength) {
+      return 'Pack name must be $maxPackNameLength characters or fewer';
+    }
+    final key = trimmed.toLowerCase();
+    final taken = packIds.any(
+      (id) => id != renaming && packNameFor(id).toLowerCase() == key,
+    );
+    return taken ? 'You already have a pack with that name' : null;
+  }
+
+  /// Creates a user pack and returns its id. Throws [ArgumentError] if
+  /// [validatePackName] rejects [name].
+  Future<String> createPack(String name) async {
+    final error = validatePackName(name);
+    if (error != null) throw ArgumentError(error);
+    final id =
+        '${VersePack.userPackPrefix}${DateTime.now().microsecondsSinceEpoch}';
+    await _db.insertPack(id, name.trim());
+    await loadVerses();
+    return id;
+  }
+
+  Future<void> renamePack(String id, String name) async {
+    _requireUserPack(id);
+    final error = validatePackName(name, renaming: id);
+    if (error != null) throw ArgumentError(error);
+    await _db.renamePack(id, name.trim());
+    await loadVerses();
+  }
+
+  /// Deletes a user pack; its verses move to My Verses.
+  Future<void> deletePack(String id) async {
+    _requireUserPack(id);
+    await _db.deletePack(id);
+    await loadVerses();
+  }
+
+  Future<void> moveVerseToPack(String verseId, String packId) async {
+    if (!packIds.contains(packId)) {
+      throw ArgumentError.value(packId, 'packId', 'Unknown pack');
+    }
+    final verse = _verses.where((v) => v.id == verseId).firstOrNull;
+    if (verse == null) return;
+    await _db.updateVerse(verse.copyWith(packId: packId));
+    await loadVerses();
+  }
+
+  void _requireUserPack(String id) {
+    if (!VersePack.isUserPackId(id) || !_packNames.containsKey(id)) {
+      throw ArgumentError.value(id, 'id', 'Not one of your packs');
+    }
+  }
+
   bool get isLoading => _isLoading;
   String? get error => _error;
 

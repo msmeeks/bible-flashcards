@@ -7,6 +7,7 @@ import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
 import 'package:bible_flashcards/screens/verses/verse_detail_screen.dart';
 
+import '../../helpers/async_settle.dart';
 import '../../helpers/fake_database_helper.dart';
 import '../../helpers/verse_factory.dart';
 
@@ -81,4 +82,40 @@ void main() {
           cs.error);
     },
   );
+
+  group('pack picker', () {
+    final picker = find.byKey(const Key('verse-detail-pack-field'));
+    Finder shownPack(String name) =>
+        find.descendant(of: picker, matching: find.text(name));
+
+    testWidgets('moves the verse to the chosen pack', (tester) async {
+      final dbHelper = DatabaseHelper();
+      final provider = VerseProvider(dbHelper);
+      late String packId;
+      await tester.runAsync(() async {
+        await dbHelper.insertVerse(makeVerse('verse-1', packId: 'custom'));
+        await provider.loadVerses();
+        packId = await provider.createPack('Romans Road');
+      });
+
+      await tester.pumpWidget(_wrap(provider, 'verse-1'));
+      await tester.pumpAndSettle();
+      expect(shownPack('My Verses'), findsOneWidget);
+
+      await tester.ensureVisible(picker);
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Romans Road').last);
+      await pumpUntil(
+        tester,
+        () => provider.memorizedVerses.single.packId == packId,
+        reason: 'verse moved to Romans Road',
+      );
+      await tester.pumpAndSettle();
+
+      expect(shownPack('Romans Road'), findsOneWidget);
+      final saved = await tester.runAsync(() => dbHelper.getVerses());
+      expect(saved!.single.packId, packId);
+    });
+  });
 }

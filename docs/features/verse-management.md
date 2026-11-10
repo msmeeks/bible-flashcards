@@ -20,10 +20,12 @@ On first launch, the app seeds the SQLite database from bundled JSON pack assets
 | `assets/packs/navigators_pack.json` | Navigator TMS pack definitions (id, name, verses with reference/text/translation) |
 | `lib/database/database_helper.dart` | Singleton; opens encrypted DB, runs migrations, exposes `getPackNames()` |
 | `lib/models/verse.dart` | Verse domain model |
-| `lib/models/verse_pack.dart` | VersePack model; `toMap`/`fromMap` serialize `verseIds` as JSON array |
+| `lib/models/verse_pack.dart` | VersePack model; `toMap`/`fromMap` serialize `verseIds` as JSON array; `myVersesId`/`myVersesName`, `userPackPrefix`, `isUserPackId` |
+| `lib/widgets/pack_name_dialog.dart` | `showPackNameDialog` (create/rename), `promptCreatePack` |
+| `lib/widgets/pack_picker_field.dart` | `PackPickerField` — dropdown of all packs plus "New pack…"; used by Add Verse and Verse Detail |
 | `lib/widgets/verse_card.dart` | `VerseCard` StatefulWidget + `FlashcardState` enum |
 | `lib/screens/home/home_screen.dart` | Verse-of-week card, quick-action buttons, recent memorized chips |
-| `lib/screens/verses/verse_detail_screen.dart` | Full verse display; renders VerseCard in `FlashcardState.both`; shows pack name |
+| `lib/screens/verses/verse_detail_screen.dart` | Full verse display; renders VerseCard in `FlashcardState.both`; pack picker (`PackPickerField`) moves the verse |
 | `lib/providers/verse_provider.dart` | Provider; exposes lists, current verse, `packNames` map, mutation methods |
 | `lib/widgets/inline_status_banner.dart` | Shared `InlineStatusBanner` widget (error/warning, live-region announce) used by Add Verse's lookup-error/cap-warning/save-error banners |
 | `lib/utils/reference_normalization.dart` | `normalizeReferenceForSave` — save-time reference canonicalization + `ReferenceNormalizationResult`/`ReferenceNormalizationFailure` |
@@ -62,6 +64,18 @@ The `packs` table (added in DB version 2) stores `id`, `name`, `description`, an
 `_onUpgrade` (old < 2): creates the `packs` table inside a transaction, then seeds it from `assets/packs/navigators_pack.json` using `ConflictAlgorithm.ignore`.
 
 The verse's translation is shown read-only via a "Translation: <verse.translation>" label/value row in `_MetadataCard`. There is no translation picker/selector on this screen — a decorative ESV/CSB/NLT `SegmentedButton` was removed (#138) since it wasn't wired to any state, persistence, or the verse's actual translation.
+
+### My Verses and Unknown Packs
+Hand-added verses have `pack_id = 'custom'` (`VersePack.myVersesId`), which has no `packs` row. `VerseProvider.resolvePackId` maps a verse's pack to its own id if the pack exists, else to My Verses; `packNameFor` returns the display name ("My Verses", `VersePack.myVersesName`). This replaces the old "Unknown Pack" label for both hand-added verses and verses whose pack is gone.
+
+### User-Created Packs
+- **Data**: no schema change. A user pack is a `packs` row with id `user_<microsecondsSinceEpoch>` (`VersePack.userPackPrefix`; `isUserPackId`). `DatabaseHelper.insertPack` / `renamePack` / `deletePack`; `deletePack` moves its verses to `'custom'` in one transaction.
+- **Provider**: `packIds` (My Verses, built-in packs, then user packs A–Z); `validatePackName` (trimmed, 1–40 chars, unique case-insensitive, including "My Verses"); `createPack`; `renamePack`; `deletePack` (user packs only — built-in is refused); `moveVerseToPack`.
+- **Add Verse**: Pack picker, defaults to My Verses, kept after "Save and add more".
+- **Verse Detail**: the Pack row is a `PackPickerField`; choosing a pack moves the verse immediately (works for built-in Navigator verses too).
+- **Verses > Available**: user-pack headers have a "Pack options" menu (Rename / Delete). Delete confirms and moves verses to My Verses. User packs always show, with "No verses left to learn in this pack" when empty. Built-in and My Verses headers have no menu.
+- **Backup**: see [data-management.md](data-management.md).
+- **Tests**: `test/providers/verse_provider_packs_test.dart`, `test/services/user_packs_backup_test.dart`, plus pack groups in the add_verse/verse_detail/verses screen tests.
 
 ### VersePack.toMap / fromMap
 `verse_ids` column is stored as a JSON array string (`jsonEncode`/`jsonDecode`). Prior to DB version 2 this was CSV — any migration path must account for the format change.
@@ -168,6 +182,7 @@ That alone wasn't sufficient: every mutation (`markMemorized`, `setVerseOfWeek`,
 ## Changelog
 | Date | Change |
 |---|---|
+| 2026-11-07 | My Verses relabel; user-created packs (create/rename/delete/move, pack picker, backup) |
 | 2026-05-27 | Initial documentation |
 | 2026-06-26 | Auto-advance verse of the week (#45) |
 | 2026-05-27 | Updated with full implementation: encryption details, DatabaseHelper singleton, screen/route table, Provider integration |

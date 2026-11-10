@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../../database/database_helper.dart';
 import '../../models/verse.dart';
+import '../../models/verse_pack.dart';
 import '../../providers/verse_provider.dart';
 import '../../widgets/confidence_badge.dart';
+import '../../widgets/pack_name_dialog.dart';
 import 'add_verse_screen.dart';
 import 'verse_detail_screen.dart';
 
@@ -288,7 +290,21 @@ class _AvailableTabState extends State<_AvailableTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.verses.isEmpty) {
+    // Group verses by packId and build a flat list with headers. The user's
+    // own packs always appear, even with nothing left to learn, so they can
+    // still be renamed or deleted from their header.
+    final provider = context.read<VerseProvider>();
+    final groupedPacks = <String, List<Verse>>{};
+    for (final verse in widget.verses) {
+      groupedPacks
+          .putIfAbsent(provider.resolvePackId(verse.packId), () => [])
+          .add(verse);
+    }
+    for (final packId in provider.packIds.where(VersePack.isUserPackId)) {
+      groupedPacks.putIfAbsent(packId, () => []);
+    }
+
+    if (groupedPacks.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -315,19 +331,11 @@ class _AvailableTabState extends State<_AvailableTab> {
       );
     }
 
-    // Group verses by packId and build a flat list with headers.
-    final provider = context.read<VerseProvider>();
-    final groupedPacks = <String, List<Verse>>{};
-    for (final verse in widget.verses) {
-      groupedPacks
-          .putIfAbsent(provider.resolvePackId(verse.packId), () => [])
-          .add(verse);
-    }
-
     final items = <_ListItem>[];
-    for (final packId in groupedPacks.keys) {
+    for (final MapEntry(key: packId, value: verses) in groupedPacks.entries) {
       items.add(_PackHeader(packId: packId));
-      for (final verse in groupedPacks[packId]!) {
+      if (verses.isEmpty) items.add(_EmptyPackItem());
+      for (final verse in verses) {
         items.add(_VerseItem(verse: verse));
       }
     }
@@ -343,17 +351,17 @@ class _AvailableTabState extends State<_AvailableTab> {
       },
       itemBuilder: (context, index) {
         final item = items[index];
-        if (item is _PackHeader) {
-          return _PackHeaderTile(
-            key: ValueKey('header-${item.packId}'),
-            packId: item.packId,
-          );
-        }
-        final verse = (item as _VerseItem).verse;
-        return _AvailableListTile(
-          key: ValueKey(verse.id),
-          verse: verse,
-        );
+        return switch (item) {
+          _PackHeader() => _PackHeaderTile(
+              key: ValueKey('header-${item.packId}'),
+              packId: item.packId,
+            ),
+          _EmptyPackItem() => const _EmptyPackTile(),
+          _VerseItem(:final verse) => _AvailableListTile(
+              key: ValueKey(verse.id),
+              verse: verse,
+            ),
+        };
       },
     );
   }
@@ -370,6 +378,8 @@ final class _PackHeader extends _ListItem {
   _PackHeader({required this.packId});
 }
 
+final class _EmptyPackItem extends _ListItem {}
+
 final class _VerseItem extends _ListItem {
   final Verse verse;
   _VerseItem({required this.verse});
@@ -379,25 +389,109 @@ final class _VerseItem extends _ListItem {
 // Available tab sub-widgets
 // ---------------------------------------------------------------------------
 
+enum _PackAction { rename, delete }
+
 class _PackHeaderTile extends StatelessWidget {
   final String packId;
 
   const _PackHeaderTile({super.key, required this.packId});
 
+  Future<void> _onAction(BuildContext context, _PackAction action) async {
+    final provider = context.read<VerseProvider>();
+    switch (action) {
+      case _PackAction.rename:
+        final name = await showPackNameDialog(
+          context,
+          title: 'Rename pack',
+          confirmLabel: 'Rename',
+          initialName: provider.packNameFor(packId),
+          renaming: packId,
+        );
+        if (name != null) await provider.renamePack(packId, name);
+      case _PackAction.delete:
+        if (await _confirmDelete(context, provider.packNameFor(packId))) {
+          await provider.deletePack(packId);
+        }
+    }
+  }
+
+  Future<bool> _confirmDelete(BuildContext context, String name) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "$name"?'),
+        content: const Text(
+            'Its verses will move to My Verses. Nothing else is deleted.'),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: cs.error,
+              foregroundColor: cs.onError,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final displayName = context.watch<VerseProvider>().packNameFor(packId);
+    final title = Text(
+      displayName,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style:
+          Theme.of(context).textTheme.titleSmall?.copyWith(color: cs.secondary),
+    );
+    if (!VersePack.isUserPackId(packId)) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        child: title,
+      );
+    }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 4, 4, 0),
+      child: Row(
+        children: [
+          Expanded(child: title),
+          PopupMenuButton<_PackAction>(
+            tooltip: 'Pack options',
+            icon: const Icon(Symbols.more_vert_rounded),
+            onSelected: (action) => _onAction(context, action),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: _PackAction.rename, child: Text('Rename')),
+              PopupMenuItem(value: _PackAction.delete, child: Text('Delete')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyPackTile extends StatelessWidget {
+  const _EmptyPackTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
       child: Text(
-        displayName,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+        'No verses left to learn in this pack',
         style: Theme.of(context)
             .textTheme
-            .titleSmall
-            ?.copyWith(color: cs.secondary),
+            .bodyMedium
+            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     );
   }

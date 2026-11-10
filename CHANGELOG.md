@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+- Create your own verse packs: pick or create a pack on Add Verse, move any verse (including built-in Navigator verses) to a pack from Verse Detail, and rename or delete packs from the Available tab. Deleting a pack moves its verses to My Verses. Backups now include your packs (optional field, `schema_version` stays 1).
+- Hand-added verses, and verses whose pack no longer exists, now appear under **My Verses** instead of "Unknown Pack".
+- Test-only: fixed a flaky "Save and add more" test with a `pumpUntil` helper (`test/helpers/async_settle.dart`).
 - Add Verse accepts any translation: pick **Other** and type its name (e.g. NIV, up to 20 characters). Online Search stays limited to BSB/KJV/WEB/ESV; a preset typed into Other ("esv") saves under its canonical name so the ESV cap and attribution still apply.
 - Retired Recite test mode (#165): on-device speech recognition proved unreliable in practice, and Type mode plus the keyboard's own dictation covers the same need. The `speech_to_text` and `permission_handler` dependencies and the `RECORD_AUDIO` permission are gone with it — the app no longer requests microphone access at all. Test results recorded before this still display.
 - Type mode now scores apostrophes leniently (#161) — "don't", "dont" and "don’t" are the same answer — shows a word-level diff of what was missed or added (#162), and waits for an explicit **Next** instead of auto-advancing a second after scoring (#166).

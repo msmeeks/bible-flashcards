@@ -13,6 +13,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/test_result.dart';
 import '../models/verse.dart';
+import '../models/verse_pack.dart';
 import '../utils/book_name_variants.dart'
     show
         bookDisplayNames,
@@ -269,6 +270,27 @@ class DatabaseHelper {
     final db = await database;
     final rows = await db.query('packs', columns: ['id', 'name']);
     return {for (final r in rows) r['id'] as String: r['name'] as String};
+  }
+
+  Future<void> insertPack(String id, String name) async {
+    final db = await database;
+    await db.insert('packs', {'id': id, 'name': name});
+  }
+
+  Future<void> renamePack(String id, String name) async {
+    final db = await database;
+    await db.update('packs', {'name': name}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Deletes a pack and moves its verses to [VersePack.myVersesId], atomically
+  /// so no verse is left pointing at a missing pack.
+  Future<void> deletePack(String id) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update('verses', {'pack_id': VersePack.myVersesId},
+          where: 'pack_id = ?', whereArgs: [id]);
+      await txn.delete('packs', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   // ---------------------------------------------------------------------------
