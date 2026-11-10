@@ -44,6 +44,9 @@ Two independent caps in `ImportService`, both enforced before any row coercion:
 
 Per-row validation rejects (skips, does not abort) rows with missing/wrong-typed fields or fields exceeding length limits (e.g. verse text > 2000 chars, reference > 100 chars). `schema_version` must be an int ≤ 1; `source_app` must equal `bible_flashcards`.
 
+### User packs in backups
+Export adds `packs: [{id, name}]` (user packs only; built-in packs are re-seeded). Import treats it as optional: `id` must start with `user_` and be ≤100 chars, `name` is trimmed to 1–40 chars (bad rows are skipped). Inserts use conflict-ignore, so on merge an existing pack's name wins. Replace mode deletes user packs before inserting. `schema_version` stays 1; older files without `packs` still import, and verses pointing at a missing pack show under My Verses.
+
 ### includeSettings naming
 The export/save dialogs and `ExportService` use `includeSettings` (not `includeScores`) for the checkbox controlling whether app preferences (audio, notification, theme) are bundled into the payload — distinct from `includeHistory`, which controls test-result inclusion.
 

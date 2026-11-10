@@ -1,6 +1,16 @@
 import 'dart:convert';
 
 class VersePack {
+  /// Pack id for verses added by hand without choosing a pack. Has no row in
+  /// the `packs` table; it is shown as [myVersesName].
+  static const myVersesId = 'custom';
+  static const myVersesName = 'My Verses';
+
+  /// Prefix for packs the user creates. Only these can be renamed or deleted.
+  static const userPackPrefix = 'user_';
+
+  static bool isUserPackId(String id) => id.startsWith(userPackPrefix);
+
   final String id;
   final String name; // e.g. "Topical Memory System - Part 1"
   final String description;

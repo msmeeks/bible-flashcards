@@ -4,6 +4,8 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../database/database_helper.dart';
 import '../models/verse.dart';
+import '../models/verse_pack.dart';
+import '../providers/verse_provider.dart';
 import '../models/test_result.dart';
 
 /// Thrown when an import file is invalid or unsupported.
@@ -94,6 +96,31 @@ class ImportService {
       verses.add(Verse.fromMap(item));
     }
 
+    // User packs are optional (older backups have none). Only ids in the
+    // user namespace are accepted so a file can't rename a built-in pack.
+    final packs = <String, String>{};
+    final rawPacks = raw['packs'];
+    if (rawPacks is List) {
+      if (rawPacks.length > _maxArrayLength) {
+        throw const ImportException('Too many packs in file');
+      }
+      for (final item in rawPacks) {
+        if (item is! Map<String, dynamic>) continue;
+        final id = item['id'];
+        final name = item['name'];
+        if (id is! String || !VersePack.isUserPackId(id) || id.length > 100) {
+          continue;
+        }
+        if (name is! String) continue;
+        final trimmed = name.trim();
+        if (trimmed.isEmpty ||
+            trimmed.length > VerseProvider.maxPackNameLength) {
+          continue;
+        }
+        packs[id] = trimmed;
+      }
+    }
+
     final rawResults = raw['test_results'];
     final results = <VerseTestResult>[];
     if (rawResults is List) {
@@ -125,6 +152,15 @@ class ImportService {
       if (replace) {
         await txn.delete('test_results');
         await txn.delete('verses');
+        await txn.delete('packs',
+            where: 'id GLOB ?', whereArgs: ['${VersePack.userPackPrefix}*']);
+      }
+      for (final MapEntry(key: id, value: name) in packs.entries) {
+        await txn.insert(
+          'packs',
+          {'id': id, 'name': name},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
       }
       for (final v in verses) {
         await txn.insert(

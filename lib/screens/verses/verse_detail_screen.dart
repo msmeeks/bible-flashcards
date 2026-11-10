@@ -10,6 +10,7 @@ import '../../models/verse.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../widgets/esv_copyright_footer.dart';
+import '../../widgets/pack_picker_field.dart';
 import '../../widgets/verse_card.dart';
 import '../settings/settings_screen.dart';
 
@@ -195,7 +196,6 @@ class _MetadataCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final packName = provider.packNames[verse.packId] ?? 'Unknown Pack';
 
     return Card(
       color: cs.surfaceContainerLowest,
@@ -205,8 +205,12 @@ class _MetadataCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _MetaRow(label: 'Pack', value: packName),
-            const SizedBox(height: 8),
+            PackPickerField(
+              key: const Key('verse-detail-pack-field'),
+              value: provider.resolvePackId(verse.packId),
+              onChanged: (id) => provider.moveVerseToPack(verse.id, id),
+            ),
+            const SizedBox(height: 16),
             _MetaRow(label: 'Translation', value: verse.translation),
             if (verse.memorizedAt != null) ...[
               const SizedBox(height: 8),

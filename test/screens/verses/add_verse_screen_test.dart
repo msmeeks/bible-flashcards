@@ -9,12 +9,14 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:bible_flashcards/database/database_helper.dart';
 import 'package:bible_flashcards/models/settings.dart';
+import 'package:bible_flashcards/models/verse_pack.dart';
 import 'package:bible_flashcards/providers/settings_provider.dart';
 import 'package:bible_flashcards/providers/verse_provider.dart';
 import 'package:bible_flashcards/screens/verses/add_verse_screen.dart';
 import 'package:bible_flashcards/services/bible_lookup_service.dart';
 import 'package:bible_flashcards/services/esv_lookup_service.dart';
 
+import '../../helpers/async_settle.dart';
 import '../../helpers/fake_database_helper.dart';
 import '../../helpers/verse_factory.dart';
 
@@ -64,6 +66,44 @@ Future<SettingsProvider> _esvDefaultSettings() async {
     const AppSettings().copyWith(defaultTranslation: 'ESV'),
   );
   return settingsProvider;
+}
+
+Future<void> _fillVerse(WidgetTester tester) async {
+  await tester.enterText(
+    find.byKey(const Key('add-verse-reference-field')),
+    'Phil 4:13',
+  );
+  await tester.enterText(
+    find.byKey(const Key('add-verse-text-field')),
+    'I can do all things through him who strengthens me.',
+  );
+}
+
+Future<List<Map<String, Object?>>> _savedVerses(WidgetTester tester) async {
+  late List<Map<String, Object?>> rows;
+  await tester.runAsync(() async {
+    final db = await DatabaseHelper().database;
+    rows = await db.query('verses');
+  });
+  return rows;
+}
+
+/// Scrolls the Save Verse button fully on screen and taps it.
+Future<void> _tapSaveVerse(WidgetTester tester) async {
+  final save = find.byKey(const Key('add-verse-save-button'));
+  // Focusing a text field animates a scroll; let it finish before aiming.
+  await tester.pumpAndSettle();
+  await tester.scrollUntilVisible(save, 200,
+      scrollable: find.byType(Scrollable).first);
+  await tester.ensureVisible(save);
+  await tester.pumpAndSettle();
+  await _tapAndSettle(tester, save);
+}
+
+Future<void> _saveAndConfirm(WidgetTester tester) async {
+  await _tapSaveVerse(tester);
+  final confirm = find.byKey(const Key('add-verse-confirm-save-button'));
+  if (confirm.evaluate().isNotEmpty) await _tapAndSettle(tester, confirm);
 }
 
 void main() {
@@ -457,7 +497,7 @@ void main() {
         find.byType(TextFormField).last,
         'I can do all things through him.',
       );
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
 
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(
@@ -498,7 +538,7 @@ void main() {
         find.byType(TextFormField).last,
         'I can do all things through him.',
       );
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
       await _tapAndSettle(
         tester,
         find.descendant(
@@ -532,7 +572,7 @@ void main() {
         find.byType(TextFormField).last,
         'I can do all things through him.',
       );
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
 
       final confirmButtonFinder = find.byKey(
         const Key('add-verse-confirm-save-button'),
@@ -581,7 +621,7 @@ void main() {
         find.byType(TextFormField).last,
         'I can do all things through him.',
       );
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
       await _tapAndSettle(
         tester,
         find.descendant(
@@ -615,7 +655,7 @@ void main() {
         find.byType(TextFormField).last,
         'I can do all things through him.',
       );
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
       await _tapAndSettle(
         tester,
         find.descendant(
@@ -627,14 +667,8 @@ void main() {
       final saveButton = tester.widget<FilledButton>(
         find.byKey(const Key('add-verse-save-button')),
       );
-      final searchButton = tester.widget<FilledButton>(
-        find.ancestor(
-          of: find.text('Search'),
-          matching: find.byType(FilledButton),
-        ),
-      );
-      expect(saveButton.focusNode!.hasFocus, isTrue);
-      expect(searchButton.focusNode!.hasFocus, isFalse);
+      // Primary focus is the Save button itself (so not Search).
+      expect(FocusManager.instance.primaryFocus, saveButton.focusNode);
     },
   );
 
@@ -655,7 +689,7 @@ void main() {
         find.byType(TextFormField).last,
         'I can do all things through him.',
       );
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
 
       expect(
         find.descendant(
@@ -686,7 +720,7 @@ void main() {
       );
       await tester.tap(find.text('Add directly to Memorized'));
       await tester.pump();
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
 
       expect(
         find.descendant(
@@ -717,7 +751,7 @@ void main() {
       );
       await tester.tap(find.text('Save and add more'));
       await tester.pump();
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
 
       expect(
         find.descendant(
@@ -757,13 +791,24 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Add directly to Memorized'));
       await tester.pump();
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
       await _tapAndSettle(
         tester,
         find.descendant(
           of: find.byType(AlertDialog),
           matching: find.text('Save and add more'),
         ),
+      );
+      // The save (insert + list reload) runs on real async I/O; wait for
+      // its visible outcome rather than a fixed delay.
+      await pumpUntil(
+        tester,
+        () => tester
+            .widget<TextFormField>(find.byType(TextFormField).first)
+            .controller!
+            .text
+            .isEmpty,
+        reason: 'form should reset after "Save and add more"',
       );
 
       // Still on the Add Verse screen, not popped.
@@ -816,7 +861,7 @@ void main() {
       await tester.tap(find.text('Add directly to Memorized'));
       await tester.pump();
 
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
       await _tapAndSettle(
         tester,
         find.descendant(
@@ -863,7 +908,7 @@ void main() {
       );
       // Tapping Save directly (without tabbing away first) blurs the
       // reference field and invokes the save handler in close succession.
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
 
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(lookupCount, 1);
@@ -886,7 +931,7 @@ void main() {
         find.byType(TextFormField).last,
         'I can do all things through him.',
       );
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
       await _tapAndSettle(
         tester,
         find.descendant(
@@ -919,7 +964,7 @@ void main() {
         find.byType(TextFormField).last,
         'Some verse text.',
       );
-      await _tapAndSettle(tester, find.text('Save Verse'));
+      await _tapSaveVerse(tester);
 
       expect(find.byType(AlertDialog), findsNothing);
       await tester.runAsync(() async {
@@ -1081,51 +1126,20 @@ void main() {
   );
 
   group('freeform ("Other") version', () {
-    Future<void> fillVerse(WidgetTester tester) async {
-      await tester.enterText(
-        find.byKey(const Key('add-verse-reference-field')),
-        'Phil 4:13',
-      );
-      await tester.enterText(
-        find.byKey(const Key('add-verse-text-field')),
-        'I can do all things through him who strengthens me.',
-      );
-    }
-
-    Future<List<Map<String, Object?>>> savedVerses(WidgetTester tester) async {
-      late List<Map<String, Object?>> rows;
-      await tester.runAsync(() async {
-        final db = await DatabaseHelper().database;
-        rows = await db.query('verses');
-      });
-      return rows;
-    }
-
-    Future<void> saveAndConfirm(WidgetTester tester) async {
-      await tester.scrollUntilVisible(
-        find.text('Save Verse'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await _tapAndSettle(tester, find.text('Save Verse'));
-      final confirm = find.byKey(const Key('add-verse-confirm-save-button'));
-      if (confirm.evaluate().isNotEmpty) await _tapAndSettle(tester, confirm);
-    }
-
     testWidgets('saves the verse with the typed version name', (tester) async {
       await tester.pumpWidget(_wrap(SettingsProvider()));
       await tester.pump();
 
-      await fillVerse(tester);
+      await _fillVerse(tester);
       await tester.tap(find.text('Other'));
       await tester.pump();
       await tester.enterText(
         find.byKey(const Key('add-verse-custom-version-field')),
         '  NIV  ',
       );
-      await saveAndConfirm(tester);
+      await _saveAndConfirm(tester);
 
-      final rows = await savedVerses(tester);
+      final rows = await _savedVerses(tester);
       expect(rows, hasLength(1));
       expect(rows.single['translation'], 'NIV');
     });
@@ -1135,18 +1149,18 @@ void main() {
       await tester.pumpWidget(_wrap(SettingsProvider()));
       await tester.pump();
 
-      await fillVerse(tester);
+      await _fillVerse(tester);
       await tester.tap(find.text('Other'));
       await tester.pump();
       await tester.enterText(
         find.byKey(const Key('add-verse-custom-version-field')),
         '   ',
       );
-      await saveAndConfirm(tester);
+      await _saveAndConfirm(tester);
 
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('Translation is required'), findsOneWidget);
-      expect(await savedVerses(tester), isEmpty);
+      expect(await _savedVerses(tester), isEmpty);
     });
 
     testWidgets(
@@ -1201,16 +1215,16 @@ void main() {
       await tester.pumpWidget(_wrap(SettingsProvider()));
       await tester.pump();
 
-      await fillVerse(tester);
+      await _fillVerse(tester);
       await tester.tap(find.text('Other'));
       await tester.pump();
       await tester.enterText(
         find.byKey(const Key('add-verse-custom-version-field')),
         'kjv',
       );
-      await saveAndConfirm(tester);
+      await _saveAndConfirm(tester);
 
-      final rows = await savedVerses(tester);
+      final rows = await _savedVerses(tester);
       expect(rows.single['translation'], 'KJV');
     });
 
@@ -1220,7 +1234,7 @@ void main() {
       await tester.pumpWidget(_wrap(SettingsProvider()));
       await tester.pump();
 
-      await fillVerse(tester);
+      await _fillVerse(tester);
       await tester.tap(find.text('Other'));
       await tester.pump();
       // 11 visible characters, 21 UTF-16 code units.
@@ -1229,10 +1243,99 @@ void main() {
         'N\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}'
         '\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}',
       );
-      await saveAndConfirm(tester);
+      await _saveAndConfirm(tester);
 
       expect(find.text('Translation name is too long'), findsOneWidget);
-      expect(await savedVerses(tester), isEmpty);
+      expect(await _savedVerses(tester), isEmpty);
+    });
+  });
+
+  group('pack picker', () {
+    final picker = find.byKey(const Key('add-verse-pack-field'));
+
+    Finder shownPack(String name) =>
+        find.descendant(of: picker, matching: find.text(name));
+
+    Future<void> choosePack(WidgetTester tester, String name) async {
+      await tester.ensureVisible(picker);
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(name).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('saves to My Verses by default', (tester) async {
+      await tester.pumpWidget(_wrap(SettingsProvider()));
+      await tester.pump();
+
+      await tester.ensureVisible(picker);
+      expect(shownPack('My Verses'), findsOneWidget);
+      await _fillVerse(tester);
+      await _saveAndConfirm(tester);
+
+      final rows = await _savedVerses(tester);
+      expect(rows.single['pack_id'], VersePack.myVersesId);
+    });
+
+    testWidgets('saves into a pack the user picks', (tester) async {
+      final verseProvider = VerseProvider(DatabaseHelper());
+      late String packId;
+      await tester.runAsync(
+          () async => packId = await verseProvider.createPack('Romans Road'));
+      await tester
+          .pumpWidget(_wrap(SettingsProvider(), verseProvider: verseProvider));
+      await tester.pump();
+
+      await _fillVerse(tester);
+      await choosePack(tester, 'Romans Road');
+      await _saveAndConfirm(tester);
+
+      final rows = await _savedVerses(tester);
+      expect(rows.single['pack_id'], packId);
+    });
+
+    testWidgets('"New pack…" creates a pack and selects it', (tester) async {
+      final verseProvider = VerseProvider(DatabaseHelper());
+      await tester
+          .pumpWidget(_wrap(SettingsProvider(), verseProvider: verseProvider));
+      await tester.pump();
+
+      await _fillVerse(tester);
+      await choosePack(tester, 'New pack…');
+      await tester.enterText(
+          find.byKey(const Key('pack-name-field')), 'Romans Road');
+      await _tapAndSettle(tester, find.text('Create'));
+      await tester.pumpAndSettle();
+
+      expect(shownPack('Romans Road'), findsOneWidget);
+      await _saveAndConfirm(tester);
+
+      final rows = await _savedVerses(tester);
+      final pack = verseProvider.packIds.last;
+      expect(verseProvider.packNameFor(pack), 'Romans Road');
+      expect(rows.single['pack_id'], pack);
+    });
+
+    testWidgets('"New pack…" shows the name error and creates nothing',
+        (tester) async {
+      final verseProvider = VerseProvider(DatabaseHelper());
+      await tester
+          .pumpWidget(_wrap(SettingsProvider(), verseProvider: verseProvider));
+      await tester.pump();
+
+      await choosePack(tester, 'New pack…');
+      await tester.enterText(
+          find.byKey(const Key('pack-name-field')), 'my verses');
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle();
+
+      expect(
+          find.text('You already have a pack with that name'), findsOneWidget);
+      await tester.tap(find.text('Cancel').last);
+      await tester.pumpAndSettle();
+      expect(verseProvider.packIds, [VersePack.myVersesId]);
+      expect(shownPack('My Verses'), findsOneWidget);
+      expect(shownPack('New pack…'), findsNothing);
     });
   });
 }

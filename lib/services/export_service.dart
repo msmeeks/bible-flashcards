@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../database/database_helper.dart';
 import '../models/test_result.dart';
+import '../models/verse_pack.dart';
 import '../providers/settings_provider.dart';
 
 class ExportService {
@@ -25,6 +26,7 @@ class ExportService {
     required bool includeSettings,
   }) async {
     final verses = await _db.getVerses();
+    final packNames = await _db.getPackNames();
     final results =
         includeHistory ? await _db.getTestResults() : const <VerseTestResult>[];
     final settings = _settingsProvider.settings;
@@ -34,6 +36,11 @@ class ExportService {
       'source_app': 'bible_flashcards',
       'exported_at': DateTime.now().toUtc().toIso8601String(),
       'verses': verses.map((v) => v.toMap()).toList(),
+      // Built-in packs are reseeded on install, so only the user's own go out.
+      'packs': [
+        for (final MapEntry(key: id, value: name) in packNames.entries)
+          if (VersePack.isUserPackId(id)) {'id': id, 'name': name},
+      ],
       if (includeHistory)
         'test_results': results.map((r) => r.toMap()).toList(),
       if (includeSettings) 'settings': settings.toMap(),

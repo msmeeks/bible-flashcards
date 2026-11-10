@@ -379,6 +379,145 @@ void main() {
   );
 
   testWidgets(
+    'groups manually added verses and verses from an unknown pack under '
+    'one "My Verses" header',
+    (tester) async {
+      final provider = VerseProvider(DatabaseHelper());
+      provider.debugSetVerses([
+        makeVerse('verse-0', isMemorized: false, packId: 'custom'),
+        makeVerse('verse-1', isMemorized: false, packId: 'gone_pack'),
+      ]);
+
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+      await tester.tap(find.text('Available'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('My Verses'), findsOneWidget);
+      expect(find.text('Unknown Pack'), findsNothing);
+      expect(find.text('Ref verse-0'), findsOneWidget);
+      expect(find.text('Ref verse-1'), findsOneWidget);
+    },
+  );
+
+  group('user pack header menu', () {
+    Future<(VerseProvider, String)> setUpPack(WidgetTester tester) async {
+      final dbHelper = DatabaseHelper();
+      final provider = VerseProvider(dbHelper);
+      late String packId;
+      await tester.runAsync(() async {
+        packId = await provider.createPack('Romans Road');
+        await dbHelper.insertVerse(
+            makeVerse('verse-0', isMemorized: false, packId: packId));
+        await provider.loadVerses();
+      });
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+      await tester.tap(find.text('Available'));
+      await tester.pumpAndSettle();
+      return (provider, packId);
+    }
+
+    Future<void> openMenu(WidgetTester tester, String packId) async {
+      await tester.tap(find.descendant(
+        of: find.byKey(ValueKey('header-$packId')),
+        matching: find.byTooltip('Pack options'),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('renames the pack', (tester) async {
+      final (provider, packId) = await setUpPack(tester);
+
+      await openMenu(tester, packId);
+      await tester.tap(find.text('Rename'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byKey(const Key('pack-name-field')), 'Gospel');
+      await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
+      await pumpUntil(tester, () => provider.packNameFor(packId) == 'Gospel');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Gospel'), findsOneWidget);
+      expect(find.text('Romans Road'), findsNothing);
+    });
+
+    testWidgets(
+        'deletes the pack after confirming; its verses move to My Verses',
+        (tester) async {
+      final (provider, packId) = await setUpPack(tester);
+
+      await openMenu(tester, packId);
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete "Romans Road"?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await pumpUntil(tester, () => !provider.packIds.contains(packId));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Romans Road'), findsNothing);
+      expect(find.text('My Verses'), findsOneWidget);
+      expect(find.text('Ref verse-0'), findsOneWidget);
+    });
+
+    testWidgets('cancelling delete keeps the pack', (tester) async {
+      final (provider, packId) = await setUpPack(tester);
+
+      await openMenu(tester, packId);
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(provider.packIds, contains(packId));
+      expect(find.text('Romans Road'), findsOneWidget);
+    });
+
+    testWidgets('shows a user pack with nothing left to learn, with its menu',
+        (tester) async {
+      final dbHelper = DatabaseHelper();
+      final provider = VerseProvider(dbHelper);
+      late String packId;
+      await tester.runAsync(() async {
+        packId = await provider.createPack('Romans Road');
+        await dbHelper.insertVerse(
+            makeVerse('verse-0', isMemorized: true, packId: packId));
+        await provider.loadVerses();
+      });
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+      await tester.tap(find.text('Available'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('All verses memorized!'), findsNothing);
+      expect(find.text('Romans Road'), findsOneWidget);
+      expect(find.text('No verses left to learn in this pack'), findsOneWidget);
+      await openMenu(tester, packId);
+      expect(find.text('Rename'), findsOneWidget);
+    });
+
+    testWidgets('built-in and My Verses headers have no menu', (tester) async {
+      final dbHelper = DatabaseHelper();
+      final provider = VerseProvider(dbHelper);
+      await tester.runAsync(() async {
+        await dbHelper.insertPack('nav_tms_part1', 'TMS');
+        await dbHelper.insertVerse(
+            makeVerse('verse-0', isMemorized: false, packId: 'nav_tms_part1'));
+        await dbHelper.insertVerse(
+            makeVerse('verse-1', isMemorized: false, packId: 'custom'));
+        await provider.loadVerses();
+      });
+      await tester.pumpWidget(_wrap(provider));
+      await tester.pump();
+      await tester.tap(find.text('Available'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TMS'), findsOneWidget);
+      expect(find.byTooltip('Pack options'), findsNothing);
+    });
+  });
+
+  testWidgets(
     'tapping a memorized verse tile opens its detail screen',
     (tester) async {
       final provider = VerseProvider(DatabaseHelper());

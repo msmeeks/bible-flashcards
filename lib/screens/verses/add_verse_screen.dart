@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/database_helper.dart';
 import '../../models/verse.dart';
+import '../../models/verse_pack.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/verse_provider.dart';
 import '../../services/bible_lookup_service.dart';
@@ -11,6 +12,7 @@ import '../../services/esv_lookup_service.dart';
 import '../../utils/reference_normalization.dart';
 import '../../widgets/esv_copyright_footer.dart';
 import '../../widgets/inline_status_banner.dart';
+import '../../widgets/pack_picker_field.dart';
 import '../settings/book_variants_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -42,6 +44,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
   final _searchFocusNode = FocusNode();
   final _saveFocusNode = FocusNode();
   late String _translation;
+  String _packId = VersePack.myVersesId;
   bool _isSaving = false;
   bool _isLookingUp = false;
   String? _saveError;
@@ -473,7 +476,7 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
       reference: reference,
       text: text,
       translation: translation,
-      packId: 'custom',
+      packId: _packId,
       addedAt: DateTime.now(),
       isMemorized: _saveAsMemorized,
       memorizedAt: _saveAsMemorized ? DateTime.now() : null,
@@ -670,6 +673,12 @@ class _AddVerseScreenState extends State<AddVerseScreen> {
                 style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
             ],
+            const SizedBox(height: 16),
+            PackPickerField(
+              key: const Key('add-verse-pack-field'),
+              value: _packId,
+              onChanged: (id) => setState(() => _packId = id),
+            ),
             const SizedBox(height: 8),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
